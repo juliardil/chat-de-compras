@@ -1,11 +1,13 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
-import { Store, Star, Award, LogOut, Edit2 } from 'lucide-react';
+import { Store, Star, Award, LogOut, Edit2, Plus, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 
 export default function Profile() {
   const { logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -53,8 +55,33 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="p-6">
-        <h2 className="font-bold text-dark mb-4">Información del Negocio</h2>
+      <div className="p-6 flex flex-col gap-6">
+        {/* Ad Creation Section */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-5 text-white shadow-lg shadow-blue-200 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                <Zap className="w-4 h-4 text-yellow-300 fill-current" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-100">Publicidad</span>
+            </div>
+            <h3 className="text-lg font-bold mb-1">Impulsa tus ventas</h3>
+            <p className="text-sm text-blue-100 mb-4 max-w-[80%]">
+              Crea historias promocionales para destacar en la exploración de nichos.
+            </p>
+            <Button 
+              onClick={() => navigate('/create-ad')}
+              className="bg-white text-blue-700 hover:bg-blue-50 border-none shadow-sm text-xs py-2 h-auto"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Crear Nueva Historia
+            </Button>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="font-bold text-dark mb-4">Información del Negocio</h2>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
           <div>
             <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Descripción</label>
@@ -94,6 +121,7 @@ export default function Profile() {
           </div>
         </div>
       </div>
+    </div>
 
       <CommerceBottomNav />
     </div>

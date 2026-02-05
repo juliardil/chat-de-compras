@@ -77,13 +77,13 @@ export default function Dashboard() {
       </header>
 
       {/* KPIs */}
-      <div className="p-4 grid grid-cols-3 gap-3">
+      <div className="px-4 py-2 grid grid-cols-3 gap-2">
         {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
-            <div className={`p-2 rounded-lg mb-2 ${stat.color}`}>
-              <stat.icon className="w-5 h-5" />
+          <div key={idx} className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
+            <div className={`p-1.5 rounded-md mb-1 ${stat.color}`}>
+              <stat.icon className="w-4 h-4" />
             </div>
-            <span className="text-sm font-bold text-dark">{stat.value}</span>
+            <span className="text-xs font-bold text-dark">{stat.value}</span>
             <span className="text-[10px] text-gray-400">{stat.label}</span>
           </div>
         ))}

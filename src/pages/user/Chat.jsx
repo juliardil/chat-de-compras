@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 
 export default function Chat() {
@@ -14,7 +14,8 @@ export default function Chat() {
     { id: 3, text: 'Sí, claro. Y te incluyo una funda de regalo 🎁', sender: 'seller', time: '10:07 AM' },
   ]);
   const [inputText, setInputText] = useState('');
-  const [timeLeft, setTimeLeft] = useState(590); // ~10 mins
+  const [timeLeft, setTimeLeft] = useState(300); // 5 mins
+  const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,6 +32,18 @@ export default function Chat() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Timer side effects
+  useEffect(() => {
+    if (timeLeft === 120) {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        text: 'Necesitas dar respuesta o este chat cerrará en 2 minutos',
+        sender: 'system',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    }
+  }, [timeLeft]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -108,18 +121,31 @@ export default function Chat() {
           {messages.map((msg) => (
             <div 
               key={msg.id} 
-              className={`flex flex-col max-w-[80%] ${msg.sender === 'user' ? 'self-end items-end' : 'self-start items-start'}`}
+              className={`flex flex-col max-w-[80%] ${
+                msg.sender === 'user' ? 'self-end items-end' : 
+                msg.sender === 'system' ? 'self-center items-center max-w-full' : 
+                'self-start items-start'
+              }`}
             >
-              <div 
-                className={`px-4 py-3 rounded-2xl text-sm ${
-                  msg.sender === 'user' 
-                    ? 'bg-primary text-white rounded-br-none' 
-                    : 'bg-white text-dark border border-gray-100 rounded-bl-none shadow-sm'
-                }`}
-              >
-                {msg.text}
-              </div>
-              <span className="text-[10px] text-gray-400 mt-1 px-1">{msg.time}</span>
+              {msg.sender === 'system' ? (
+                <div className="bg-red-50 text-red-600 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 border border-red-100 my-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  {msg.text}
+                </div>
+              ) : (
+                <>
+                  <div 
+                    className={`px-4 py-3 rounded-2xl text-sm ${
+                      msg.sender === 'user' 
+                        ? 'bg-primary text-white rounded-br-none' 
+                        : 'bg-white text-dark border border-gray-100 rounded-bl-none shadow-sm'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                  <span className="text-[10px] text-gray-400 mt-1 px-1">{msg.time}</span>
+                </>
+              )}
             </div>
           ))}
           <div ref={messagesEndRef} />
@@ -127,30 +153,52 @@ export default function Chat() {
       </div>
 
       {/* Floating CTA */}
-      <div className="fixed bottom-[80px] left-0 right-0 px-6 z-20 flex justify-center pointer-events-none">
-        <Button 
-          onClick={() => navigate(`/closing/${id}`)}
-          className="shadow-xl shadow-green-200 bg-green-600 hover:bg-green-700 pointer-events-auto animate-bounce-subtle"
-        >
-          <CheckCircle2 className="w-5 h-5" />
-          CONFIRMAR ACUERDO
-        </Button>
-      </div>
+      {timeLeft > 0 && (
+        <div className="fixed bottom-[80px] left-0 right-0 px-6 z-20 flex justify-center pointer-events-none">
+          {!showDeliveryOptions ? (
+            <Button 
+              onClick={() => setShowDeliveryOptions(true)}
+              className="shadow-xl shadow-green-200 bg-green-600 hover:bg-green-700 pointer-events-auto animate-bounce-subtle"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              CONFIRMAR ACUERDO
+            </Button>
+          ) : (
+            <div className="flex flex-col w-full gap-3 pointer-events-auto animate-in slide-in-from-bottom-5 fade-in duration-300">
+              <Button 
+                onClick={() => navigate(`/closing/${id}`)}
+                className="w-full shadow-xl shadow-green-200 bg-green-600 hover:bg-green-700 justify-center"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                Confirmar que tu producto ya llegó
+              </Button>
+              <Button 
+                onClick={() => navigate('/support')}
+                className="w-full bg-white text-red-500 border border-red-100 hover:bg-red-50 justify-center shadow-lg"
+              >
+                <XCircle className="w-5 h-5" />
+                Mi producto no llegó
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Input Area */}
       <div className="bg-white p-4 border-t border-gray-100 fixed bottom-0 left-0 right-0 max-w-md mx-auto z-20">
         <form onSubmit={handleSend} className="flex gap-2">
           <input 
             type="text" 
-            placeholder="Escribe un mensaje..." 
-            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+            placeholder={timeLeft > 0 ? "Escribe un mensaje..." : "El chat ha finalizado"}
+            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all disabled:opacity-50 disabled:bg-gray-100"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            disabled={timeLeft === 0}
           />
           <button 
             type="submit" 
             className="bg-primary text-white p-3 rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50"
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || timeLeft === 0}
           >
             <Send className="w-5 h-5" />
           </button>

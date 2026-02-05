@@ -15,6 +15,7 @@ import NicheExploration from './pages/user/NicheExploration';
 import RequestForm from './pages/user/RequestForm';
 import Responses from './pages/user/Responses';
 import Chat from './pages/user/Chat';
+import ProductDetail from './pages/user/ProductDetail';
 import Tracking from './pages/user/Tracking';
 import History from './pages/user/History';
 import Closing from './pages/user/Closing';
@@ -23,6 +24,7 @@ import Closing from './pages/user/Closing';
 import Dashboard from './pages/commerce/Dashboard';
 import SalesHistory from './pages/commerce/SalesHistory';
 import Profile from './pages/commerce/Profile';
+import CreateAd from './pages/commerce/CreateAd';
 import EditProfile from './pages/commerce/EditProfile';
 import ChangePassword from './pages/commerce/ChangePassword';
 import NicheConfig from './pages/commerce/NicheConfig';
@@ -60,6 +62,7 @@ function AppRoutes() {
         <Route path="/request" element={<RequestForm />} />
         <Route path="/responses" element={<Responses />} />
         <Route path="/chat/:id" element={<Chat />} />
+        <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/history" element={<History />} />
         <Route path="/closing/:id" element={<Closing />} />
@@ -69,6 +72,7 @@ function AppRoutes() {
         <Route path="/sales-history" element={<SalesHistory />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/edit-profile" element={<EditProfile />} />
+        <Route path="/create-ad" element={<CreateAd />} />
         <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/niche-config" element={<NicheConfig />} />
 

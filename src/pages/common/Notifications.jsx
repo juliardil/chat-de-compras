@@ -1,9 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Package, Tag, MessageSquare, Truck, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Bell, Package, Tag, MessageSquare, Truck, CheckCircle, LogOut } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Notifications() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const notifications = [
     { id: 1, type: 'promo', title: 'Promociones de hoy', text: '¡Flash Sale! 30% de descuento en Tecnología y Moda hasta medianoche.', time: 'Hace 5 min', read: false },
@@ -25,11 +27,21 @@ export default function Notifications() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="px-4 py-4 border-b border-gray-100 flex items-center gap-4 sticky top-0 bg-white z-10">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft className="w-6 h-6 text-dark" />
+      <header className="px-4 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+            <ArrowLeft className="w-6 h-6 text-dark" />
+          </button>
+          <h1 className="text-xl font-bold text-dark">Notificaciones</h1>
+        </div>
+        <button 
+          onClick={logout} 
+          className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
+          title="Cerrar Sesión"
+        >
+          <span className="text-sm font-bold">SALIR</span>
+          <LogOut className="w-5 h-5" />
         </button>
-        <h1 className="text-xl font-bold text-dark">Notificaciones</h1>
       </header>
 
       <div className="flex flex-col">

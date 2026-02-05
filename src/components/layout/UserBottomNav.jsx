@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, List, History, User } from 'lucide-react';
+import { Home, MessageCircle, History, User } from 'lucide-react';
 
 export default function UserBottomNav() {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ export default function UserBottomNav() {
 
   const navItems = [
     { icon: Home, label: 'Inicio', path: '/categories' },
-    { icon: List, label: 'Solicitudes', path: '/tracking' },
+    { icon: MessageCircle, label: 'Mensajes', path: '/chat-list' },
     { icon: History, label: 'Historial', path: '/history' },
     // { icon: User, label: 'Perfil', path: '/profile-user' }, // Not explicitly requested but good practice
   ];
