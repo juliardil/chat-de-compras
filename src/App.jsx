@@ -14,11 +14,14 @@ import Categories from './pages/user/Categories';
 import NicheExploration from './pages/user/NicheExploration';
 import RequestForm from './pages/user/RequestForm';
 import Responses from './pages/user/Responses';
-import Chat from './pages/user/Chat';
+import ChatDispatch from './pages/common/ChatDispatch';
 import ProductDetail from './pages/user/ProductDetail';
 import Tracking from './pages/user/Tracking';
 import History from './pages/user/History';
 import Closing from './pages/user/Closing';
+import UserProfile from './pages/user/UserProfile';
+import Addresses from './pages/user/Addresses';
+import EditUserProfile from './pages/user/EditUserProfile';
 
 // Commerce Flow
 import Dashboard from './pages/commerce/Dashboard';
@@ -61,11 +64,14 @@ function AppRoutes() {
         <Route path="/niches" element={<NicheExploration />} />
         <Route path="/request" element={<RequestForm />} />
         <Route path="/responses" element={<Responses />} />
-        <Route path="/chat/:id" element={<Chat />} />
+        <Route path="/chat/:id" element={<ChatDispatch />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/history" element={<History />} />
         <Route path="/closing/:id" element={<Closing />} />
+        <Route path="/profile-user" element={<UserProfile />} />
+        <Route path="/addresses" element={<Addresses />} />
+        <Route path="/edit-user-profile" element={<EditUserProfile />} />
 
         {/* Commerce Routes */}
         <Route path="/dashboard" element={<Dashboard />} />

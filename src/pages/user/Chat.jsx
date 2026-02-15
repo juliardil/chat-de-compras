@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, XCircle, MapPin, User, Phone, X, Camera, Image as ImageIcon } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 
 export default function Chat() {
   const navigate = useNavigate();
@@ -16,6 +17,37 @@ export default function Chat() {
   const [inputText, setInputText] = useState('');
   const [timeLeft, setTimeLeft] = useState(300); // 5 mins
   const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
+  const [showShippingForm, setShowShippingForm] = useState(false);
+  const [shippingData, setShippingData] = useState({
+    name: '',
+    phone: '',
+    street: '',
+    interior: '',
+    neighborhood: '',
+    city: '',
+    references: '',
+    photo: null
+  });
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setShippingData({ ...shippingData, photo: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleShippingSubmit = (e) => {
+    e.preventDefault();
+    // Simulate API call
+    setTimeout(() => {
+      setShowShippingForm(false);
+      setShowDeliveryOptions(true);
+    }, 500);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -92,9 +124,11 @@ export default function Chat() {
             </p>
           </div>
         </div>
-        <div className="bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          {formatTime(timeLeft)}
+        <div className="flex items-center gap-2">
+          <div className="bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {formatTime(timeLeft)}
+          </div>
         </div>
       </header>
 
@@ -152,18 +186,18 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Floating CTA */}
+      {/* Floating CTA - Buyer Only */}
       {timeLeft > 0 && (
         <div className="fixed bottom-[80px] left-0 right-0 px-6 z-20 flex justify-center pointer-events-none">
-          {!showDeliveryOptions ? (
+          {!showDeliveryOptions && !showShippingForm ? (
             <Button 
-              onClick={() => setShowDeliveryOptions(true)}
+              onClick={() => setShowShippingForm(true)}
               className="shadow-xl shadow-green-200 bg-green-600 hover:bg-green-700 pointer-events-auto animate-bounce-subtle"
             >
               <CheckCircle2 className="w-5 h-5" />
               CONFIRMAR ACUERDO
             </Button>
-          ) : (
+          ) : showDeliveryOptions ? (
             <div className="flex flex-col w-full gap-3 pointer-events-auto animate-in slide-in-from-bottom-5 fade-in duration-300">
               <Button 
                 onClick={() => navigate(`/closing/${id}`)}
@@ -180,7 +214,123 @@ export default function Chat() {
                 Mi producto no llegó
               </Button>
             </div>
-          )}
+          ) : null}
+        </div>
+      )}
+
+      {/* Shipping Form Modal */}
+      {showShippingForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-10 duration-300">
+            <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 pb-2 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-dark flex items-center gap-2">
+                <MapPin className="w-6 h-6 text-primary" />
+                Datos de Envío
+              </h2>
+              <button 
+                onClick={() => setShowShippingForm(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleShippingSubmit} className="space-y-4">
+              <Input 
+                label="Nombre del destinatario" 
+                placeholder="Nombre completo"
+                icon={User}
+                required
+                value={shippingData.name}
+                onChange={e => setShippingData({...shippingData, name: e.target.value})}
+              />
+              
+              <Input 
+                label="Teléfono de contacto" 
+                placeholder="Ej. 55 1234 5678"
+                icon={Phone}
+                type="tel"
+                required
+                value={shippingData.phone}
+                onChange={e => setShippingData({...shippingData, phone: e.target.value})}
+              />
+
+              <div className="space-y-3 pt-2">
+                <h3 className="font-semibold text-gray-900 text-sm">Dirección completa</h3>
+                
+                <Input 
+                  placeholder="Calle y número"
+                  required
+                  value={shippingData.street}
+                  onChange={e => setShippingData({...shippingData, street: e.target.value})}
+                />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <Input 
+                    placeholder="Num. Interior"
+                    value={shippingData.interior}
+                    onChange={e => setShippingData({...shippingData, interior: e.target.value})}
+                  />
+                  <Input 
+                    placeholder="Colonia / Barrio"
+                    required
+                    value={shippingData.neighborhood}
+                    onChange={e => setShippingData({...shippingData, neighborhood: e.target.value})}
+                  />
+                </div>
+
+                <Input 
+                  placeholder="Ciudad"
+                  required
+                  value={shippingData.city}
+                  onChange={e => setShippingData({...shippingData, city: e.target.value})}
+                />
+              </div>
+
+              <div className="pt-2">
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">Referencias (Opcional)</label>
+                <textarea 
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                  rows="2"
+                  placeholder="Ej. Casa blanca, portón negro..."
+                  value={shippingData.references}
+                  onChange={e => setShippingData({...shippingData, references: e.target.value})}
+                />
+              </div>
+
+              <div className="pt-2">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Foto del Domicilio (Opcional)</label>
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="address-photo"
+                  />
+                  <label 
+                    htmlFor="address-photo"
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    {shippingData.photo ? (
+                      <img src={shippingData.photo} alt="Domicilio" className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-gray-400">
+                        <Camera className="w-8 h-8" />
+                        <span className="text-xs font-medium">Toca para subir foto</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 sticky bottom-0 bg-white pb-2">
+                <Button fullWidth type="submit" size="lg">
+                  ENVIAR DATOS
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

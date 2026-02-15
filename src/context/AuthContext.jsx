@@ -18,8 +18,8 @@ export const AuthProvider = ({ children }) => {
       
       // MOCK: Change this to test different flows
       // const mockUser = { role: 'user', name: 'Julia' }; 
-      // const mockUser = { role: 'commerce', name: 'Tienda X' };
-      const mockUser = null; 
+      const mockUser = { role: 'commerce', name: 'TechMaster' };
+      // const mockUser = null; 
 
       setUser(mockUser);
       setLoading(false);
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

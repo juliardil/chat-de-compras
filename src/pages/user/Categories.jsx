@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import UserBottomNav from '../../components/layout/UserBottomNav';
-import { Shirt, Smartphone, Car, Search, Bell } from 'lucide-react';
+import { Shirt, Smartphone, Car, Search } from 'lucide-react';
 
 export default function Categories() {
   const navigate = useNavigate();
@@ -41,10 +41,6 @@ export default function Categories() {
           <h1 className="text-xl font-bold text-dark">Explorar</h1>
           <p className="text-xs text-gray-500">Selecciona una categoría</p>
         </div>
-        <button onClick={() => navigate('/notifications')} className="p-2 bg-gray-50 rounded-full relative">
-          <Bell className="w-5 h-5 text-gray-600" />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-        </button>
       </header>
 
       {/* Categories Grid */}

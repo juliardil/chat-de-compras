@@ -12,7 +12,7 @@ export default function UserBottomNav() {
     { icon: Home, label: 'Inicio', path: '/categories' },
     { icon: MessageCircle, label: 'Mensajes', path: '/chat-list' },
     { icon: History, label: 'Historial', path: '/history' },
-    // { icon: User, label: 'Perfil', path: '/profile-user' }, // Not explicitly requested but good practice
+    { icon: User, label: 'Perfil', path: '/profile-user' },
   ];
 
   return (

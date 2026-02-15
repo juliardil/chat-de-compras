@@ -1,11 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Package, Tag, MessageSquare, Truck, CheckCircle, LogOut } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { ArrowLeft, Bell, Package, Tag, MessageSquare, Truck, CheckCircle } from 'lucide-react';
 
 export default function Notifications() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
 
   const notifications = [
     { id: 1, type: 'promo', title: 'Promociones de hoy', text: '¡Flash Sale! 30% de descuento en Tecnología y Moda hasta medianoche.', time: 'Hace 5 min', read: false },
@@ -34,17 +32,9 @@ export default function Notifications() {
           </button>
           <h1 className="text-xl font-bold text-dark">Notificaciones</h1>
         </div>
-        <button 
-          onClick={logout} 
-          className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-50 rounded-lg text-red-500 transition-colors"
-          title="Cerrar Sesión"
-        >
-          <span className="text-sm font-bold">SALIR</span>
-          <LogOut className="w-5 h-5" />
-        </button>
       </header>
 
-      <div className="flex flex-col">
+      <div className="flex flex-col pb-20">
         {notifications.map((notif) => (
           <div 
             key={notif.id} 
@@ -73,6 +63,7 @@ export default function Notifications() {
           </div>
         ))}
       </div>
+
     </div>
   );
 }

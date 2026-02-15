@@ -82,46 +82,67 @@ export default function Profile() {
 
         <div>
           <h2 className="font-bold text-dark mb-4">Información del Negocio</h2>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
-          <div>
-            <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Descripción</label>
-            <p className="text-sm text-gray-700 mt-1">
-              Especialistas en tecnología Apple. Garantía oficial y los mejores precios del mercado. Envíos a todo el país.
-            </p>
-          </div>
-          
-          <div className="h-[1px] bg-gray-100" />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+            <div>
+              <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Descripción</label>
+              <p className="text-sm text-gray-700 mt-1">
+                Especialistas en tecnología Apple. Garantía oficial y los mejores precios del mercado. Envíos a todo el país.
+              </p>
+            </div>
+            
+            <div className="h-[1px] bg-gray-100" />
 
-          <div>
-            <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Nichos Activos</label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">Tecnología</span>
-              <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold">Accesorios</span>
+            <div>
+              <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Nichos Activos</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">Tecnología</span>
+                <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold">Accesorios</span>
+              </div>
+            </div>
+
+            <div className="h-[1px] bg-gray-100" />
+
+            <div>
+              <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Membresía</label>
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 p-1.5 rounded-lg text-white">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-dark text-sm">Plan Premium</p>
+                    <p className="text-xs text-gray-500">Renueva el 01/05/2026</p>
+                  </div>
+                </div>
+                <Button variant="outline" className="py-1.5 px-3 text-xs h-auto">
+                  Gestionar
+                </Button>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="h-[1px] bg-gray-100" />
+        {/* Action Buttons */}
+        <div className="space-y-3">
+          <Button 
+            onClick={() => navigate('/edit-profile')}
+            variant="outline"
+            fullWidth
+            className="rounded-xl border-gray-200 text-gray-700 font-bold flex items-center justify-center gap-2"
+          >
+            <Edit2 className="w-4 h-4" />
+            Editar Perfil Comercial
+          </Button>
 
-          <div>
-             <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Membresía</label>
-             <div className="flex items-center justify-between mt-2">
-               <div className="flex items-center gap-2">
-                 <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 p-1.5 rounded-lg text-white">
-                   <Award className="w-4 h-4" />
-                 </div>
-                 <div>
-                   <p className="font-bold text-dark text-sm">Plan Premium</p>
-                   <p className="text-xs text-gray-500">Renueva el 01/05/2026</p>
-                 </div>
-               </div>
-               <Button variant="outline" className="py-1.5 px-3 text-xs h-auto">
-                 Gestionar
-               </Button>
-             </div>
-          </div>
+          <button 
+            onClick={logout}
+            className="w-full bg-white border border-red-100 text-red-500 font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-red-50 transition-colors shadow-sm"
+          >
+            <LogOut className="w-5 h-5" />
+            Cerrar Sesión
+          </button>
         </div>
       </div>
-    </div>
 
       <CommerceBottomNav />
     </div>
