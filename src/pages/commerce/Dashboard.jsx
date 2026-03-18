@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import Button from '../../components/ui/Button';
-import { TrendingUp, Users, DollarSign, Clock, Bell, Send, CheckCircle2, Eye, X, MessageSquare } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Clock, Bell, Send, CheckCircle2, Eye, X, MessageSquare, ChevronRight } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -11,16 +11,20 @@ export default function Dashboard() {
   const [viewImage, setViewImage] = useState(null);
   const [price, setPrice] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [closingMessage, setClosingMessage] = useState('');
 
   const handleStartOffer = (id) => {
     setOfferingId(id);
     setPrice('');
+    setClosingMessage('');
   };
 
   const handleSendOffer = (opp) => {
     if (!price) return;
     
-    // Simular envío
+    // Simular envío de precio y mensaje juntos
+    console.log(`Enviando oferta para ${opp.product}: Precio: ${price}, Mensaje: ${closingMessage}`);
+    
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
@@ -61,7 +65,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-bold text-dark">Panel de Control</h1>
+          <h1 className="text-xl font-bold text-dark">Panel de Oportunidades</h1>
           <p className="text-sm text-gray-500">Hola, TechMaster 👋</p>
         </div>
         <div className="flex gap-2">
@@ -118,43 +122,59 @@ export default function Dashboard() {
                  </button>
               </div>
 
-              {offeringId === opp.id ? (
-                <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  {showSuccess ? (
-                    <div className="bg-green-100 text-green-700 p-3 rounded-xl flex items-center justify-center gap-2 font-bold animate-pulse">
-                      <CheckCircle2 className="w-5 h-5" />
-                      ¡Oferta Enviada!
-                    </div>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
-                        <input 
-                          type="number" 
-                          className="w-full bg-gray-50 border border-primary rounded-xl pl-8 pr-4 py-3 text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-lg"
-                          placeholder="Tu precio"
-                          value={price}
-                          onChange={(e) => setPrice(e.target.value)}
-                          autoFocus
-                        />
+              <div className="flex flex-col gap-2">
+                {/* Offer Section */}
+                {offeringId === opp.id ? (
+                  <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {showSuccess ? (
+                      <div className="bg-green-100 text-green-700 p-3 rounded-xl flex items-center justify-center gap-2 font-bold animate-pulse">
+                        <CheckCircle2 className="w-5 h-5" />
+                        ¡Oferta Enviada!
                       </div>
-                      <Button 
-                        fullWidth 
-                        size="sm" 
-                        onClick={() => handleSendOffer(opp)}
-                        className="bg-green-600 hover:bg-green-700 text-white shadow-green-200"
-                        disabled={!price}
-                      >
-                        LO TENGO <Send className="w-4 h-4 ml-1" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <Button fullWidth size="sm" onClick={() => handleStartOffer(opp.id)}>
-                  OFERTAR AHORA
-                </Button>
-              )}
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <textarea 
+                            className="w-full bg-gray-50 border border-primary rounded-xl px-4 py-3 text-sm text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                            placeholder="Mensaje de cierre (opcional)..."
+                            rows="2"
+                            value={closingMessage}
+                            onChange={(e) => setClosingMessage(e.target.value)}
+                          />
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                          <input 
+                            type="number" 
+                            className="w-full bg-gray-50 border border-primary rounded-xl pl-8 pr-4 py-3 text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-lg"
+                            placeholder="Tu precio"
+                            value={price}
+                            onChange={(e) => setPrice(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <Button 
+                          fullWidth 
+                          size="sm" 
+                          onClick={() => handleSendOffer(opp)}
+                          className="bg-green-600 hover:bg-green-700 text-white shadow-green-200"
+                          disabled={!price}
+                        >
+                          💰 Enviar oferta <Send className="w-4 h-4 ml-1" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => handleStartOffer(opp.id)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-200/50 flex items-center justify-center gap-2 transition-all active:scale-[0.97] group"
+                  >
+                    <span className="tracking-wider">OFERTAR AHORA</span>
+                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
