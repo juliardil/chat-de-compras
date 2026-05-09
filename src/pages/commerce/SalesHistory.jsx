@@ -1,245 +1,317 @@
 import React, { useState } from 'react';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
-import { Calendar, TrendingUp, Download, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  ShoppingBag,
+  Receipt,
+  Star,
+  Trophy,
+  CreditCard,
+  Wallet,
+  MoreVertical
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function SalesHistory() {
   const [period, setPeriod] = useState('week');
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  const navigateDate = (direction) => {
-    const newDate = new Date(currentDate);
-    if (period === 'day') newDate.setDate(currentDate.getDate() + direction);
-    if (period === 'week') newDate.setDate(currentDate.getDate() + (direction * 7));
-    if (period === 'month') newDate.setMonth(currentDate.getMonth() + direction);
-    if (period === 'year') newDate.setFullYear(currentDate.getFullYear() + direction);
-    setCurrentDate(newDate);
-  };
-
-  const getDateLabel = () => {
-    if (period === 'day') return currentDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    if (period === 'week') {
-      const start = new Date(currentDate);
-      start.setDate(currentDate.getDate() - currentDate.getDay() + 1);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      return `${start.getDate()} - ${end.getDate()} ${end.toLocaleDateString('es-ES', { month: 'short' })}.`;
-    }
-    if (period === 'month') return currentDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-    if (period === 'year') return currentDate.getFullYear().toString();
-  };
-
-  const chartData = {
-    day: {
-      label: 'Ingresos',
-      amount: '$ 450.00',
-      data: [
-        { h: 20, d: '10am', v: '$90' }, { h: 45, d: '12pm', v: '$202' }, { h: 30, d: '2pm', v: '$135' },
-        { h: 80, d: '4pm', v: '$360' }, { h: 60, d: '6pm', v: '$270' }, { h: 20, d: '8pm', v: '$90' }
-      ],
-      best: '4pm - 6pm'
-    },
-    week: {
-      label: 'Ingresos',
-      amount: '$ 2,595.00',
-      data: [
-        { h: 30, d: 'L', v: '$350' }, { h: 40, d: 'M', v: '$420' }, { h: 35, d: 'Mi', v: '$380' },
-        { h: 85, d: 'J', v: '$890' }, { h: 90, d: 'V', v: '$950' }, { h: 95, d: 'S', v: '$990' }, { h: 60, d: 'D', v: '$600' }
-      ],
-      best: 'Jueves, Viernes y Sábado'
-    },
-    month: {
-      label: 'Ingresos',
-      amount: '$ 12,450.00',
-      data: [
-        { h: 65, d: 'Sem 1', v: '$3,200' }, { h: 45, d: 'Sem 2', v: '$2,100' },
-        { h: 90, d: 'Sem 3', v: '$4,500' }, { h: 75, d: 'Sem 4', v: '$3,800' }
-      ],
-      best: 'Semana 3'
-    },
-    year: {
-      label: 'Ingresos',
-      amount: '$ 145,200.00',
-      data: [
-        { h: 45, d: 'Ene', v: '$12k' }, { h: 55, d: 'Feb', v: '$14k' }, { h: 40, d: 'Mar', v: '$11k' }, 
-        { h: 70, d: 'Abr', v: '$18k' }, { h: 60, d: 'May', v: '$15k' }, { h: 80, d: 'Jun', v: '$21k' },
-        { h: 50, d: 'Jul', v: '$13k' }, { h: 65, d: 'Ago', v: '$17k' }, { h: 75, d: 'Sep', v: '$19k' }, 
-        { h: 90, d: 'Oct', v: '$23k' }, { h: 85, d: 'Nov', v: '$22k' }, { h: 95, d: 'Dic', v: '$25k' }
-      ],
-      best: 'Octubre'
-    }
-  };
-
-  const currentData = chartData[period];
-
-  const allSales = [
-    { id: 1, product: 'iPhone 15 Pro Max', date: '2026-02-04', time: '10:30 AM', amount: 1200, status: 'completed', buyer: 'Juan Pérez' },
-    { id: 2, product: 'AirPods Pro 2', date: '2026-02-03', time: '4:15 PM', amount: 250, status: 'completed', buyer: 'María L.' },
-    { id: 3, product: 'Samsung S24 Ultra', date: '2025-10-20', time: '2:00 PM', amount: 1100, status: 'completed', buyer: 'Carlos R.' },
-    { id: 4, product: 'Funda MagSafe', date: '2025-10-18', time: '11:30 AM', amount: 45, status: 'completed', buyer: 'Ana S.' },
-    { id: 5, product: 'MacBook Air M2', date: '2026-02-04', time: '3:45 PM', amount: 1050, status: 'completed', buyer: 'Elena G.' },
-    { id: 6, product: 'iPad Air 5', date: '2026-02-02', time: '9:15 AM', amount: 550, status: 'completed', buyer: 'Roberto F.' },
-    { id: 7, product: 'Apple Watch S9', date: '2026-01-28', time: '6:20 PM', amount: 399, status: 'completed', buyer: 'Lucía M.' },
-    { id: 8, product: 'Cargador 20W', date: '2026-02-04', time: '1:10 PM', amount: 25, status: 'completed', buyer: 'Pedro S.' }
+  const monthNames = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre'
   ];
 
-  const getFilteredSales = () => {
-    return allSales.filter(sale => {
-      const saleDate = new Date(sale.date);
-      const saleYear = saleDate.getFullYear();
-      const saleMonth = saleDate.getMonth();
-      const saleDay = saleDate.getDate();
+  const getWeekRangeLabel = (date) => {
+    const baseDate = new Date(date);
+    const day = baseDate.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
 
-      const currentYear = currentDate.getFullYear();
-      const currentMonth = currentDate.getMonth();
-      const currentDay = currentDate.getDate();
+    const monday = new Date(baseDate);
+    monday.setDate(baseDate.getDate() + diffToMonday);
 
-      if (period === 'day') {
-        return saleYear === currentYear && saleMonth === currentMonth && saleDay === currentDay;
-      }
-      if (period === 'week') {
-        // Simple week check (same year and week number approximation or just range)
-        const startOfWeek = new Date(currentDate);
-        startOfWeek.setDate(currentDay - currentDate.getDay() + 1);
-        startOfWeek.setHours(0,0,0,0);
-        
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        endOfWeek.setHours(23,59,59,999);
-        
-        return saleDate >= startOfWeek && saleDate <= endOfWeek;
-      }
-      if (period === 'month') {
-        return saleYear === currentYear && saleMonth === currentMonth;
-      }
-      if (period === 'year') {
-        return saleYear === currentYear;
-      }
-      return true;
-    });
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const sameMonth = monday.getMonth() === sunday.getMonth();
+    const sameYear = monday.getFullYear() === sunday.getFullYear();
+
+    if (sameMonth && sameYear) {
+      return `${monday.getDate()} - ${sunday.getDate()} ${monthNames[monday.getMonth()]} ${monday.getFullYear()}`;
+    }
+
+    if (sameYear) {
+      return `${monday.getDate()} ${monthNames[monday.getMonth()]} - ${sunday.getDate()} ${monthNames[sunday.getMonth()]} ${monday.getFullYear()}`;
+    }
+
+    return `${monday.getDate()} ${monthNames[monday.getMonth()]} ${monday.getFullYear()} - ${sunday.getDate()} ${monthNames[sunday.getMonth()]} ${sunday.getFullYear()}`;
   };
 
-  const filteredSales = getFilteredSales();
+  const handlePreviousWeek = () => {
+    const previousWeek = new Date(currentDate);
+    previousWeek.setDate(currentDate.getDate() - 7);
+    setCurrentDate(previousWeek);
+  };
+
+  const handleNextWeek = () => {
+    const nextWeek = new Date(currentDate);
+    nextWeek.setDate(currentDate.getDate() + 7);
+    setCurrentDate(nextWeek);
+  };
+
+  const kpis = [
+    { label: 'Ingresos Totales', value: '$2,595.00', change: '+24% vs. semana anterior', icon: DollarSign, color: 'text-emerald-500' },
+    { label: 'Ventas Cerradas', value: '21', change: '+8 esta semana', icon: ShoppingBag, color: 'text-blue-500' },
+    { label: 'Ticket Promedio', value: '$123.57', change: 'Promedio por venta', icon: Receipt, color: 'text-orange-500' },
+    { label: 'Mejor Día', value: '$990', change: 'Sábado', icon: Trophy, color: 'text-indigo-600' },
+  ];
+
+
+
+  const days = [
+    { name: 'Lun', value: 350, height: 35, color: 'bg-slate-200' },
+    { name: 'Mar', value: 420, height: 42, color: 'bg-blue-300' },
+    { name: 'Mié', value: 380, height: 38, color: 'bg-blue-200' },
+    { name: 'Jue', value: 890, height: 85, color: 'bg-indigo-400', best: true },
+    { name: 'Vie', value: 950, height: 90, color: 'bg-indigo-500', best: true },
+    { name: 'Sáb', value: 990, height: 95, color: 'bg-gradient-to-t from-blue-600 to-indigo-600', best: true, star: true },
+    { name: 'Dom', value: 600, height: 60, color: 'bg-blue-400' },
+  ];
+
+  const recentTransactions = [
+    { 
+      id: 1, 
+      product: 'iPhone 15 Pro Max', 
+      user: 'Juan P.', 
+      userImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100',
+      date: '22 Mar, 14:30',
+      amount: '$890.00',
+      method: 'Transferencia',
+      status: 'Completada',
+      image: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=200&auto=format&fit=crop'
+    },
+    { 
+      id: 2, 
+      product: 'MacBook Air M2', 
+      user: 'Mariá L.', 
+      userImage: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100',
+      date: '21 Mar, 11:45',
+      amount: '$1,250.00',
+      method: 'Tarjeta •••• 3456',
+      status: 'Completada',
+      image: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?q=80&w=200&auto=format&fit=crop'
+    },
+    { 
+      id: 3, 
+      product: 'Samsung Galaxy S24', 
+      user: 'Carlos R.', 
+      userImage: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=100',
+      date: '20 Mar, 09:20',
+      amount: '$650.00',
+      method: 'Efectivo',
+      status: 'Completada',
+      image: 'https://images.unsplash.com/photo-1707223516608-211202447a12?q=80&w=200&auto=format&fit=crop'
+    },
+    { 
+      id: 4, 
+      product: 'AirPods Pro 2', 
+      user: 'Lucia M.', 
+      userImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100',
+      date: '19 Mar, 16:10',
+      amount: '$195.00',
+      method: 'Transferencia',
+      status: 'Completada',
+      image: 'https://images.unsplash.com/photo-1588423770574-91993ca0a85a?q=80&w=200&auto=format&fit=crop'
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+    <div className="min-h-screen bg-slate-50 pb-24 font-sans overflow-x-hidden">
+      {/* Top Header */}
+      <div className="bg-white/80 backdrop-blur-md sticky top-0 z-50 px-6 pt-10 pb-6 flex justify-between items-center border-b border-slate-50">
         <div>
-          <h1 className="text-xl font-bold text-dark">Historial de Ventas</h1>
-          <p className="text-sm text-gray-500">Tus transacciones cerradas</p>
+          <h1 className="text-2xl font-bold text-slate-900">Estadísticas</h1>
+          <p className="text-sm text-gray-500">Resumen de la semana</p>
         </div>
-        <button className="p-2 bg-gray-50 rounded-lg text-gray-600 hover:bg-gray-100">
-          <Download className="w-5 h-5" />
-        </button>
-      </header>
 
-      {/* Chart Placeholder */}
-      <div className="p-6 pb-2">
-        <div className="bg-primary rounded-2xl p-6 text-white shadow-lg shadow-blue-200">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 opacity-80">
-              <TrendingUp className="w-4 h-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">{currentData.label}</span>
-            </div>
-            <div className="relative">
-              <select 
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
-                className="bg-white/20 text-white text-xs font-bold rounded-lg px-2 py-1 pr-6 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/50 border-none"
-              >
-                <option value="day" className="text-dark">Día</option>
-                <option value="week" className="text-dark">Semana</option>
-                <option value="month" className="text-dark">Mes</option>
-                <option value="year" className="text-dark">Año</option>
-              </select>
-              <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-center gap-4 mb-4 bg-white/10 rounded-lg py-1.5 mx-auto max-w-[90%]">
-            <button onClick={() => navigateDate(-1)} className="p-1 hover:bg-white/20 rounded-full transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-bold capitalize min-w-[140px] text-center">
-              {getDateLabel()}
-            </span>
-            <button onClick={() => navigateDate(1)} className="p-1 hover:bg-white/20 rounded-full transition-colors">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+      </div>
 
-          <div className="text-3xl font-bold mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300" key={period}>
-            {currentData.amount}
-          </div>
+
+
+      {/* Chart Main Card */}
+      <div className="px-4 mb-8">
+        <div className="bg-white rounded-[32px] p-6 shadow-2xl shadow-slate-200/60 border border-slate-50 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
           
-          {/* Simple Bar Chart Visualization */}
-          <div className="flex flex-col gap-2">
-            <div className="relative h-32 mt-6">
-              {/* Grid lines background */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                <div className="w-full border-t border-dashed border-white/20"></div>
-                <div className="w-full border-t border-dashed border-white/10"></div>
-                <div className="w-full border-t border-dashed border-white/10"></div>
-                <div className="w-full border-t border-dashed border-white/10"></div>
-                <div className="w-full border-t border-white/20"></div>
+          {/* Chart Header */}
+          <div className="flex items-center justify-between mb-10 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-slate-50 rounded-full p-1 border border-slate-100">
+                <button
+                  onClick={handlePreviousWeek}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-slate-400 hover:text-indigo-600"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-2 font-black text-slate-800 text-[11px] uppercase tracking-wider">
+                  {getWeekRangeLabel(currentDate)}
+                </span>
+                <button
+                  onClick={handleNextWeek}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-slate-400 hover:text-indigo-600"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
+            </div>
+            <div className="flex bg-slate-100/80 p-1 rounded-2xl backdrop-blur-sm">
+              <button
+                onClick={() => setPeriod('week')}
+                className={`px-4 py-2 rounded-xl text-[10px] tracking-widest uppercase transition-all ${
+                  period === 'week'
+                    ? 'bg-white text-indigo-600 font-black shadow-sm'
+                    : 'text-slate-400 font-bold'
+                }`}
+              >
+                Semana
+              </button>
+              <button
+                onClick={() => setPeriod('month')}
+                className={`px-4 py-2 rounded-xl text-[10px] tracking-widest uppercase transition-all ${
+                  period === 'month'
+                    ? 'bg-white text-indigo-600 font-black shadow-sm'
+                    : 'text-slate-400 font-bold'
+                }`}
+              >
+                Mes
+              </button>
+            </div>
+          </div>
 
-              <div className="relative z-10 flex items-end gap-6 h-full px-2">
-                {currentData.data.map((item, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-3 group relative">
-                    <div className="w-full bg-white/10 rounded-full h-full relative overflow-hidden">
-                      <motion.div 
-                        initial={{ height: 0 }}
-                        animate={{ height: `${item.h}%` }}
-                        transition={{ type: "spring", stiffness: 300, damping: 30, delay: i * 0.05 }}
-                        className="absolute bottom-0 w-full bg-gradient-to-t from-white/60 to-white rounded-t-full opacity-90 group-hover:opacity-100 transition-opacity"
-                      />
-                    </div>
-                    {/* Amount Label */}
-                    <div className="absolute bottom-0 left-0 w-full flex justify-center pointer-events-none" style={{ height: `${item.h}%` }}>
-                      <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-white/90 whitespace-nowrap">
-                        {item.v}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-white/60 font-medium">{item.d}</span>
-                  </div>
+          <div className="flex flex-col gap-8 relative z-10">
+            {/* Main Bar Chart */}
+            <div className="h-56 flex items-end justify-between gap-3 relative">
+              {/* Trend Lines */}
+              <div className="absolute inset-0 flex flex-col justify-between py-4 pointer-events-none opacity-[0.03]">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="border-t-2 border-slate-900 w-full"></div>
                 ))}
               </div>
-            </div>
-            <div className="mt-2 pt-2 border-t border-white/20">
-              <p className="text-xs text-blue-100 flex items-center gap-1.5">
-                <TrendingUp className="w-3 h-3" />
-                Mejor rendimiento: <span className="font-bold text-white">{currentData.best}</span>
-              </p>
+              
+              {days.map((day, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
+                  <div className="w-full relative">
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: `${day.height}%`, opacity: 1 }}
+                      transition={{ delay: i * 0.05, duration: 0.5, ease: "easeOut" }}
+                      className={`w-full rounded-2xl ${day.color} shadow-sm relative overflow-hidden min-h-[4px] group-hover:brightness-110 transition-all cursor-pointer`}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/10"></div>
+                      {day.star && (
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2">
+                          <Star className="w-3 h-3 text-white fill-current animate-bounce" />
+                        </div>
+                      )}
+                    </motion.div>
+                    
+                    {/* Tooltip on hover */}
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] font-black py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-20">
+                      ${day.value}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-black tracking-tighter uppercase ${day.star ? 'text-indigo-600' : 'text-slate-400'}`}>
+                    {day.name}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-4 flex flex-col gap-3">
-        <h3 className="font-bold text-dark px-2">Transacciones recientes</h3>
-        {filteredSales.length > 0 ? (
-          filteredSales.map((sale) => (
-            <div key={sale.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* KPI Grid */}
+      <div className="px-6 grid grid-cols-2 gap-4 mb-8">
+        {kpis.map((kpi, i) => (
+          <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-lg ${kpi.color.replace('text','bg').replace('-500', '-100')}`}>
+                <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
+              </div>
+              <span className="text-xs font-bold text-slate-500">{kpi.label}</span>
+            </div>
+            <span className="text-2xl font-black text-slate-800">{kpi.value}</span>
+            <span className="text-[10px] font-medium text-slate-400">{kpi.change}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Transactions List */}
+      <div className="px-6 relative z-10">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">Transacciones</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Últimos 7 días</p>
+          </div>
+          <button className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-400 hover:text-indigo-600 transition-all">
+            <MoreVertical className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {recentTransactions.map((tx) => (
+            <div key={tx.id} className="bg-white rounded-[28px] p-4 shadow-sm border border-slate-50 flex items-center justify-between transition-all hover:shadow-md hover:translate-y-[-2px] active:scale-[0.98] group">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600">
-                  <span className="font-bold text-lg">$</span>
+                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 shrink-0 relative">
+                  <img src={tx.image} alt={tx.product} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-dark text-sm">{sale.product}</h4>
-                  <p className="text-xs text-gray-500">
-                    {new Date(sale.date + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}, {sale.time} • {sale.buyer}
-                  </p>
+                <div className="flex flex-col gap-1.5">
+                  <h4 className="font-black text-slate-800 text-[13px] tracking-tight leading-none">{tx.product}</h4>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <img src={tx.userImage} className="w-6 h-6 rounded-full border-2 border-white shadow-sm" alt={tx.user} />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></div>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500">{tx.user}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded-md">{tx.date}</span>
+                    <div className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md">
+                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">{tx.status}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <span className="font-bold text-dark">${sale.amount}</span>
+              <div className="flex flex-col items-end gap-2">
+                <span className="font-black text-slate-800 text-lg tracking-tighter">{tx.amount}</span>
+                <div className="flex items-center gap-1.5 text-slate-400 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-100">
+                  {tx.method.includes('Transferencia') ? <Wallet className="w-3 h-3 text-indigo-500" /> : 
+                   tx.method.includes('Tarjeta') ? <CreditCard className="w-3 h-3 text-blue-500" /> : 
+                   <DollarSign className="w-3 h-3 text-emerald-500" />}
+                  <span className="text-[9px] font-black uppercase tracking-tighter">{tx.method.split(' ')[0]}</span>
+                </div>
+              </div>
             </div>
-          ))
-        ) : (
-          <div className="text-center py-8 text-gray-500 text-sm">
-            No hay transacciones para este periodo
-          </div>
-        )}
+          ))}
+        </div>
+        
+        {/* View All Button */}
+        <button className="w-full mt-8 py-4 bg-blue-600 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-[0.98]">
+          Ver todo el historial
+        </button>
       </div>
 
       <CommerceBottomNav />

@@ -10,7 +10,7 @@ export default function CommerceBottomNav() {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Panel', path: '/dashboard' },
-    { icon: History, label: 'Ventas', path: '/sales-history' },
+    { icon: History, label: 'Estadísticas', path: '/sales-history' },
     { icon: Settings, label: 'Ajustes', path: '/niche-config' },
     { icon: User, label: 'Perfil', path: '/profile' },
   ];
