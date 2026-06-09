@@ -17,8 +17,8 @@ export const AuthProvider = ({ children }) => {
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2s splash delay
       
       // MOCK: Change this to test different flows
-      // const mockUser = { role: 'user', name: 'Julia' }; 
-      const mockUser = { role: 'commerce', name: 'TechMaster' };
+      const mockUser = { role: 'user', name: 'Julia' }; 
+      // const mockUser = { role: 'commerce', name: 'TechMaster' };
       // const mockUser = null; 
 
       setUser(mockUser);

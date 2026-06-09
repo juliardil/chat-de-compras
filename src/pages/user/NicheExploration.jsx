@@ -1,7 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, X, ChevronRight } from 'lucide-react';
 import Button from '../../components/ui/Button';
+
+// Actualización estética Junio 2026
 
 // Mock Data
 const INITIAL_MERCHANTS = [
@@ -108,9 +111,9 @@ export default function NicheExploration() {
   };
 
   return (
-    <div className="h-screen bg-black relative flex flex-col">
+    <div className="h-screen bg-[#E7E7E7] relative flex flex-col">
       {/* Top Bar - Bubbles (Moved to Bottom) */}
-      <div className="absolute bottom-20 left-0 right-0 z-50 p-4 pb-4 bg-gradient-to-t from-black/80 to-transparent">
+      <div className="absolute bottom-20 left-0 right-0 z-50 p-4 pb-4 bg-gradient-to-t from-[#4B227A]/80 to-transparent">
         <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-2">
           {merchants.map((m, idx) => (
             <button 
@@ -118,8 +121,8 @@ export default function NicheExploration() {
               onClick={() => handleMerchantSelect(idx)}
               className={`flex flex-col items-center gap-1 min-w-[50px] transition-all ${currentMerchantIndex === idx ? 'scale-110' : 'opacity-70'}`}
             >
-              <div className={`w-10 h-10 rounded-full p-[1.5px] ${m.active ? 'bg-gradient-to-tr from-yellow-400 to-purple-600' : 'bg-gray-500'}`}>
-                <img src={m.avatar} className="w-full h-full rounded-full border border-black object-cover" alt={m.name} />
+              <div className={`w-10 h-10 rounded-full p-[1.5px] ${m.active ? 'bg-gradient-to-tr from-[#00EED0] to-[#4B227A]' : 'bg-gray-500'}`}>
+                <img src={m.avatar} className="w-full h-full rounded-full border border-white object-cover" alt={m.name} />
               </div>
               <span className="text-[9px] text-white font-medium truncate w-full text-center">{m.name}</span>
             </button>
@@ -129,8 +132,13 @@ export default function NicheExploration() {
 
       {/* Story Content */}
       <div className="flex-1 relative bg-gray-900">
-        <img src={story.url} alt="Story" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        <img 
+          src={story.url} 
+          alt="Story" 
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#4B227A]/80 via-transparent to-transparent" />
         
           
         {/* Progress Bar (Removed) */}
@@ -184,11 +192,10 @@ export default function NicheExploration() {
       </div>
 
       {/* Fixed CTA */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-black z-50">
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#E7E7E7] z-50">
         <Button 
           fullWidth 
           onClick={() => navigate('/request', { state: { niche: merchant.niche } })}
-          className="bg-primary hover:bg-blue-600 text-white shadow-lg shadow-blue-500/30"
         >
           👉 ¿QUÉ NECESITAS?
         </Button>
@@ -196,3 +203,4 @@ export default function NicheExploration() {
     </div>
   );
 }
+

@@ -1,8 +1,11 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Star, MessageCircle, MapPin, Package, LogOut, Check, X as XIcon } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
+
+// Actualización estética Junio 2026
 
 const OFFERS = [
   {
@@ -51,25 +54,25 @@ export default function Responses() {
   const [selectedAvailability, setSelectedAvailability] = useState(null);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white px-4 py-3 flex items-center gap-4 shadow-sm sticky top-0 z-10">
-        <button onClick={() => navigate('/categories')} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft className="w-6 h-6 text-dark" />
+    <div className="min-h-screen bg-[#E7E7E7] flex flex-col">
+      <header className="bg-white/80 backdrop-blur-md px-4 py-3 flex items-center gap-4 shadow-sm sticky top-0 z-10 border-b border-white/30">
+        <button onClick={() => navigate('/categories')} className="p-2 -ml-2 hover:bg-white/50 rounded-full">
+          <ArrowLeft className="w-6 h-6 text-gray-800" />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-dark">Respuestas</h1>
-          <p className="text-xs text-green-600 font-medium">2 ofertas recibidas</p>
+          <h1 className="text-lg font-bold text-gray-800">Respuestas</h1>
+          <p className="text-xs text-[#00EED0] font-medium">2 ofertas recibidas</p>
         </div>
       </header>
 
       {/* Fixed Request Summary */}
-      <div className="bg-blue-50 px-6 py-4 border-b border-blue-100">
+      <div className="bg-[#0197AF]/10 px-6 py-4 border-b border-[#0197AF]/20">
         <div className="flex items-start gap-3">
-          <div className="bg-white p-2 rounded-lg shadow-sm">
+          <div className="bg-white/80 p-2 rounded-lg shadow-sm border border-white/30">
             <span className="text-2xl">📱</span>
           </div>
           <div>
-            <h3 className="font-semibold text-dark">iPhone 15 Pro Max</h3>
+            <h3 className="font-semibold text-gray-800">iPhone 15 Pro Max</h3>
             <p className="text-sm text-gray-600">Busco color Titanio, 256GB...</p>
           </div>
         </div>
@@ -78,28 +81,28 @@ export default function Responses() {
       {/* Offers List */}
       <div className="flex-1 p-4 flex flex-col gap-4">
         {OFFERS.map((offer) => (
-          <div key={offer.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div key={offer.id} className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/30">
             <div className="flex gap-4">
-              <img src={offer.image} className="w-20 h-20 rounded-xl object-cover bg-gray-100" alt={offer.store} />
+              <img src={offer.image} className="w-20 h-20 rounded-xl object-cover bg-white/70" alt={offer.store} />
               <div className="flex-1">
                 <div className="flex justify-between items-start mb-1">
-                  <h3 className="font-bold text-dark">{offer.store}</h3>
+                  <h3 className="font-bold text-gray-800">{offer.store}</h3>
                   <div className="flex flex-wrap gap-2 justify-end">
                     <button 
                       onClick={() => setSelectedAvailability(offer.availability)}
-                      className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80 ${
+                      className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors hover:opacity-80 border ${
                       offer.availability.found === offer.availability.total 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-orange-100 text-orange-700'
+                        ? 'bg-[#00EED0]/20 text-[#4B227A] border-[#00EED0]/30' 
+                        : 'bg-[#4B227A]/20 text-[#4B227A] border-[#4B227A]/30'
                     }`}>
                       <Package className="w-3 h-3" />
                       {offer.availability.found}/{offer.availability.total}
                     </button>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                    <div className="flex items-center gap-1 text-xs text-gray-600 bg-white/70 px-2 py-1 rounded-full border border-white/30">
                       <MapPin className="w-3 h-3" />
                       {offer.distance}
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                    <div className="flex items-center gap-1 text-xs text-gray-600 bg-white/70 px-2 py-1 rounded-full border border-white/30">
                       <Clock className="w-3 h-3" />
                       {offer.time}
                     </div>
@@ -107,17 +110,17 @@ export default function Responses() {
                 </div>
                 
                 <div className="flex items-center gap-1 mb-2">
-                  <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                  <Star className="w-3 h-3 text-[#00EED0] fill-current" />
                   <span className="text-xs font-medium">{offer.rating}</span>
                 </div>
 
-                <div className="text-lg font-bold text-primary mb-2">
+                <div className="text-lg font-bold text-[#00EED0] mb-2">
                   ${offer.price}
                 </div>
               </div>
             </div>
             
-            <p className="text-sm text-gray-600 mb-4 line-clamp-2 bg-gray-50 p-2 rounded-lg">
+            <p className="text-sm text-gray-600 mb-4 line-clamp-2 bg-white/70 p-2 rounded-lg border border-white/30">
               {offer.description}
             </p>
 
@@ -136,29 +139,29 @@ export default function Responses() {
       {/* Availability Modal */}
       {selectedAvailability && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white/80 backdrop-blur-md w-full max-w-sm rounded-2xl p-6 shadow-xl border border-white/30 relative animate-in zoom-in-95 duration-200">
             <button 
               onClick={() => setSelectedAvailability(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
             >
               <XIcon className="w-6 h-6" />
             </button>
             
-            <h3 className="text-lg font-bold text-dark mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5 text-[#00EED0]" />
               Disponibilidad de Productos
             </h3>
 
             <div className="space-y-3">
               {selectedAvailability.items.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
-                  <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/70 border border-white/30">
+                  <span className="text-sm font-medium text-gray-800">{item.name}</span>
                   {item.status === 'available' ? (
-                    <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+                    <span className="flex items-center gap-1 text-xs font-bold text-[#4B227A] bg-[#00EED0]/20 px-2 py-1 rounded-lg border border-[#00EED0]/30">
                       <Check className="w-3 h-3" /> Disponible
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-lg">
+                    <span className="flex items-center gap-1 text-xs font-bold text-gray-800 bg-[#4B227A]/20 px-2 py-1 rounded-lg border border-[#4B227A]/30">
                       <XIcon className="w-3 h-3" /> No disponible
                     </span>
                   )}
@@ -166,9 +169,9 @@ export default function Responses() {
               ))}
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
-              <span className="text-sm text-gray-500">Resumen</span>
-              <span className="font-bold text-dark">
+            <div className="mt-6 pt-4 border-t border-white/30 flex justify-between items-center">
+              <span className="text-sm text-gray-600">Resumen</span>
+              <span className="font-bold text-gray-800">
                 {selectedAvailability.found} de {selectedAvailability.total} encontrados
               </span>
             </div>
@@ -178,3 +181,4 @@ export default function Responses() {
     </div>
   );
 }
+

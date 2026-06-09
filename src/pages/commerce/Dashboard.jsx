@@ -1,8 +1,11 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import Button from '../../components/ui/Button';
 import { TrendingUp, Users, DollarSign, Clock, Bell, Send, CheckCircle2, Eye, X, MessageSquare, ChevronRight, Flame, Zap, ShieldCheck, Star as StarIcon } from 'lucide-react';
+
+// Actualización estética Junio 2026
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -35,9 +38,9 @@ export default function Dashboard() {
   };
 
   const stats = [
-    { label: 'Ventas hoy', value: '$2,450', icon: DollarSign, color: 'bg-green-100 text-green-600' },
-    { label: 'Leads activos', value: '12', icon: Users, color: 'bg-blue-100 text-blue-600' },
-    { label: 'Conversión', value: '18%', icon: TrendingUp, color: 'bg-purple-100 text-purple-600' },
+    { label: 'Ventas hoy', value: '$2,450', icon: DollarSign, color: 'bg-gradient-to-br from-[#0197AF]/20 to-[#4B227A]/20 text-[#0197AF]' },
+    { label: 'Leads activos', value: '12', icon: Users, color: 'bg-gradient-to-br from-[#4B227A]/20 to-[#00EED0]/20 text-[#4B227A]' },
+    { label: 'Conversión', value: '18%', icon: TrendingUp, color: 'bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 text-[#00EED0]' },
   ];
 
   const opportunities = [
@@ -70,49 +73,50 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+    <div className="min-h-screen bg-[#E7E7E7] pb-20">
+      {/* Header con glassmorphism - Actualización estética Junio 2026 */}
+      <header className="bg-white/70 backdrop-blur-md px-6 py-5 border-b border-white/30 flex justify-between items-center sticky top-0 z-30">
         <div>
-          <h1 className="text-xl font-bold text-dark">Panel de Oportunidades</h1>
-          <p className="text-sm text-gray-500">Hola, TechMaster 👋</p>
+          <h1 className="text-xl font-bold text-gray-800">Panel de Oportunidades</h1>
+          <p className="text-sm text-gray-600">Hola, TechMaster 👋</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => navigate('/chat-list')} className="p-2 bg-gray-50 rounded-full relative hover:bg-gray-100 transition-colors">
-            <MessageSquare className="w-5 h-5 text-gray-600" />
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white"></span>
+          <button onClick={() => navigate('/chat-list')} className="p-2 bg-white/60 backdrop-blur-md rounded-full relative hover:bg-white/80 transition-colors border border-white/30">
+            <MessageSquare className="w-5 h-5 text-gray-700" />
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#0197AF] rounded-full border-2 border-white"></span>
           </button>
-          <button onClick={() => navigate('/notifications')} className="p-2 bg-gray-50 rounded-full relative hover:bg-gray-100 transition-colors">
-            <Bell className="w-5 h-5 text-gray-600" />
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+          <button onClick={() => navigate('/notifications')} className="p-2 bg-white/60 backdrop-blur-md rounded-full relative hover:bg-white/80 transition-colors border border-white/30">
+            <Bell className="w-5 h-5 text-gray-700" />
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#4B227A] rounded-full border-2 border-white"></span>
           </button>
         </div>
       </header>
 
-      {/* KPIs */}
+      {/* KPIs con glassmorphism - Actualización estética Junio 2026 */}
       <div className="px-4 py-2 grid grid-cols-3 gap-2">
         {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
-            <div className={`p-1.5 rounded-md mb-1 ${stat.color}`}>
+          <div key={idx} className="bg-white/70 backdrop-blur-md p-2 rounded-2xl shadow-sm border border-white/30 flex flex-col items-center text-center">
+            <div className={`p-1.5 rounded-xl mb-1 ${stat.color}`}>
               <stat.icon className="w-4 h-4" />
             </div>
-            <span className="text-xs font-bold text-dark">{stat.value}</span>
-            <span className="text-[10px] text-gray-400">{stat.label}</span>
+            <span className="text-xs font-bold text-gray-800">{stat.value}</span>
+            <span className="text-[10px] text-gray-600">{stat.label}</span>
           </div>
         ))}
       </div>
 
       <div className="px-6 py-2">
-        <h2 className="font-bold text-dark text-lg mb-4">Oportunidades activas</h2>
+        <h2 className="font-bold text-gray-800 text-lg mb-4">Oportunidades activas</h2>
         <div className="flex flex-col gap-4">
           {opportunities.map((opp) => (
-            <div key={opp.id} className="bg-white p-4 rounded-[24px] shadow-sm border border-gray-100 relative overflow-hidden transition-all hover:shadow-md">
-              <div className="absolute top-2 right-4 text-[13px] font-bold text-orange-700 flex items-center gap-1">
+            <div key={opp.id} className="bg-white/70 backdrop-blur-md p-4 rounded-[24px] shadow-sm border border-white/30 relative overflow-hidden transition-all hover:shadow-md">
+              <div className="absolute top-2 right-4 text-[13px] font-bold text-[#0197AF] flex items-center gap-1">
                 {opp.time_left}
               </div>
 
               {/* Header Content: Image + Text */}
               <div className="flex gap-4 mt-4 mb-4">
-                <div className="w-24 h-24 shrink-0 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100">
+                <div className="w-24 h-24 shrink-0 rounded-2xl overflow-hidden bg-white/50 border border-white/30">
                   <img 
                     src={opp.image} 
                     alt={opp.product} 
@@ -120,20 +124,20 @@ export default function Dashboard() {
                   />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-bold text-dark text-xl mb-1">{opp.product}</h3>
+                  <h3 className="font-bold text-gray-800 text-xl mb-1">{opp.product}</h3>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    <span className="flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-bold uppercase border border-orange-100">
+                    <span className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-[#0197AF]/20 to-[#4B227A]/20 text-[#4B227A] rounded-lg text-[10px] font-bold uppercase border border-[#4B227A]/30">
                       <Flame className="w-3 h-3 fill-current" /> Alta demanda
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 line-clamp-3">
+                  <p className="text-sm text-gray-600 line-clamp-3">
                     {opp.details}
                   </p>
                 </div>
               </div>
 
-              {/* User Section (Gray Box) */}
-              <div className="bg-gray-50 rounded-2xl p-3 mb-4 border border-gray-100">
+              {/* User Section (Glass Box) - Actualización estética Junio 2026 */}
+              <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 mb-4 border border-white/30">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="relative">
@@ -143,43 +147,43 @@ export default function Dashboard() {
                         alt={opp.user} 
                       />
                       <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 fill-current" />
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#00EED0] fill-current" />
                       </div>
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-dark text-sm">{opp.user}</span>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 fill-current" />
+                        <span className="font-bold text-gray-800 text-sm">{opp.user}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#00EED0] fill-current" />
                         <div className="flex items-center gap-0.5">
                           <StarIcon className="w-3 h-3 text-amber-400 fill-current" />
                           <span className="text-[11px] font-bold text-gray-700">{opp.rating}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] text-gray-400">
+                      <div className="flex items-center gap-1 text-[11px] text-gray-600">
                         <TrendingUp className="w-3 h-3" /> {opp.transactions} | Transacciones
                       </div>
                     </div>
                   </div>
                   <button 
                     onClick={() => setSelectedOpp(opp)}
-                    className="font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 hover:bg-primary/20 transition-colors"
+                    className="font-bold text-[#0197AF] bg-[#0197AF]/10 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 hover:bg-[#0197AF]/20 transition-colors border border-[#0197AF]/30"
                   >
                     <Eye className="w-3.5 h-3.5" /> Ver detalles
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-bold uppercase tracking-widest">
+                  <span className="px-2 py-0.5 bg-gradient-to-r from-[#00EED0]/20 to-[#0197AF]/20 text-[#4B227A] rounded-md text-[9px] font-bold uppercase tracking-widest border border-[#4B227A]/30">
                     ⚡ Nuevo cliente
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                {/* Offer Section */}
+                {/* Offer Section - Actualización estética Junio 2026 */}
                 {offeringId === opp.id ? (
                   <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {showSuccess ? (
-                      <div className="bg-green-100 text-green-700 p-3 rounded-xl flex items-center justify-center gap-2 font-bold animate-pulse">
+                      <div className="bg-[#00EED0]/20 text-[#4B227A] p-3 rounded-xl flex items-center justify-center gap-2 font-bold animate-pulse border border-[#00EED0]/30">
                         <CheckCircle2 className="w-5 h-5" />
                         ¡Oferta Enviada!
                       </div>
@@ -187,7 +191,7 @@ export default function Dashboard() {
                       <>
                         <div className="relative">
                           <textarea 
-                            className="w-full bg-gray-50 border border-primary rounded-xl px-4 py-3 text-sm text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                            className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-medium"
                             placeholder="Mensaje de cierre (opcional)..."
                             rows="2"
                             value={closingMessage}
@@ -195,10 +199,10 @@ export default function Dashboard() {
                           />
                         </div>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">$</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">$</span>
                           <input 
                             type="number" 
-                            className="w-full bg-gray-50 border border-primary rounded-xl pl-7 pr-4 py-2 text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-sm"
+                            className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl pl-7 pr-4 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-bold text-sm"
                             placeholder="Tu precio"
                             value={price}
                             onChange={(e) => setPrice(e.target.value)}
@@ -208,7 +212,7 @@ export default function Dashboard() {
                         <Button 
                           fullWidth 
                           onClick={() => handleSendOffer(opp)}
-                          className="bg-green-600 hover:bg-green-700 text-white shadow-green-200 py-2.5 text-sm"
+                          className="bg-[#00EED0] hover:bg-[#00EED0]/90 text-black shadow-[0_0_20px_rgba(0,238,208,0.4)] py-2.5 text-sm"
                           disabled={!price}
                         >
                           💰 Enviar oferta <Send className="w-4 h-4 ml-1" />
@@ -219,7 +223,7 @@ export default function Dashboard() {
                 ) : (
                   <button 
                     onClick={() => handleStartOffer(opp.id)}
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 rounded-xl shadow-md shadow-blue-200/50 flex items-center justify-center gap-2 transition-all active:scale-[0.97] group text-sm"
+                    className="w-full bg-[#00EED0] hover:bg-[#00EED0]/90 text-black font-bold py-3 rounded-xl shadow-[0_0_20px_rgba(0,238,208,0.4)] flex items-center justify-center gap-2 transition-all active:scale-[0.97] group text-sm"
                   >
                     <span className="tracking-wide">OFERTAR AHORA</span>
                     <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -231,19 +235,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Modal de Detalles */}
+      {/* Modal de Detalles con glassmorphism - Actualización estética Junio 2026 */}
       {selectedOpp && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl relative animate-in zoom-in-95 duration-200">
+          <div className="bg-white/80 backdrop-blur-md w-full max-w-sm rounded-2xl p-6 shadow-xl relative animate-in zoom-in-95 duration-200 border border-white/30">
             <button 
               onClick={() => setSelectedOpp(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
             >
               <X className="w-6 h-6" />
             </button>
             
-            <h2 className="text-xl font-bold text-dark mb-1">{selectedOpp.product}</h2>
-            <p className="text-sm text-gray-500 mb-6 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-800 mb-1">{selectedOpp.product}</h2>
+            <p className="text-sm text-gray-600 mb-6 flex items-center gap-2">
               <Clock className="w-4 h-4" /> Finaliza en {selectedOpp.time_left}
             </p>
 
@@ -267,19 +271,19 @@ export default function Dashboard() {
                 </div>
               )}
 
-              <div className="bg-gray-50 p-4 rounded-xl">
-                <span className="text-xs text-gray-500 block mb-1">Descripción</span>
-                <p className="text-dark font-medium">{selectedOpp.details}</p>
+              <div className="bg-white/70 backdrop-blur-md p-4 rounded-xl border border-white/30">
+                <span className="text-xs text-gray-600 block mb-1">Descripción</span>
+                <p className="text-gray-800 font-medium">{selectedOpp.details}</p>
               </div>
               
               <div className="flex gap-3">
-                <div className="flex-1 bg-green-50 p-3 rounded-xl">
-                  <span className="text-xs text-green-600 block mb-1">Presupuesto</span>
-                  <p className="text-green-700 font-bold text-lg">{selectedOpp.budget}</p>
+                <div className="flex-1 bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 p-3 rounded-xl border border-[#0197AF]/30">
+                  <span className="text-xs text-[#0197AF] block mb-1">Presupuesto</span>
+                  <p className="text-[#4B227A] font-bold text-lg">{selectedOpp.budget}</p>
                 </div>
-                <div className="flex-1 bg-blue-50 p-3 rounded-xl">
-                  <span className="text-xs text-blue-600 block mb-1">Usuario</span>
-                  <p className="text-blue-700 font-bold">{selectedOpp.user}</p>
+                <div className="flex-1 bg-gradient-to-br from-[#4B227A]/20 to-[#00EED0]/20 p-3 rounded-xl border border-[#4B227A]/30">
+                  <span className="text-xs text-[#4B227A] block mb-1">Usuario</span>
+                  <p className="text-[#0197AF] font-bold">{selectedOpp.user}</p>
                 </div>
               </div>
             </div>
@@ -287,14 +291,14 @@ export default function Dashboard() {
             <Button fullWidth onClick={() => {
               handleStartOffer(selectedOpp.id);
               setSelectedOpp(null);
-            }}>
+            }} className="bg-[#00EED0] hover:bg-[#00EED0]/90 text-black shadow-[0_0_20px_rgba(0,238,208,0.4)]">
               OFERTAR AHORA
             </Button>
           </div>
         </div>
       )}
 
-      {/* Modal de Imagen Fullscreen */}
+      {/* Modal de Imagen Fullscreen - Actualización estética Junio 2026 */}
       {viewImage && (
         <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <button 

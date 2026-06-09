@@ -8,9 +8,9 @@ export default function Welcome() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col p-6 relative">
+    <div className="min-h-screen bg-[#E7E7E7] flex flex-col p-6 relative">
        {/* Decorative background */}
-       <div className="absolute top-0 right-0 w-full h-1/2 bg-gradient-to-b from-blue-50 to-transparent -z-10" />
+       <div className="absolute top-0 right-0 w-full h-1/2 bg-gradient-to-b from-[#4B227A]/10 to-transparent -z-10" />
 
       <div className="flex-1 flex flex-col items-center justify-center gap-6 mt-10">
         <Logo size="lg" />
@@ -44,7 +44,7 @@ export default function Welcome() {
           <span className="text-gray-400 text-sm">¿Ya tienes cuenta? </span>
           <button 
             onClick={() => navigate('/login')}
-            className="text-primary font-semibold text-sm hover:underline"
+            className="text-[#0197AF] font-semibold text-sm hover:underline"
           >
             Iniciar sesión
           </button>

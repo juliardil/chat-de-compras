@@ -1,8 +1,11 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+
+// Actualización estética Junio 2026
 
 export default function ChangePassword() {
   const navigate = useNavigate();
@@ -27,21 +30,21 @@ export default function ChangePassword() {
   };
 
   return (
-    <div className="min-h-screen bg-white p-6 flex flex-col">
+    <div className="min-h-screen bg-[#E7E7E7] p-6 flex flex-col">
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft className="w-6 h-6 text-dark" />
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/50 rounded-full">
+          <ArrowLeft className="w-6 h-6 text-gray-800" />
         </button>
-        <h1 className="text-xl font-bold text-dark">Cambiar contraseña</h1>
+        <h1 className="text-xl font-bold text-gray-800">Cambiar contraseña</h1>
       </header>
 
       {success ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+          <div className="w-16 h-16 bg-[#00EED0]/20 rounded-full flex items-center justify-center mb-6 border border-[#00EED0]/30">
+            <CheckCircle className="w-8 h-8 text-[#4B227A]" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">¡Contraseña actualizada!</h2>
-          <p className="text-gray-500 mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-2">¡Contraseña actualizada!</h2>
+          <p className="text-gray-600 mb-8">
             Tu contraseña ha sido modificada exitosamente.
           </p>
           <Button fullWidth onClick={() => navigate(-1)}>
@@ -86,7 +89,7 @@ export default function ChangePassword() {
           <button 
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-dark self-start mt-2"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#4B227A] self-start mt-2"
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {showPassword ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}
@@ -102,3 +105,4 @@ export default function ChangePassword() {
     </div>
   );
 }
+

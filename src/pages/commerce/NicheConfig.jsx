@@ -1,7 +1,10 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import { Shirt, Smartphone, Car, ChevronDown, Check, User, ChevronRight, Lock } from 'lucide-react';
+
+// Actualización estética Junio 2026
 
 export default function NicheConfig() {
   const navigate = useNavigate();
@@ -33,62 +36,62 @@ export default function NicheConfig() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white px-6 py-5 border-b border-gray-100">
-        <h1 className="text-xl font-bold text-dark">Configuración</h1>
-        <p className="text-sm text-gray-500">Administra tus preferencias y perfil</p>
+    <div className="min-h-screen bg-[#E7E7E7] pb-20">
+      <header className="bg-white/80 backdrop-blur-md px-6 py-5 border-b border-white/30">
+        <h1 className="text-xl font-bold text-gray-800">Configuración</h1>
+        <p className="text-sm text-gray-600">Administra tus preferencias y perfil</p>
       </header>
 
       <div className="p-4 flex flex-col gap-4">
         {/* Acceso a Perfil */}
         <div 
           onClick={() => navigate('/edit-profile')}
-          className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+          className="bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-white/30 flex items-center justify-between cursor-pointer hover:bg-white/90 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-primary">
+            <div className="w-10 h-10 bg-[#0197AF]/20 rounded-full flex items-center justify-center text-[#0197AF]">
               <User className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-dark text-sm">Perfil del Comercio</h3>
-              <p className="text-xs text-gray-500">Editar información pública</p>
+              <h3 className="font-bold text-gray-800 text-sm">Perfil del Comercio</h3>
+              <p className="text-xs text-gray-600">Editar información pública</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-300" />
+          <ChevronRight className="w-5 h-5 text-gray-500" />
         </div>
 
         {/* Cambiar Contraseña */}
         <div 
           onClick={() => navigate('/change-password')}
-          className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+          className="bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-white/30 flex items-center justify-between cursor-pointer hover:bg-white/90 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
+            <div className="w-10 h-10 bg-[#4B227A]/20 rounded-full flex items-center justify-center text-[#4B227A]">
               <Lock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-dark text-sm">Seguridad</h3>
-              <p className="text-xs text-gray-500">Cambiar contraseña</p>
+              <h3 className="font-bold text-gray-800 text-sm">Seguridad</h3>
+              <p className="text-xs text-gray-600">Cambiar contraseña</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-300" />
+          <ChevronRight className="w-5 h-5 text-gray-500" />
         </div>
 
-        <h2 className="font-bold text-dark text-lg px-2 pt-2">Nichos Activos</h2>
-        <p className="text-sm text-gray-500 px-2 -mt-2 mb-2">Selecciona qué solicitudes quieres recibir</p>
+        <h2 className="font-bold text-gray-800 text-lg px-2 pt-2">Nichos Activos</h2>
+        <p className="text-sm text-gray-600 px-2 -mt-2 mb-2">Selecciona qué solicitudes quieres recibir</p>
 
         {niches.map((niche) => (
-          <div key={niche.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div key={niche.id} className="bg-white/80 backdrop-blur-md rounded-xl shadow-sm border border-white/30 overflow-hidden">
             <div className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${niche.active ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>
+                <div className={`p-2 rounded-lg ${niche.active ? 'bg-[#00EED0] text-gray-900 shadow-[0_0_10px_rgba(0,238,208,0.4)]' : 'bg-white/70 text-gray-600 border border-white/30'}`}>
                   <niche.icon className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-dark">{niche.name}</h3>
+                  <h3 className="font-bold text-gray-800">{niche.name}</h3>
                   <div className="flex items-center gap-2">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      niche.demand === 'high' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
+                      niche.demand === 'high' ? 'bg-[#00EED0]/20 text-[#4B227A] border border-[#00EED0]/30' : 'bg-[#4B227A]/10 text-[#4B227A] border border-[#4B227A]/20'
                     }`}>
                       {niche.demand === 'high' ? '🔥 Alta demanda' : '⚡ Demanda media'}
                     </span>
@@ -98,22 +101,22 @@ export default function NicheConfig() {
               
               <button 
                 onClick={() => toggleNiche(niche.id)}
-                className={`w-12 h-7 rounded-full transition-colors relative ${niche.active ? 'bg-primary' : 'bg-gray-200'}`}
+                className={`w-12 h-7 rounded-full transition-colors relative ${niche.active ? 'bg-[#00EED0]' : 'bg-gray-300'}`}
               >
                 <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${niche.active ? 'left-6' : 'left-1'}`} />
               </button>
             </div>
 
             {niche.active && niche.subcategories.length > 0 && (
-              <div className="bg-gray-50 p-4 border-t border-gray-100">
+              <div className="bg-[#E7E7E7]/80 p-4 border-t border-white/30">
                 <div className="flex flex-wrap gap-2">
                   {niche.subcategories.map(sub => (
                     <button 
                       key={sub.id}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all ${
                         sub.active 
-                          ? 'bg-blue-50 border-blue-200 text-primary' 
-                          : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                          ? 'bg-[#00EED0]/20 border-[#00EED0]/30 text-[#4B227A]' 
+                          : 'bg-white/70 border-white/30 text-gray-600 hover:border-[#0197AF]/30'
                       }`}
                     >
                       {sub.name}
@@ -131,3 +134,4 @@ export default function NicheConfig() {
     </div>
   );
 }
+

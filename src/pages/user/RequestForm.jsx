@@ -1,8 +1,11 @@
+
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { ArrowLeft, Camera, Image as ImageIcon, X, Plus, Trash2, ChevronDown } from 'lucide-react';
+
+// Actualización estética Junio 2026
 
 const NICHE_CONFIG = {
   fashion: {
@@ -98,24 +101,24 @@ export default function RequestForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white px-4 py-4 flex items-center gap-4 shadow-sm sticky top-0 z-10">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft className="w-6 h-6 text-dark" />
+    <div className="min-h-screen bg-[#E7E7E7] flex flex-col">
+      <header className="bg-white/80 backdrop-blur-md px-4 py-4 flex items-center gap-4 shadow-sm sticky top-0 z-10 border-b border-white/30">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/50 rounded-full">
+          <ArrowLeft className="w-6 h-6 text-gray-800" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-dark">Nueva Solicitud</h1>
-          <p className="text-xs text-gray-500">Categoría: {config.title}</p>
+          <h1 className="text-xl font-bold text-gray-800">Nueva Solicitud</h1>
+          <p className="text-xs text-gray-600">Categoría: {config.title}</p>
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           {products.map((product, index) => (
-            <div key={product.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative">
-              <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-2">
-                <h3 className="font-bold text-primary flex items-center gap-2">
-                  <span className="bg-blue-50 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs">
+            <div key={product.id} className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
+              <div className="flex justify-between items-center mb-4 border-b border-white/40 pb-2">
+                <h3 className="font-bold text-[#00EED0] flex items-center gap-2">
+                  <span className="bg-[#00EED0]/20 text-[#4B227A] w-6 h-6 rounded-full flex items-center justify-center text-xs border border-[#00EED0]/30">
                     {index + 1}
                   </span>
                   Producto
@@ -124,7 +127,7 @@ export default function RequestForm() {
                   <button 
                     type="button" 
                     onClick={() => removeProduct(product.id)}
-                    className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                    className="text-[#4B227A] hover:bg-[#4B227A]/10 p-1.5 rounded-lg transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -136,26 +139,26 @@ export default function RequestForm() {
                   <div key={field.name}>
                     {field.type === 'select' ? (
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
                         <div className="relative">
                           <select
                             value={product[field.name]}
                             onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none cursor-pointer"
+                            className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
                           >
                             <option value="">Selecciona una opción</option>
                             {field.options.map(opt => (
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
-                          <ChevronDown className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
                       </div>
                     ) : field.type === 'textarea' ? (
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
                         <textarea 
-                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-gray-400 min-h-[80px]"
+                          className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] transition-all placeholder:text-gray-600 min-h-[80px]"
                           placeholder={field.placeholder}
                           value={product[field.name]}
                           onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
@@ -163,10 +166,10 @@ export default function RequestForm() {
                       </div>
                     ) : field.type === 'year_range' ? (
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
                         <div className="flex gap-3">
                           <div className="flex-1">
-                            <label className="text-[10px] text-gray-500 mb-0.5 block pl-1">Desde</label>
+                            <label className="text-[10px] text-gray-600 mb-0.5 block pl-1">Desde</label>
                             <Input 
                               placeholder="Ej: 2015"
                               type="number"
@@ -175,7 +178,7 @@ export default function RequestForm() {
                             />
                           </div>
                           <div className="flex-1">
-                            <label className="text-[10px] text-gray-500 mb-0.5 block pl-1">Hasta</label>
+                            <label className="text-[10px] text-gray-600 mb-0.5 block pl-1">Hasta</label>
                             <Input 
                               placeholder="Ej: 2024"
                               type="number"
@@ -198,21 +201,21 @@ export default function RequestForm() {
 
                 {/* Image Upload per product */}
                 <div className="flex flex-col gap-1.5 pt-2">
-                  <label className="text-sm font-medium text-gray-700">Imágenes de referencia</label>
+                  <label className="text-sm font-medium text-gray-800">Imágenes de referencia</label>
                   <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                    <label className="flex flex-col items-center justify-center w-20 h-20 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 active:scale-95 transition-all flex-shrink-0">
-                      <Camera className="w-5 h-5 text-gray-400 mb-1" />
-                      <span className="text-[10px] text-gray-500">Foto</span>
+                    <label className="flex flex-col items-center justify-center w-20 h-20 bg-white/70 border-2 border-dashed border-[#0197AF]/30 rounded-xl cursor-pointer hover:bg-white/80 active:scale-95 transition-all flex-shrink-0">
+                      <Camera className="w-5 h-5 text-[#0197AF] mb-1" />
+                      <span className="text-[10px] text-gray-600">Foto</span>
                       <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(product.id, e)} />
                     </label>
 
                     {product.images.map((img, idx) => (
-                      <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 group">
+                      <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-white/30 group">
                         <img src={img} alt="Preview" className="w-full h-full object-cover" />
                         <button 
                           type="button"
                           onClick={() => removeImage(product.id, idx)}
-                          className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 bg-[#4B227A]/80 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -227,7 +230,7 @@ export default function RequestForm() {
           <button
             type="button"
             onClick={addProduct}
-            className="w-full py-4 border-2 border-dashed border-primary/30 rounded-2xl flex items-center justify-center gap-2 text-primary font-bold hover:bg-blue-50 transition-colors"
+            className="w-full py-4 border-2 border-dashed border-[#00EED0]/30 rounded-2xl flex items-center justify-center gap-2 text-[#00EED0] font-bold hover:bg-[#00EED0]/10 transition-colors"
           >
             <Plus className="w-5 h-5" />
             Agregar otro producto
@@ -235,11 +238,12 @@ export default function RequestForm() {
         </form>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 max-w-md mx-auto z-20">
-        <Button fullWidth onClick={handleSubmit} className="shadow-lg shadow-blue-200">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-white/30 max-w-md mx-auto z-20">
+        <Button fullWidth onClick={handleSubmit} className="shadow-lg shadow-[#00EED0]/30">
           👉 ENVIAR SOLICITUD ({products.length})
         </Button>
       </div>
     </div>
   );
 }
+

@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import { Shirt, Smartphone, Car, ChevronLeft, ChevronRight } from 'lucide-react';
 
+// Actualización estética Junio 2026
+
 export default function Categories() {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -14,8 +16,9 @@ export default function Categories() {
       name: 'Moda', 
       subtitle: 'Ropa, accesorios, tendencias',
       icon: Shirt, 
-      color: 'bg-pink-500', 
-      gradient: 'from-pink-500/80 to-rose-600/90',
+      color: 'bg-[#4B227A]', 
+      gradient: 'from-[#4B227A]/90 to-[#0197AF]/70',
+      bgGradient: 'from-[#4B227A]/10 via-[#E7E7E7] to-[#0197AF]/10',
       image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800' 
     },
     { 
@@ -23,8 +26,9 @@ export default function Categories() {
       name: 'Tecnología', 
       subtitle: 'Gadgets, computadoras, innovacion',
       icon: Smartphone, 
-      color: 'bg-blue-500', 
-      gradient: 'from-blue-500/80 to-indigo-600/90',
+      color: 'bg-[#0197AF]', 
+      gradient: 'from-[#0197AF]/90 to-[#00EED0]/70',
+      bgGradient: 'from-[#0197AF]/10 via-[#E7E7E7] to-[#00EED0]/10',
       image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&q=80&w=800'
     },
     { 
@@ -32,8 +36,9 @@ export default function Categories() {
       name: 'Automotriz', 
       subtitle: 'Autos, motos, mecanica',
       icon: Car, 
-      color: 'bg-orange-500', 
-      gradient: 'from-orange-500/80 to-red-600/90',
+      color: 'bg-[#00EED0]', 
+      gradient: 'from-[#00EED0]/90 to-[#4B227A]/70',
+      bgGradient: 'from-[#00EED0]/10 via-[#E7E7E7] to-[#4B227A]/10',
       image: 'https://images.unsplash.com/photo-1533473359331-0135ef1bcfb0?auto=format&fit=crop&q=80&w=800'
     }
   ];
@@ -47,14 +52,16 @@ export default function Categories() {
     }
   };
 
+  const activeCategory = categories[activeIndex];
+
   return (
-    <div className="h-screen bg-white overflow-hidden flex flex-col">
+    <div className={`h-screen overflow-hidden flex flex-col bg-gradient-to-br ${activeCategory.bgGradient} transition-all duration-1000`}>
       {/* Header */}
-      <header className="px-8 pt-12 pb-4 z-20 bg-white">
+      <header className="px-8 pt-12 pb-4 z-20 bg-white/70 backdrop-blur-md border-b border-white/30">
         <div className="flex justify-between items-center mb-1">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Explorar</h1>
+          <h1 className="text-3xl font-black text-gray-800 tracking-tight">Explorar</h1>
         </div>
-        <p className="text-slate-400 text-sm font-medium">Selecciona una categoría</p>
+        <p className="text-gray-600 text-sm font-medium">Selecciona una categoría</p>
       </header>
 
       {/* Carousel Container */}
@@ -91,10 +98,11 @@ export default function Categories() {
                       src={cat.image} 
                       alt={cat.name} 
                       className="absolute inset-0 w-full h-full object-cover"
+                      loading="lazy"
                     />
                     
                     {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <div className={`absolute inset-0 bg-gradient-to-t ${cat.gradient} via-black/20 to-transparent`} />
 
                     {/* Left/Right Arrows for visual guide */}
                     {isActive && index > 0 && (
@@ -111,7 +119,7 @@ export default function Categories() {
                     {/* Content */}
                     <div className="absolute inset-0 p-10 flex flex-col justify-end items-start">
                         <div className="flex items-center gap-4 mb-3">
-                            <div className={`w-14 h-14 rounded-2xl ${cat.color} flex items-center justify-center shadow-lg border-2 border-white/20`}>
+                            <div className={`w-14 h-14 rounded-2xl ${cat.color} flex items-center justify-center shadow-lg border-2 border-white/30`}>
                                 <cat.icon className="w-8 h-8 text-white" />
                             </div>
                             <h2 className="text-4xl font-black text-white leading-tight">{cat.name}</h2>
@@ -127,7 +135,7 @@ export default function Categories() {
                             <div 
                                 key={dotIdx}
                                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                                    dotIdx === activeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
+                                    dotIdx === activeIndex ? 'w-4 bg-[#00EED0] shadow-[0_0_10px_rgba(0,238,208,0.7)]' : 'w-1.5 bg-white/40'
                                 }`}
                             />
                         ))}

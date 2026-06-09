@@ -48,7 +48,7 @@ function AppRoutes() {
   if (loading) return <Splash />;
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-white shadow-xl relative overflow-hidden">
+    <div className="max-w-md mx-auto min-h-screen bg-[#E7E7E7] shadow-xl relative overflow-hidden">
       <Routes>
         <Route path="/" element={<Splash />} />
         <Route path="/welcome" element={<Welcome />} />
