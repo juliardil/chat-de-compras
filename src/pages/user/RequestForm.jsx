@@ -1,70 +1,71 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { ArrowLeft, Camera, Image as ImageIcon, X, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Camera, X, Plus, Trash2, ChevronDown, Car } from 'lucide-react';
 
-// Actualización estética Junio 2026
+// Actualización Junio 2026 - Formulario Exclusivo Automotriz
 
-const NICHE_CONFIG = {
-  fashion: {
-    title: 'Moda',
-    fields: [
-      { name: 'item', label: '¿Qué prenda o accesorio necesitas?', placeholder: 'Ej: Camiseta, jean, bolso', type: 'text' },
-      { name: 'target', label: '¿Para hombre, mujer o niño?', type: 'select', options: ['Hombre', 'Mujer', 'Niño', 'Niña', 'Unisex'] },
-      { name: 'size', label: '¿Talla o medida?', type: 'select', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Única', 'Personalizado'] },
-      { name: 'color', label: '¿Color preferido?', placeholder: 'Ej: Negro, azul', type: 'text' },
-      { name: 'occasion', label: '¿Para qué ocasión?', placeholder: 'Ej: Casual, fiesta, deporte', type: 'text' },
-      { name: 'brand', label: 'Marca (Opcional)', placeholder: 'Ej: Zara, Nike, etc.', type: 'text' },
-      { name: 'description', label: 'Descripción adicional', placeholder: 'Detalles específicos...', type: 'textarea' }
-    ]
-  },
-  auto: {
-    title: 'Automotriz',
-    fields: [
-      { name: 'brand', label: 'Marca', placeholder: 'Ej: Bosch, Brembo', type: 'text' },
-      { name: 'item', label: '¿Qué repuesto o accesorio necesitas?', placeholder: 'Ej: Pastillas de freno', type: 'text' },
-      { name: 'vehicleType', label: '¿Es para auto o moto?', type: 'select', options: ['Auto', 'Moto', 'Camioneta', 'Pesado', 'Otro'] },
-      { name: 'vehicleBrand', label: 'Marca del vehículo', placeholder: 'Ej: Toyota', type: 'text' },
-      { name: 'reference', label: 'Línea / referencia / modelo', placeholder: 'Ej: Corolla / OEM 04465', type: 'text' },
-      { name: 'yearRange', label: 'Año del vehículo', type: 'year_range' }
-    ]
-  },
-  tech: {
-    title: 'Tecnología',
-    fields: [
-      { name: 'brand', label: 'Marca', placeholder: 'Ej: Apple, Samsung', type: 'text' },
-      { name: 'item', label: '¿Qué producto tecnológico buscas?', placeholder: 'Ej: Laptop, celular, mouse', type: 'text' },
-      { name: 'model', label: '¿Marca y modelo?', placeholder: 'Ej: Dell 7390, iPhone 13', type: 'text' },
-      { name: 'condition', label: '¿Nuevo, usado o indistinto?', type: 'select', options: ['Nuevo', 'Usado', 'Indistinto'] },
-      { name: 'specs', label: '¿Especificaciones necesarias?', placeholder: 'RAM, almacenamiento, tamaño...', type: 'textarea' },
-      { name: 'usage', label: '¿Para qué uso lo necesitas?', type: 'select', options: ['Estudio', 'Trabajo', 'Gaming', 'Diseño', 'Uso diario'] }
-    ]
-  },
-  default: {
-    title: 'General',
-    fields: [
-      { name: 'item', label: '¿Qué estás buscando?', placeholder: 'Ej: Producto X', type: 'text' },
-      { name: 'description', label: 'Detalles adicionales', placeholder: 'Describe lo que necesitas...', type: 'textarea' }
-    ]
-  }
-};
+const AUTOMOTIVE_FORM_FIELDS = [
+  { name: 'category', label: 'Tipo de repuesto/accesorio', type: 'select', options: [
+    'Motor', 'Frenos', 'Suspensión', 'Eléctrico',
+    'Llantas y Neumáticos', 'Interior / Exterior',
+    'Lubricantes y Fluidos', 'Taller Mecánico',
+    'Accesorios Vehiculares', 'Audio y Sonido', 'Seguridad Vehicular'
+  ]},
+  { name: 'item', label: 'Producto específico', placeholder: 'Ej: Pastillas de freno, filtro de aceite, batería', type: 'text' },
+  { name: 'vehicleType', label: 'Tipo de vehículo', type: 'select', options: ['Auto', 'Moto', 'Camioneta', 'Camión', 'Tractor', 'Otro'] },
+  { name: 'vehicleBrand', label: 'Marca del vehículo', placeholder: 'Ej: Toyota, Ford, Honda', type: 'text' },
+  { name: 'vehicleModel', label: 'Modelo del vehículo', placeholder: 'Ej: Corolla, Fiesta, Civic', type: 'text' },
+  { name: 'yearFrom', label: 'Año inicial', type: 'number', placeholder: 'Ej: 2015' },
+  { name: 'yearTo', label: 'Año final', type: 'number', placeholder: 'Ej: 2024' },
+  { name: 'reference', label: 'Referencia o número de parte', placeholder: 'Ej: 04465-02060', type: 'text' },
+  { name: 'brand', label: 'Marca del repuesto (opcional)', placeholder: 'Ej: Bosch, Monroe, Fram', type: 'text' },
+  { name: 'condition', label: 'Condición', type: 'select', options: ['Nuevo', 'Usado', 'Indistinto'] },
+  { name: 'quantity', label: 'Cantidad', type: 'number', placeholder: 'Ej: 1', defaultValue: '1' },
+  { name: 'notes', label: 'Notas adicionales', type: 'textarea', placeholder: 'Detalles específicos, color, ubicación, etc.' }
+];
 
 export default function RequestForm() {
   const navigate = useNavigate();
   const location = useLocation();
-  const nicheKey = location.state?.niche || 'fashion'; // Default to fashion as per user context
-  const config = NICHE_CONFIG[nicheKey] || NICHE_CONFIG.default;
 
   const [products, setProducts] = useState([
-    { id: 1, item: '', target: '', size: '', color: '', occasion: '', brand: '', description: '', images: [] }
+    { 
+      id: 1, 
+      category: location.state?.system || '', 
+      item: '', 
+      vehicleType: '', 
+      vehicleBrand: '', 
+      vehicleModel: '', 
+      yearFrom: '', 
+      yearTo: '', 
+      reference: '', 
+      brand: '', 
+      condition: '', 
+      quantity: '1', 
+      notes: '', 
+      images: [] 
+    }
   ]);
 
   const addProduct = () => {
     setProducts([...products, { 
       id: Date.now(), 
-      item: '', target: '', size: '', color: '', occasion: '', brand: '', description: '', images: [] 
+      category: '', 
+      item: '', 
+      vehicleType: '', 
+      vehicleBrand: '', 
+      vehicleModel: '', 
+      yearFrom: '', 
+      yearTo: '', 
+      reference: '', 
+      brand: '', 
+      condition: '', 
+      quantity: '1', 
+      notes: '', 
+      images: [] 
     }]);
   };
 
@@ -96,7 +97,7 @@ export default function RequestForm() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Submitting:', products);
+    console.log('Solicitud automotriz enviada:', products);
     navigate('/responses');
   };
 
@@ -107,8 +108,11 @@ export default function RequestForm() {
           <ArrowLeft className="w-6 h-6 text-gray-800" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Nueva Solicitud</h1>
-          <p className="text-xs text-gray-600">Categoría: {config.title}</p>
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <Car className="w-5 h-5 text-[#00EED0]" />
+            Solicitud Automotriz
+          </h1>
+          <p className="text-xs text-gray-600">Describe tu repuesto o accesorio</p>
         </div>
       </header>
 
@@ -121,7 +125,7 @@ export default function RequestForm() {
                   <span className="bg-[#00EED0]/20 text-[#4B227A] w-6 h-6 rounded-full flex items-center justify-center text-xs border border-[#00EED0]/30">
                     {index + 1}
                   </span>
-                  Producto
+                  Producto Automotriz
                 </h3>
                 {products.length > 1 && (
                   <button 
@@ -135,7 +139,7 @@ export default function RequestForm() {
               </div>
 
               <div className="space-y-4">
-                {config.fields.map((field) => (
+                {AUTOMOTIVE_FORM_FIELDS.map((field) => (
                   <div key={field.name}>
                     {field.type === 'select' ? (
                       <div className="flex flex-col gap-1.5">
@@ -164,34 +168,11 @@ export default function RequestForm() {
                           onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
                         />
                       </div>
-                    ) : field.type === 'year_range' ? (
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
-                        <div className="flex gap-3">
-                          <div className="flex-1">
-                            <label className="text-[10px] text-gray-600 mb-0.5 block pl-1">Desde</label>
-                            <Input 
-                              placeholder="Ej: 2015"
-                              type="number"
-                              value={product[field.name + 'From']}
-                              onChange={(e) => updateProduct(product.id, field.name + 'From', e.target.value)}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <label className="text-[10px] text-gray-600 mb-0.5 block pl-1">Hasta</label>
-                            <Input 
-                              placeholder="Ej: 2024"
-                              type="number"
-                              value={product[field.name + 'To']}
-                              onChange={(e) => updateProduct(product.id, field.name + 'To', e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
                     ) : (
                       <Input 
                         label={field.label}
                         placeholder={field.placeholder}
+                        type={field.type}
                         value={product[field.name]}
                         onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
                       />
@@ -199,7 +180,7 @@ export default function RequestForm() {
                   </div>
                 ))}
 
-                {/* Image Upload per product */}
+                {/* Image Upload */}
                 <div className="flex flex-col gap-1.5 pt-2">
                   <label className="text-sm font-medium text-gray-800">Imágenes de referencia</label>
                   <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
@@ -240,10 +221,9 @@ export default function RequestForm() {
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-white/30 max-w-md mx-auto z-20">
         <Button fullWidth onClick={handleSubmit} className="shadow-lg shadow-[#00EED0]/30">
-          👉 ENVIAR SOLICITUD ({products.length})
+          👉 ENVIAR SOLICITUD AUTOMOTRIZ ({products.length})
         </Button>
       </div>
     </div>
   );
 }
-

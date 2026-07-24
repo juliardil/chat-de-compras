@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -21,6 +21,20 @@ import { useAuth } from '../../context/AuthContext';
 export default function UserProfile() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const [profileImage, setProfileImage] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setProfileImage(url);
+    }
+  };
 
   const menuItems = [
     { 
@@ -60,12 +74,25 @@ export default function UserProfile() {
         <div className="flex flex-col items-center">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-[#4B227A]/10 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-              <User className="w-12 h-12 text-[#4B227A]" />
-              {/* Optional: <img src="..." className="w-full h-full object-cover" /> */}
+              {profileImage ? (
+                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-12 h-12 text-[#4B227A]" />
+              )}
             </div>
-            <button className="absolute bottom-0 right-0 p-2 bg-[#00EED0] text-gray-900 rounded-full shadow-lg shadow-[#00EED0]/40 border-2 border-white hover:bg-[#00EED0]/90 transition-colors">
+            <button 
+              onClick={handleImageClick}
+              className="absolute bottom-0 right-0 p-2 bg-[#00EED0] text-gray-900 rounded-full shadow-lg shadow-[#00EED0]/40 border-2 border-white hover:bg-[#00EED0]/90 transition-colors"
+            >
               <Camera className="w-4 h-4" />
             </button>
+            <input 
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageChange}
+            />
           </div>
           <h2 className="mt-4 text-xl font-bold text-gray-800">Usuario Demo</h2>
           <p className="text-gray-600 text-sm">usuario@ejemplo.com</p>

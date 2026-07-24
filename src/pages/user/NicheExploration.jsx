@@ -1,206 +1,71 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, X, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Car } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import UserBottomNav from '../../components/layout/UserBottomNav';
 
-// Actualización estética Junio 2026
-
-// Mock Data
-const INITIAL_MERCHANTS = [
-  {
-    id: 1,
-    name: 'TechStore',
-    niche: 'tech',
-    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=100',
-    active: true,
-    stories: [
-      { id: 101, type: 'image', url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600', text: 'Nuevos iPhone disponibles' },
-      { id: 102, type: 'image', url: 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&q=80&w=600', text: 'Ofertas en accesorios' }
-    ]
-  },
-  {
-    id: 2,
-    name: 'ModaUrbana',
-    niche: 'fashion',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100',
-    active: true,
-    stories: [
-      { id: 201, type: 'image', url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=600', text: 'Colección Verano 2024' },
-      { id: 202, type: 'image', url: 'https://images.unsplash.com/photo-1529139574466-a302d2d3f524?auto=format&fit=crop&q=80&w=600', text: 'Descuentos exclusivos' }
-    ]
-  },
-  {
-    id: 3,
-    name: 'AutoParts',
-    niche: 'auto',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100',
-    active: false,
-    stories: [
-      { id: 301, type: 'image', url: 'https://images.unsplash.com/photo-1486262715619-01b80250e0dc?auto=format&fit=crop&q=80&w=600', text: 'Repuestos originales' }
-    ]
-  }
-];
+// Página de Exploración - Exclusiva Automotriz
 
 export default function NicheExploration() {
   const navigate = useNavigate();
-  const [merchants, setMerchants] = useState(INITIAL_MERCHANTS);
-  const [currentMerchantIndex, setCurrentMerchantIndex] = useState(0);
-  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
-
-  useEffect(() => {
-    const customAds = JSON.parse(localStorage.getItem('custom_ads') || '[]');
-    if (customAds.length > 0) {
-      setMerchants(prev => {
-        const newMerchants = [...prev];
-        const techStoreIndex = newMerchants.findIndex(m => m.id === 1);
-        if (techStoreIndex >= 0) {
-          const techStore = { ...newMerchants[techStoreIndex] };
-          techStore.stories = [...customAds, ...techStore.stories];
-          newMerchants[techStoreIndex] = techStore;
-        }
-        return newMerchants;
-      });
-    }
-  }, []);
-
-  const merchant = merchants[currentMerchantIndex];
-  const story = merchant?.stories[currentStoryIndex];
-
-  if (!merchant || !story) return null; // Safety check
-
-  // Auto-advance stories
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleNext();
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [currentStoryIndex, currentMerchantIndex, merchants]); // Added merchants dep
-
-  const handleNext = () => {
-    if (currentStoryIndex < merchant.stories.length - 1) {
-      setCurrentStoryIndex(prev => prev + 1);
-    } else {
-      // Next merchant
-      if (currentMerchantIndex < merchants.length - 1) {
-        setCurrentMerchantIndex(prev => prev + 1);
-        setCurrentStoryIndex(0);
-      } else {
-        // End of all stories, loop back or stop
-        setCurrentMerchantIndex(0);
-        setCurrentStoryIndex(0);
-      }
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStoryIndex > 0) {
-      setCurrentStoryIndex(prev => prev - 1);
-    } else {
-      // Prev merchant
-      if (currentMerchantIndex > 0) {
-        setCurrentMerchantIndex(prev => prev - 1);
-        setCurrentStoryIndex(merchants[currentMerchantIndex - 1].stories.length - 1);
-      }
-    }
-  };
-
-  const handleMerchantSelect = (index) => {
-    setCurrentMerchantIndex(index);
-    setCurrentStoryIndex(0);
-  };
 
   return (
-    <div className="h-screen bg-[#E7E7E7] relative flex flex-col">
-      {/* Top Bar - Bubbles (Moved to Bottom) */}
-      <div className="absolute bottom-20 left-0 right-0 z-50 p-4 pb-4 bg-gradient-to-t from-[#4B227A]/80 to-transparent">
-        <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-2">
-          {merchants.map((m, idx) => (
-            <button 
-              key={m.id}
-              onClick={() => handleMerchantSelect(idx)}
-              className={`flex flex-col items-center gap-1 min-w-[50px] transition-all ${currentMerchantIndex === idx ? 'scale-110' : 'opacity-70'}`}
+    <div className="h-screen bg-[#E7E7E7] flex flex-col">
+      {/* Header */}
+      <header className="px-8 pt-12 pb-6 bg-white/70 backdrop-blur-md border-b border-white/30">
+        <div className="flex items-center gap-4 mb-2">
+          <button 
+            onClick={() => navigate('/')} 
+            className="p-2 hover:bg-white/50 rounded-full"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-800" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-800">Explorar Automotriz</h1>
+        </div>
+        <p className="text-gray-600">
+          Conecta con comercios locales para repuestos y servicios
+        </p>
+      </header>
+
+      {/* Contenido principal - Categorías de Inventario */}
+      <div className="flex-1 overflow-y-auto p-6 pb-24">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">¿Qué estás buscando?</h2>
+        
+        <div className="grid grid-cols-1 gap-3">
+          {[
+            'Motor', 'Frenos', 'Suspensión', 'Eléctrico',
+            'Llantas y Neumáticos', 'Interior / Exterior',
+            'Lubricantes y Fluidos', 'Taller Mecánico',
+            'Accesorios Vehiculares', 'Audio y Sonido', 'Seguridad Vehicular'
+          ].map((item, index) => (
+            <button
+              key={index}
+              onClick={() => navigate('/request', { state: { system: item } })}
+              className="w-full p-4 bg-white/80 backdrop-blur-md rounded-xl border border-white/30 shadow-sm hover:border-[#00EED0]/50 hover:bg-[#00EED0]/5 transition-all text-left"
             >
-              <div className={`w-10 h-10 rounded-full p-[1.5px] ${m.active ? 'bg-gradient-to-tr from-[#00EED0] to-[#4B227A]' : 'bg-gray-500'}`}>
-                <img src={m.avatar} className="w-full h-full rounded-full border border-white object-cover" alt={m.name} />
+              <div className="flex items-center justify-between">
+                <span className="text-gray-800 font-medium">{item}</span>
+                <ArrowLeft className="w-4 h-4 text-gray-500 rotate-180" />
               </div>
-              <span className="text-[9px] text-white font-medium truncate w-full text-center">{m.name}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Story Content */}
-      <div className="flex-1 relative bg-gray-900">
-        <img 
-          src={story.url} 
-          alt="Story" 
-          className="absolute inset-0 w-full h-full object-cover"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#4B227A]/80 via-transparent to-transparent" />
-        
-          
-        {/* Progress Bar (Removed) */}
-        {/* <div className="absolute top-24 left-0 right-0 flex justify-center gap-2 z-40">
-          {merchant.stories.map((s, idx) => (
-            <div 
-              key={s.id} 
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                idx === currentStoryIndex ? 'bg-white scale-125' : 
-                idx < currentStoryIndex ? 'bg-white/60' : 'bg-white/30'
-              }`}
-            />
-          ))}
-        </div> */}
-
-        {/* Tap Areas */}
-        <div className="absolute inset-0 flex z-30">
-          <div className="w-1/3 h-full" onClick={handlePrev}></div>
-          <div className="w-2/3 h-full" onClick={handleNext}></div>
-        </div>
-
-        {/* Info Overlay (Moved to Top) */}
-        <div className="absolute top-6 left-4 right-4 z-40">
-           <div className="flex items-center justify-between mb-0">
-              <div className="flex items-center gap-2">
-                <button onClick={() => navigate(-1)} className="text-white hover:bg-white/10 rounded-full p-1 -ml-1">
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <h3 className="text-white text-base font-bold">{merchant.name}</h3>
-              </div>
-              <button 
-                onClick={() => navigate(`/product/${merchant.id}`, { state: { product: {
-                  id: merchant.id,
-                  name: 'Colección ' + merchant.name,
-                  price: 89.99,
-                  description: 'Descubre nuestra nueva colección exclusiva. Calidad premium y diseño único.',
-                  images: [story.url],
-                  colors: ['Estándar'],
-                  sizes: ['Única'],
-                  rating: 4.9,
-                  reviews: 85,
-                  store: merchant.name
-                }}})}
-                className="text-[10px] font-medium text-white/80 border border-white/30 px-2 py-1 rounded-full hover:bg-white/10 transition-colors backdrop-blur-sm"
-              >
-                Ver detalle
-              </button>
-            </div>
-           <p className="text-white/90 text-xs ml-8">{story.text}</p>
-        </div>
-      </div>
-
-      {/* Fixed CTA */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#E7E7E7] z-50">
+      {/* Botón general */}
+      <div className="px-6 pb-4 z-30 bg-white/60 backdrop-blur-md border-t border-white/30">
         <Button 
           fullWidth 
-          onClick={() => navigate('/request', { state: { niche: merchant.niche } })}
+          onClick={() => navigate('/request')}
+          className="py-4 shadow-lg shadow-[#00EED0]/30"
         >
-          👉 ¿QUÉ NECESITAS?
+          <Car className="w-5 h-5 mr-2" />
+          👉 Otra solicitud automotriz
         </Button>
       </div>
+
+      <UserBottomNav />
     </div>
   );
 }
-

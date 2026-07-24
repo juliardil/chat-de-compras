@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
-import { Store, Star, Award, LogOut, Edit2, Plus, Zap } from 'lucide-react';
+import { Store, Star, Award, LogOut, Edit2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 
@@ -11,6 +11,22 @@ import Button from '../../components/ui/Button';
 export default function Profile() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [profileImage, setProfileImage] = useState(
+    "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200"
+  );
+  const fileInputRef = useRef(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setProfileImage(url);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-20">
@@ -25,13 +41,23 @@ export default function Profile() {
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-[#00EED0] to-[#4B227A] mb-4 relative shadow-[0_0_20px_rgba(0,238,208,0.4)]">
             <img 
-              src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200" 
+              src={profileImage} 
               alt="Profile" 
               className="w-full h-full rounded-full object-cover border-4 border-white"
             />
-            <button className="absolute bottom-0 right-0 bg-gray-800 text-white p-1.5 rounded-full border-2 border-white shadow-sm">
+            <button 
+              onClick={handleImageClick}
+              className="absolute bottom-0 right-0 bg-gray-800 text-white p-1.5 rounded-full border-2 border-white shadow-sm hover:bg-gray-700 transition-colors"
+            >
               <Edit2 className="w-3 h-3" />
             </button>
+            <input 
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageChange}
+            />
           </div>
           
           <h1 className="text-2xl font-bold text-gray-800 mb-1">TechMaster Store</h1>
@@ -59,30 +85,6 @@ export default function Profile() {
       </div>
 
       <div className="p-6 flex flex-col gap-6">
-        {/* Ad Creation Section */}
-        <div className="bg-gradient-to-r from-[#0197AF] to-[#4B227A] rounded-2xl p-5 text-white shadow-lg shadow-[#0197AF]/30 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                <Zap className="w-4 h-4 text-[#00EED0] fill-current" />
-              </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-white/80">Publicidad</span>
-            </div>
-            <h3 className="text-lg font-bold mb-1">Impulsa tus ventas</h3>
-            <p className="text-sm text-white/90 mb-4 max-w-[80%]">
-              Crea historias promocionales para destacar en la exploración de nichos.
-            </p>
-            <Button 
-              onClick={() => navigate('/create-ad')}
-              className="bg-[#00EED0] hover:bg-[#00EED0]/90 text-gray-900 border-none shadow-[0_0_15px_rgba(0,238,208,0.6)] text-xs py-2 h-auto"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Crear Nueva Historia
-            </Button>
-          </div>
-        </div>
-
         <div>
           <h2 className="font-bold text-gray-800 mb-4">Información del Negocio</h2>
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/30 p-4 space-y-4">

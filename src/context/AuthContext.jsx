@@ -47,8 +47,35 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    setUser(null);
-    navigate('/welcome');
+    try {
+      // 1. Limpiar todo el almacenamiento local
+      localStorage.clear();
+      
+      // 2. Limpiar sessionStorage
+      sessionStorage.clear();
+      
+      // 3. Eliminar cookies (simple pero efectivo para navegación básica)
+      document.cookie.split(";").forEach(cookie => {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        if (name) {
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+        }
+      });
+      
+      // 4. Limpiar el estado del usuario
+      setUser(null);
+      
+      // 5. Redirigir al login de forma segura
+      console.log('Sesión cerrada exitosamente');
+    } catch (error) {
+      // Manejo de errores básico: incluso si falla algo, redirigimos
+      console.error('Error al cerrar sesión:', error);
+      setUser(null);
+    } finally {
+      // Siempre redirigir al login, sin importar si hubo error
+      navigate('/login', { replace: true });
+    }
   };
 
   return (

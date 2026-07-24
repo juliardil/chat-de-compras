@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
-import { Shirt, Smartphone, Car, ChevronDown, Check, User, ChevronRight, Lock } from 'lucide-react';
+import { Car, Check, User, ChevronRight, Lock } from 'lucide-react';
 
 // Actualización estética Junio 2026
 
@@ -10,29 +10,43 @@ export default function NicheConfig() {
   const navigate = useNavigate();
   const [niches, setNiches] = useState([
     { 
-      id: 'tech', 
-      name: 'Tecnología', 
-      icon: Smartphone, 
+      id: 'automotive', 
+      name: 'Automotriz', 
+      icon: Car, 
       active: true, 
       demand: 'high',
       subcategories: [
-        { id: 'phones', name: 'Celulares', active: true },
-        { id: 'laptops', name: 'Laptops', active: true },
-        { id: 'acc', name: 'Accesorios', active: false }
+        { id: 'motor', name: 'Motor', active: true },
+        { id: 'brakes', name: 'Frenos', active: true },
+        { id: 'suspension', name: 'Suspensión', active: true },
+        { id: 'electric', name: 'Eléctrico', active: false },
+        { id: 'tires', name: 'Llantas y Neumáticos', active: false },
+        { id: 'interior', name: 'Interior / Exterior', active: false },
+        { id: 'lubricants', name: 'Lubricantes y Fluidos', active: false },
+        { id: 'mechanic', name: 'Taller Mecánico', active: false },
+        { id: 'accessories', name: 'Accesorios Vehiculares', active: false },
+        { id: 'audio', name: 'Audio y Sonido', active: false },
+        { id: 'security', name: 'Seguridad Vehicular', active: false }
       ]
-    },
-    { 
-      id: 'fashion', 
-      name: 'Moda', 
-      icon: Shirt, 
-      active: false, 
-      demand: 'medium',
-      subcategories: []
     }
   ]);
 
   const toggleNiche = (id) => {
     setNiches(niches.map(n => n.id === id ? { ...n, active: !n.active } : n));
+  };
+
+  const toggleSubcategory = (nicheId, subId) => {
+    setNiches(niches.map(n => {
+      if (n.id === nicheId) {
+        return {
+          ...n,
+          subcategories: n.subcategories.map(s => 
+            s.id === subId ? { ...s, active: !s.active } : s
+          )
+        };
+      }
+      return n;
+    }));
   };
 
   return (
@@ -113,6 +127,7 @@ export default function NicheConfig() {
                   {niche.subcategories.map(sub => (
                     <button 
                       key={sub.id}
+                      onClick={() => toggleSubcategory(niche.id, sub.id)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all ${
                         sub.active 
                           ? 'bg-[#00EED0]/20 border-[#00EED0]/30 text-[#4B227A]' 

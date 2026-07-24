@@ -11,7 +11,6 @@ import RecoverPassword from './pages/auth/RecoverPassword';
 
 // User Flow
 import Categories from './pages/user/Categories';
-import NicheExploration from './pages/user/NicheExploration';
 import RequestForm from './pages/user/RequestForm';
 import Responses from './pages/user/Responses';
 import ChatDispatch from './pages/common/ChatDispatch';
@@ -43,17 +42,14 @@ import NotFound from './pages/common/NotFound';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
-
-  if (loading) return <Splash />;
-
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#E7E7E7] shadow-xl relative overflow-hidden">
       <Routes>
-        <Route path="/" element={<Splash />} />
+        {/* Página de inicio predeterminada: Categorías */}
+        <Route path="/" element={<Categories />} />
         <Route path="/welcome" element={<Welcome />} />
         
-        {/* Auth */}
+        {/* Auth (ruta sigue existiendo pero no es el punto de entrada) */}
         <Route path="/login" element={<Login />} />
         <Route path="/register-user" element={<RegisterUser />} />
         <Route path="/register-commerce" element={<RegisterCommerce />} />
@@ -61,7 +57,7 @@ function AppRoutes() {
 
         {/* User Routes */}
         <Route path="/categories" element={<Categories />} />
-        <Route path="/niches" element={<NicheExploration />} />
+        <Route path="/niches" element={<Navigate to="/" replace />} />
         <Route path="/request" element={<RequestForm />} />
         <Route path="/responses" element={<Responses />} />
         <Route path="/chat/:id" element={<ChatDispatch />} />
@@ -73,12 +69,12 @@ function AppRoutes() {
         <Route path="/addresses" element={<Addresses />} />
         <Route path="/edit-user-profile" element={<EditUserProfile />} />
 
-        {/* Commerce Routes */}
+        {/* Commerce Routes - Redirigir create-ad a inicio */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/sales-history" element={<SalesHistory />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/edit-profile" element={<EditProfile />} />
-        <Route path="/create-ad" element={<CreateAd />} />
+        <Route path="/create-ad" element={<Navigate to="/" replace />} />
         <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/niche-config" element={<NicheConfig />} />
 

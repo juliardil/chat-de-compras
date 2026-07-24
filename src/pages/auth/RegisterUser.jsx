@@ -24,10 +24,10 @@ export default function RegisterUser() {
   return (
     <div className="min-h-screen bg-white p-6 flex flex-col">
       <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft className="w-6 h-6 text-dark" />
+        <button onClick={() => navigate('/welcome')} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+          <ArrowLeft className="w-6 h-6 text-gray-800" />
         </button>
-        <h1 className="text-2xl font-bold text-dark">Crear cuenta</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Crear cuenta</h1>
       </header>
 
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-5">
