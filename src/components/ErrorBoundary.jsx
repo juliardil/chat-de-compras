@@ -48,7 +48,7 @@ export default class ErrorBoundary extends React.Component {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="mt-3 w-full text-sm font-semibold text-[#0197AF] hover:underline"
+            className="mt-3 w-full text-sm font-semibold text-[#006E7A] hover:underline"
           >
             Recargar la aplicación
           </button>

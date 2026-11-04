@@ -61,7 +61,7 @@ export default function EditProfile() {
       <div className="p-6 space-y-6">
         {/* Descripción */}
         <div className="bg-white/80 backdrop-blur-md p-5 rounded-xl shadow-sm border border-white/30">
-          <div className="flex items-center gap-2 mb-4 text-[#0197AF] font-bold">
+          <div className="flex items-center gap-2 mb-4 text-[#006E7A] font-bold">
             <FileText className="w-5 h-5" />
             <h2>Descripción del Negocio</h2>
           </div>
@@ -110,7 +110,7 @@ export default function EditProfile() {
 
         {/* Contacto y Redes */}
         <div className="bg-white/80 backdrop-blur-md p-5 rounded-xl shadow-sm border border-white/30">
-          <div className="flex items-center gap-2 mb-4 text-[#0197AF] font-bold">
+          <div className="flex items-center gap-2 mb-4 text-[#006E7A] font-bold">
             <Globe className="w-5 h-5" />
             <h2>Contacto y Redes</h2>
           </div>

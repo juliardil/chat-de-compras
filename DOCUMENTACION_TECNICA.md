@@ -654,6 +654,8 @@ Las ilustraciones de producto, los avatares y la portada de Categorías son SVG 
 - Logout con limpieza de la sesión guardada.
 - Validación de formularios críticos (`ChangePassword`, `RequestForm`).
 - Build de Vite, ESLint y configuración de Capacitor (Android/iOS presentes).
+- `npm run cap:sync` copia el build a Android e iOS correctamente.
+- Tests automatizados con Vitest + Testing Library (`npm test`): chat (creación, envío, persistencia y cierre) y guardas de ruta por rol.
 
 ### 12.2 Simulado
 
@@ -724,6 +726,21 @@ Ordenados por impacto. No quedan bugs críticos ni deuda alta de assets/accesibi
 10. No hay backend; la persistencia de chats es local (`localStorage`), no compartida entre dispositivos.
 11. El `appId` nativo (`com.chatexpress.app`) no coincide con la marca visible; se mantiene por compatibilidad con los proyectos Android/iOS.
 12. El contraste de algunos textos sobre fondos glass sigue siendo bajo; conviene revisarlo con una auditoría WCAG.
+
+### 13.4 Contraste (auditoría Fase 4)
+
+| Combinación | Ratio | WCAG AA |
+|---|---|---|
+| `#006E7A` sobre `#FFFFFF` | 5.98:1 | Sí |
+| `#006E7A` sobre `#E7E7E7` | 4.84:1 | Sí |
+| `#4B227A` sobre `#FFFFFF` | 11.61:1 | Sí |
+| `#1F2937` sobre `#FFFFFF` | 14.68:1 | Sí |
+| `#6B7280` sobre `#FFFFFF` | 4.83:1 | Sí (límite) |
+| `#6B7280` sobre `#E7E7E7` | 3.91:1 | No para texto normal |
+| `#0197AF` sobre `#FFFFFF` | 3.47:1 | Solo texto grande o iconos |
+| `#00EED0` sobre `#FFFFFF` | 1.49:1 | No (se reserva para fondos/bordes) |
+
+Se sustituyó el color de textos e iconos que usaban neón o azul acero por `#006E7A`; el neón se mantiene en botones, fondos y bordes. Queda pendiente revisar `gray-500` sobre el fondo general y los textos sobre vidrio.
 
 ---
 
@@ -806,9 +823,10 @@ Puntos de integración recomendados:
 - [x] Sustituir las fotos externas por assets locales y añadir fallback de imagen.
 - [x] Revisar accesibilidad básica (zoom, aria-labels, foco y teclado).
 - [x] Añadir `ErrorBoundary`.
-- [ ] Probar sincronización Capacitor en dispositivo/emulador.
-- [ ] Añadir tests mínimos de flujos críticos.
-- [ ] Auditar contraste WCAG de textos sobre glass.
+- [ ] Probar sincronización Capacitor en dispositivo/emulador (la copia web ya funciona con `npm run cap:sync`).
+- [x] Añadir tests mínimos de flujos críticos (`npm test`, 8 pruebas).
+- [x] Corregir el contraste de textos e iconos neón/azul acero.
+- [ ] Revisar `text-gray-500` sobre fondos `#E7E7E7` y textos sobre glass.
 
 ---
 
@@ -822,6 +840,7 @@ Puntos de integración recomendados:
 | Noviembre 2026 | Fase 2: marca "Chat de Compras", contenido 100% automotriz, SVG locales, favicon y documentación | Equipo de Desarrollo Chat de Compras |
 | Noviembre 2026 | Fase 3: chat global, estado por conversación, persistencia local, cierre real del temporizador y respuestas sin pérdidas | Equipo de Desarrollo Chat de Compras |
 | Noviembre 2026 | Fase 4: assets locales, `SafeImage`, `ErrorBoundary`, zoom, aria-labels, foco visible y navegación por teclado | Equipo de Desarrollo Chat de Compras |
+| Noviembre 2026 | Fase 4b: tests con Vitest/Testing Library, `cap sync` verificado y corrección de contraste de textos | Equipo de Desarrollo Chat de Compras |
 
 ### 16.1 Instrucciones para actualizar
 

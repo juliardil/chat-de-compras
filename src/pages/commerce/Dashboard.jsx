@@ -78,9 +78,9 @@ export default function Dashboard() {
   };
 
   const stats = [
-    { label: 'Ventas hoy', value: '$2,450', icon: DollarSign, color: 'bg-gradient-to-br from-[#0197AF]/20 to-[#4B227A]/20 text-[#0197AF]' },
+    { label: 'Ventas hoy', value: '$2,450', icon: DollarSign, color: 'bg-gradient-to-br from-[#0197AF]/20 to-[#4B227A]/20 text-[#006E7A]' },
     { label: 'Leads activos', value: '12', icon: Users, color: 'bg-gradient-to-br from-[#4B227A]/20 to-[#00EED0]/20 text-[#4B227A]' },
-    { label: 'Conversión', value: '18%', icon: TrendingUp, color: 'bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 text-[#00EED0]' },
+    { label: 'Conversión', value: '18%', icon: TrendingUp, color: 'bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 text-[#006E7A]' },
   ];
 
   const opportunities = [
@@ -145,7 +145,7 @@ export default function Dashboard() {
                   onClick={() => handleMenuNavigate(item.path)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:bg-white transition-colors border-b border-white/40 last:border-b-0"
                 >
-                  <item.icon className="w-4 h-4 text-[#0197AF]" />
+                  <item.icon className="w-4 h-4 text-[#006E7A]" />
                   <span className="flex-1">{item.label}</span>
                   {item.indicator && (
                     <span className="w-2.5 h-2.5 bg-[#4B227A] rounded-full"></span>
@@ -175,7 +175,7 @@ export default function Dashboard() {
         <div className="flex flex-col gap-4">
           {opportunities.map((opp) => (
             <div key={opp.id} className="bg-white/70 backdrop-blur-md p-4 rounded-[24px] shadow-sm border border-white/30 relative overflow-hidden transition-all hover:shadow-md">
-              <div className="absolute top-2 right-4 text-[13px] font-bold text-[#0197AF] flex items-center gap-1">
+              <div className="absolute top-2 right-4 text-[13px] font-bold text-[#006E7A] flex items-center gap-1">
                 {opp.time_left}
               </div>
 
@@ -212,13 +212,13 @@ export default function Dashboard() {
                         alt={`Foto de ${opp.user}`} 
                       />
                       <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
-                        <ShieldCheck className="w-3.5 h-3.5 text-[#00EED0] fill-current" />
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#006E7A] fill-current" />
                       </div>
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-gray-800 text-sm">{opp.user}</span>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#00EED0] fill-current" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#006E7A] fill-current" />
                         <div className="flex items-center gap-0.5">
                           <StarIcon className="w-3 h-3 text-amber-400 fill-current" />
                           <span className="text-[11px] font-bold text-gray-700">{opp.rating}</span>
@@ -231,7 +231,7 @@ export default function Dashboard() {
                   </div>
                   <button 
                     onClick={() => setSelectedOpp(opp)}
-                    className="font-bold text-[#0197AF] bg-[#0197AF]/10 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 hover:bg-[#0197AF]/20 transition-colors border border-[#0197AF]/30"
+                    className="font-bold text-[#006E7A] bg-[#0197AF]/10 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 hover:bg-[#0197AF]/20 transition-colors border border-[#0197AF]/30"
                   >
                     <Eye className="w-3.5 h-3.5" /> Ver detalles
                   </button>
@@ -344,12 +344,12 @@ export default function Dashboard() {
               
               <div className="flex gap-3">
                 <div className="flex-1 bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 p-3 rounded-xl border border-[#0197AF]/30">
-                  <span className="text-xs text-[#0197AF] block mb-1">Presupuesto</span>
+                  <span className="text-xs text-[#006E7A] block mb-1">Presupuesto</span>
                   <p className="text-[#4B227A] font-bold text-lg">{selectedOpp.budget}</p>
                 </div>
                 <div className="flex-1 bg-gradient-to-br from-[#4B227A]/20 to-[#00EED0]/20 p-3 rounded-xl border border-[#4B227A]/30">
                   <span className="text-xs text-[#4B227A] block mb-1">Usuario</span>
-                  <p className="text-[#0197AF] font-bold">{selectedOpp.user}</p>
+                  <p className="text-[#006E7A] font-bold">{selectedOpp.user}</p>
                 </div>
               </div>
             </div>

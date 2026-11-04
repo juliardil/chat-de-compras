@@ -40,9 +40,11 @@ export const COLORS = {
   deepPurple: 'bg-[#4B227A]',
   deepPurpleText: 'text-[#4B227A]',
   steelBlue: 'bg-[#0197AF]',
-  steelBlueText: 'text-[#0197AF]',
+  // Texto accesible sobre fondos claros: #006E7A cumple WCAG AA (5.98:1 en blanco)
+  steelBlueText: 'text-[#006E7A]',
   neonMint: 'bg-[#00EED0]',
-  neonMintText: 'text-[#00EED0]',
+  // El neón se reserva para fondos/bordes; como texto usa el teal accesible
+  neonMintText: 'text-[#006E7A]',
   glass: 'bg-white/70'
 };
 

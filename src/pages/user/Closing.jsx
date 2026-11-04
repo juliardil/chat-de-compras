@@ -44,7 +44,7 @@ export default function Closing() {
               className="p-1 transition-transform hover:scale-110 focus:outline-none"
             >
               <Star 
-                className={`w-10 h-10 ${star <= rating ? 'text-[#00EED0] fill-current' : 'text-gray-400'}`} 
+                className={`w-10 h-10 ${star <= rating ? 'text-[#006E7A] fill-current' : 'text-gray-400'}`} 
               />
             </button>
           ))}

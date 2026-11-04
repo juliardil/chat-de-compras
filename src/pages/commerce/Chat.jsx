@@ -48,7 +48,7 @@ export default function Chat() {
           </button>
           <div>
             <h1 className="font-bold text-gray-800">Juan P.</h1>
-            <p className="text-xs text-[#00EED0] flex items-center gap-1">
+            <p className="text-xs text-[#006E7A] flex items-center gap-1">
               <span className="w-2 h-2 bg-[#00EED0] rounded-full"></span>
               En línea
             </p>
@@ -76,7 +76,7 @@ export default function Chat() {
           <p className="font-bold text-gray-800">$120 • Transferencia</p>
         </div>
         <div className="text-right">
-          <span className="text-xs text-[#0197AF] font-medium">Pendiente</span>
+          <span className="text-xs text-[#006E7A] font-medium">Pendiente</span>
         </div>
       </div>
 
@@ -187,7 +187,7 @@ export default function Chat() {
 
             <div className="flex flex-col items-center mb-6">
               <div className="w-20 h-20 bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 rounded-full flex items-center justify-center mb-3 border border-[#0197AF]/30">
-                <History className="w-10 h-10 text-[#0197AF]" />
+                <History className="w-10 h-10 text-[#006E7A]" />
               </div>
               <h2 className="text-xl font-bold text-gray-800">Historial de Compras</h2>
               <p className="text-sm text-gray-600">Reputación de Juan P.</p>
@@ -198,11 +198,11 @@ export default function Chat() {
                 <div className="flex items-center gap-1 text-[#4B227A] font-bold text-lg mb-1">
                   {buyerHistory.rating} <Star className="w-4 h-4 fill-current" />
                 </div>
-                <span className="text-[10px] text-[#0197AF] font-bold uppercase tracking-wider">Calificación</span>
+                <span className="text-[10px] text-[#006E7A] font-bold uppercase tracking-wider">Calificación</span>
               </div>
               <div className="flex-1 bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 p-4 rounded-2xl flex flex-col items-center border border-[#00EED0]/30">
                 <span className="text-[#4B227A] font-bold text-lg mb-1">{buyerHistory.totalPurchases}</span>
-                <span className="text-[10px] text-[#00EED0] font-bold uppercase tracking-wider">Compras</span>
+                <span className="text-[10px] text-[#006E7A] font-bold uppercase tracking-wider">Compras</span>
               </div>
             </div>
 
@@ -216,7 +216,7 @@ export default function Chat() {
                     <span className="text-xs font-bold text-gray-800">{rev.seller}</span>
                     <div className="flex gap-0.5">
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-3 h-3 ${i < rev.stars ? 'text-[#00EED0] fill-current' : 'text-gray-300'}`} />
+                        <Star key={i} className={`w-3 h-3 ${i < rev.stars ? 'text-[#006E7A] fill-current' : 'text-gray-300'}`} />
                       ))}
                     </div>
                   </div>

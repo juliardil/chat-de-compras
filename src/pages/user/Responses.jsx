@@ -60,7 +60,7 @@ export default function Responses() {
         </button>
         <div>
           <h1 className="text-lg font-bold text-gray-800">Respuestas</h1>
-          <p className="text-xs text-[#00EED0] font-medium">2 ofertas recibidas</p>
+          <p className="text-xs text-[#006E7A] font-medium">2 ofertas recibidas</p>
         </div>
       </header>
 
@@ -109,11 +109,11 @@ export default function Responses() {
                 </div>
                 
                 <div className="flex items-center gap-1 mb-2">
-                  <Star className="w-3 h-3 text-[#00EED0] fill-current" />
+                  <Star className="w-3 h-3 text-[#006E7A] fill-current" />
                   <span className="text-xs font-medium">{offer.rating}</span>
                 </div>
 
-                <div className="text-lg font-bold text-[#00EED0] mb-2">
+                <div className="text-lg font-bold text-[#006E7A] mb-2">
                   ${offer.price}
                 </div>
               </div>
@@ -147,7 +147,7 @@ export default function Responses() {
             </button>
             
             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-[#00EED0]" />
+              <Package className="w-5 h-5 text-[#006E7A]" />
               Disponibilidad de Productos
             </h3>
 

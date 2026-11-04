@@ -31,7 +31,7 @@ export default function Tracking() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {req.status === 'receiving_offers' ? (
-                  <span className="bg-[#0197AF]/20 text-[#0197AF] px-2 py-1 rounded-md text-xs font-medium border border-[#0197AF]/30">
+                  <span className="bg-[#0197AF]/20 text-[#006E7A] px-2 py-1 rounded-md text-xs font-medium border border-[#0197AF]/30">
                     Recibiendo ofertas
                   </span>
                 ) : (
@@ -48,7 +48,7 @@ export default function Tracking() {
               
               <button 
                 onClick={() => navigate('/responses')}
-                className="text-[#00EED0] text-sm font-medium flex items-center hover:underline"
+                className="text-[#006E7A] text-sm font-medium flex items-center hover:underline"
               >
                 Ver <ChevronRight className="w-4 h-4" />
               </button>

@@ -102,12 +102,12 @@ export default function ProductDetail() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800 mb-1">{product.name}</h1>
             <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-[#00EED0] fill-[#00EED0]" />
+              <Star className="w-4 h-4 text-[#006E7A] fill-[#00EED0]" />
               <span className="text-sm font-medium text-gray-800">{product.rating}</span>
               <span className="text-sm text-gray-600">({product.reviews} reseñas)</span>
             </div>
           </div>
-          <div className="text-2xl font-bold text-[#00EED0]">
+          <div className="text-2xl font-bold text-[#006E7A]">
             ${product.price.toFixed(2)}
           </div>
         </div>

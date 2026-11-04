@@ -63,7 +63,7 @@ export default function NicheConfig() {
           className="bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-white/30 flex items-center justify-between cursor-pointer hover:bg-white/90 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#0197AF]/20 rounded-full flex items-center justify-center text-[#0197AF]">
+            <div className="w-10 h-10 bg-[#0197AF]/20 rounded-full flex items-center justify-center text-[#006E7A]">
               <User className="w-5 h-5" />
             </div>
             <div>

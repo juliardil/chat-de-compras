@@ -53,7 +53,7 @@ export default function Chat() {
           </button>
           <div>
             <h1 className="font-bold text-gray-800">Repuestos del Sur</h1>
-            <p className="text-xs text-[#00EED0] flex items-center gap-1">
+            <p className="text-xs text-[#006E7A] flex items-center gap-1">
               <span className="w-2 h-2 bg-[#00EED0] rounded-full"></span>
               En línea
             </p>
@@ -72,7 +72,7 @@ export default function Chat() {
           <p className="font-bold text-gray-800">$120 • Transferencia</p>
         </div>
         <div className="text-right">
-            <span className="text-xs text-[#0197AF] font-medium">Pendiente</span>
+            <span className="text-xs text-[#006E7A] font-medium">Pendiente</span>
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export default function Chat() {
           <div className="bg-white/85 backdrop-blur-md w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-10 duration-300 border border-white/30">
             <div className="flex justify-between items-center mb-6 sticky top-0 bg-white/90 backdrop-blur-sm z-10 pb-2 border-b border-white/30">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <MapPin className="w-6 h-6 text-[#0197AF]" />
+                <MapPin className="w-6 h-6 text-[#006E7A]" />
                 Datos de Envío
               </h2>
               <button 

@@ -65,8 +65,8 @@ export default function ChatList() {
           className={clsx(
             "flex-1 py-3 text-sm font-bold border-b-2 transition-colors",
             activeTab === 'open' 
-              ? "border-[#00EED0] text-[#00EED0]" 
-              : "border-transparent text-gray-600 hover:text-[#0197AF]"
+              ? "border-[#00EED0] text-[#006E7A]" 
+              : "border-transparent text-gray-600 hover:text-[#006E7A]"
           )}
         >
           Abiertos ({openChats.length})
@@ -76,7 +76,7 @@ export default function ChatList() {
           className={clsx(
             "flex-1 py-3 text-sm font-bold border-b-2 transition-colors",
             activeTab === 'new' 
-              ? "border-[#0197AF] text-[#0197AF]" 
+              ? "border-[#0197AF] text-[#006E7A]" 
               : "border-transparent text-gray-600 hover:text-[#4B227A]"
           )}
         >
@@ -114,7 +114,7 @@ export default function ChatList() {
                 <h3 className="font-bold text-gray-800 text-sm truncate">{chat.user}</h3>
                 <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">{chat.time}</span>
               </div>
-              <p className="text-xs font-medium text-[#0197AF] mb-1 truncate">{chat.product}</p>
+              <p className="text-xs font-medium text-[#006E7A] mb-1 truncate">{chat.product}</p>
               <p className={clsx(
                 "text-sm truncate",
                 chat.unread > 0 ? "text-gray-800 font-medium" : "text-gray-500"

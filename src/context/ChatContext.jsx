@@ -103,7 +103,7 @@ export const ChatProvider = ({ children }) => {
   });
 
   const activeChat = (activeChatId && chats[activeChatId]) || EMPTY_CHAT;
-  const { messages, timeLeft, sellerStep } = activeChat;
+  const { messages, timeLeft, sellerStep, closed } = activeChat;
 
   // Persistir las conversaciones para que sobrevivan a una recarga
   useEffect(() => {
@@ -298,6 +298,7 @@ export const ChatProvider = ({ children }) => {
       messages,
       timeLeft,
       sellerStep,
+      closed,
       // Entrada y modales
       inputText,
       setInputText,

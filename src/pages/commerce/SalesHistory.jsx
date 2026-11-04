@@ -83,8 +83,8 @@ export default function SalesHistory() {
   };
 
   const kpis = [
-    { label: 'Ingresos Totales', value: '$2,595.00', change: '+24% vs. semana anterior', icon: DollarSign, color: 'text-[#00EED0]' },
-    { label: 'Ventas Cerradas', value: '21', change: '+8 esta semana', icon: ShoppingBag, color: 'text-[#0197AF]' },
+    { label: 'Ingresos Totales', value: '$2,595.00', change: '+24% vs. semana anterior', icon: DollarSign, color: 'text-[#006E7A]' },
+    { label: 'Ventas Cerradas', value: '21', change: '+8 esta semana', icon: ShoppingBag, color: 'text-[#006E7A]' },
     { label: 'Ticket Promedio', value: '$123.57', change: 'Promedio por venta', icon: Receipt, color: 'text-[#4B227A]' },
     { label: 'Mejor Día', value: '$990', change: 'Sábado', icon: Trophy, color: 'text-gray-700' },
   ];
@@ -245,7 +245,7 @@ export default function SalesHistory() {
                       ${day.value}
                     </div>
                   </div>
-                  <span className={`text-[10px] font-black tracking-tighter uppercase ${day.star ? 'text-[#00EED0]' : 'text-gray-500'}`}>
+                  <span className={`text-[10px] font-black tracking-tighter uppercase ${day.star ? 'text-[#006E7A]' : 'text-gray-500'}`}>
                     {day.name}
                   </span>
                 </div>
@@ -313,8 +313,8 @@ export default function SalesHistory() {
                 <span className="font-black text-gray-800 text-lg tracking-tighter">{tx.amount}</span>
                 <div className="flex items-center gap-1.5 text-gray-500 bg-white/70 px-2.5 py-1 rounded-xl border border-white/30">
                   {tx.method.includes('Transferencia') ? <Wallet className="w-3 h-3 text-[#4B227A]" /> : 
-                   tx.method.includes('Tarjeta') ? <CreditCard className="w-3 h-3 text-[#0197AF]" /> : 
-                   <DollarSign className="w-3 h-3 text-[#00EED0]" />}
+                   tx.method.includes('Tarjeta') ? <CreditCard className="w-3 h-3 text-[#006E7A]" /> : 
+                   <DollarSign className="w-3 h-3 text-[#006E7A]" />}
                   <span className="text-[9px] font-black uppercase tracking-tighter">{tx.method.split(' ')[0]}</span>
                 </div>
               </div>

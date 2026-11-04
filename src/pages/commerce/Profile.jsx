@@ -69,7 +69,7 @@ export default function Profile() {
           <div className="flex items-center gap-6">
             <div className="flex flex-col items-center">
               <div className="flex items-center gap-1 font-bold text-gray-800 text-lg">
-                4.8 <Star className="w-4 h-4 text-[#00EED0] fill-current" />
+                4.8 <Star className="w-4 h-4 text-[#006E7A] fill-current" />
               </div>
               <span className="text-xs text-gray-500">Rating</span>
             </div>
@@ -80,7 +80,7 @@ export default function Profile() {
             </div>
             <div className="w-[1px] h-8 bg-white/40" />
             <div className="flex flex-col items-center">
-              <div className="font-bold text-[#0197AF] text-lg">PRO</div>
+              <div className="font-bold text-[#006E7A] text-lg">PRO</div>
               <span className="text-xs text-gray-500">Nivel</span>
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function Profile() {
             <div>
               <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Nichos Activos</label>
               <div className="flex flex-wrap gap-2 mt-2">
-                <span className="px-3 py-1 bg-[#0197AF]/10 text-[#0197AF] rounded-lg text-xs font-bold border border-[#0197AF]/20">Automotriz</span>
+                <span className="px-3 py-1 bg-[#0197AF]/10 text-[#006E7A] rounded-lg text-xs font-bold border border-[#0197AF]/20">Automotriz</span>
                 <span className="px-3 py-1 bg-white/50 text-gray-600 rounded-lg text-xs font-bold border border-white/30">Repuestos</span>
               </div>
             </div>
@@ -124,14 +124,14 @@ export default function Profile() {
                 </div>
                 <Button
                   variant="outline"
-                  className="py-1.5 px-3 text-xs h-auto border-[#0197AF]/30 text-[#0197AF]"
+                  className="py-1.5 px-3 text-xs h-auto border-[#0197AF]/30 text-[#006E7A]"
                   onClick={() => setShowMembershipNotice(true)}
                 >
                   Gestionar
                 </Button>
               </div>
               {showMembershipNotice && (
-                <p className="text-[11px] text-[#0197AF] mt-2">
+                <p className="text-[11px] text-[#006E7A] mt-2">
                   La gestión de membresía estará disponible próximamente.
                 </p>
               )}

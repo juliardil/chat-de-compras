@@ -161,7 +161,7 @@ export default function RequestForm() {
         </button>
         <div>
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Car className="w-5 h-5 text-[#00EED0]" />
+            <Car className="w-5 h-5 text-[#006E7A]" />
             Solicitud Automotriz
           </h1>
           <p className="text-xs text-gray-600">Describe tu repuesto o accesorio</p>
@@ -173,7 +173,7 @@ export default function RequestForm() {
           {products.map((product, index) => (
             <div key={product.id} id={`product-${product.id}`} className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
               <div className="flex justify-between items-center mb-4 border-b border-white/40 pb-2">
-                <h3 className="font-bold text-[#00EED0] flex items-center gap-2">
+                <h3 className="font-bold text-[#006E7A] flex items-center gap-2">
                   <span className="bg-[#00EED0]/20 text-[#4B227A] w-6 h-6 rounded-full flex items-center justify-center text-xs border border-[#00EED0]/30">
                     {index + 1}
                   </span>
@@ -240,7 +240,7 @@ export default function RequestForm() {
                   <label className="text-sm font-medium text-gray-800">Imágenes de referencia</label>
                   <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
                     <label className="flex flex-col items-center justify-center w-20 h-20 bg-white/70 border-2 border-dashed border-[#0197AF]/30 rounded-xl cursor-pointer hover:bg-white/80 active:scale-95 transition-all flex-shrink-0">
-                      <Camera className="w-5 h-5 text-[#0197AF] mb-1" />
+                      <Camera className="w-5 h-5 text-[#006E7A] mb-1" />
                       <span className="text-[10px] text-gray-600">Foto</span>
                       <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(product.id, e)} />
                     </label>
@@ -266,7 +266,7 @@ export default function RequestForm() {
           <button
             type="button"
             onClick={addProduct}
-            className="w-full py-4 border-2 border-dashed border-[#00EED0]/30 rounded-2xl flex items-center justify-center gap-2 text-[#00EED0] font-bold hover:bg-[#00EED0]/10 transition-colors"
+            className="w-full py-4 border-2 border-dashed border-[#00EED0]/30 rounded-2xl flex items-center justify-center gap-2 text-[#006E7A] font-bold hover:bg-[#00EED0]/10 transition-colors"
           >
             <Plus className="w-5 h-5" />
             Agregar otro producto

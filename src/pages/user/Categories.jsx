@@ -19,7 +19,7 @@ export default function Categories() {
       <header className="px-8 pt-12 pb-4 bg-white/70 backdrop-blur-md border-b border-white/30">
         <div className="flex justify-between items-center mb-1">
           <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2">
-            <Car className="w-8 h-8 text-[#00EED0]" />
+            <Car className="w-8 h-8 text-[#006E7A]" />
             Automotriz
           </h1>
         </div>

@@ -90,12 +90,22 @@ public/
 
 - [Documentación técnica completa](./DOCUMENTACION_TECNICA.md): arquitectura, rutas, contextos, flujos, datos mock, deuda técnica y guías de extensión.
 
+## Pruebas
+
+```bash
+npm test        # Vitest + Testing Library (8 pruebas)
+npm run lint    # ESLint
+npm run build   # Build de producción
+```
+
+Cubren creación/envío/persistencia/cierre del chat y las guardas de ruta por rol.
+
 ## Limitaciones conocidas
 
 - Sin backend, autenticación real ni persistencia en servidor.
 - Las conversaciones se guardan solo en el dispositivo (`localStorage`); no se sincronizan entre comprador y comercio en equipos distintos.
 - Conviven dos sistemas de diseño (azul legacy y neón/glass).
-- La accesibilidad básica está cubierta (zoom, foco, `aria-label`, teclado), pero falta auditar contraste WCAG.
-- No hay tests automatizados ni sincronización verificada con Capacitor en dispositivo.
+- Se corrigió el contraste de los textos principales; queda revisar `gray-500` sobre el fondo general y los textos sobre vidrio.
+- La copia web a Android/iOS (`npm run cap:sync`) funciona, pero falta instalar y probar en un dispositivo/emulador.
 
 Consulta la sección 13 de la documentación técnica para el listado completo.

@@ -44,7 +44,7 @@ export default function Welcome() {
           <span className="text-gray-400 text-sm">¿Ya tienes cuenta? </span>
           <button 
             onClick={() => navigate('/login')}
-            className="text-[#0197AF] font-semibold text-sm hover:underline"
+            className="text-[#006E7A] font-semibold text-sm hover:underline"
           >
             Iniciar sesión
           </button>

@@ -60,7 +60,7 @@ export default function RegisterCommerce() {
       <div className="flex-1 overflow-y-auto no-scrollbar pb-6">
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <Car className="w-5 h-5 text-[#00EED0]" />
+            <Car className="w-5 h-5 text-[#006E7A]" />
             Datos del Negocio Automotriz
           </h3>
           

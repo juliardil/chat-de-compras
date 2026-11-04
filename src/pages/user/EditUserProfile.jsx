@@ -66,7 +66,7 @@ export default function EditUserProfile() {
               onChange={handlePhotoChange}
             />
           </div>
-          <p className="mt-2 text-xs font-bold text-[#00EED0] uppercase tracking-widest">Cambiar foto</p>
+          <p className="mt-2 text-xs font-bold text-[#006E7A] uppercase tracking-widest">Cambiar foto</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

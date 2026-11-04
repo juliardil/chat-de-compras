@@ -30,7 +30,7 @@ export default function History() {
             <div className="flex-1">
               <div className="flex justify-between items-start">
                 <h3 className="font-bold text-gray-800 text-sm">{item.product}</h3>
-                <span className="text-[#00EED0] font-bold text-sm">${item.price}</span>
+                <span className="text-[#006E7A] font-bold text-sm">${item.price}</span>
               </div>
               <p className="text-xs text-gray-500 mb-2">{item.store} • {item.date}</p>
               
@@ -41,7 +41,7 @@ export default function History() {
                 
                 <button
                   onClick={() => navigate('/request')}
-                  className="text-[#0197AF] text-xs font-semibold flex items-center gap-1 hover:bg-[#0197AF]/10 px-2 py-1 rounded-md transition-colors border border-[#0197AF]/20"
+                  className="text-[#006E7A] text-xs font-semibold flex items-center gap-1 hover:bg-[#0197AF]/10 px-2 py-1 rounded-md transition-colors border border-[#0197AF]/20"
                 >
                   <RefreshCw className="w-3 h-3" /> Repetir
                 </button>

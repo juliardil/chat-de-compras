@@ -25,7 +25,7 @@ export default function CommerceBottomNav() {
           onClick={() => navigate(item.path)}
           aria-current={isActive(item.path) ? 'page' : undefined}
           className={`flex flex-col items-center gap-1 transition-colors ${
-            isActive(item.path) ? 'text-[#00EED0]' : 'text-gray-600 hover:text-[#0197AF]'
+            isActive(item.path) ? 'text-[#006E7A]' : 'text-gray-600 hover:text-[#006E7A]'
           }`}
         >
           <span className="relative">

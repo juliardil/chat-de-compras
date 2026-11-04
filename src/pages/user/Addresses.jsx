@@ -117,7 +117,7 @@ export default function Addresses() {
               fullWidth 
               variant="outline" 
               onClick={() => setShowForm(true)}
-              className="border-dashed border-2 py-6 rounded-3xl text-[#00EED0] hover:bg-[#00EED0]/10 transition-all flex items-center justify-center gap-2"
+              className="border-dashed border-2 py-6 rounded-3xl text-[#006E7A] hover:bg-[#00EED0]/10 transition-all flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Añadir Nueva Dirección
@@ -200,7 +200,7 @@ export default function Addresses() {
               <Button 
                 type="button" 
                 variant="outline" 
-                className="flex-1 rounded-2xl py-4 border-[#0197AF]/30 text-[#0197AF]"
+                className="flex-1 rounded-2xl py-4 border-[#0197AF]/30 text-[#006E7A]"
                 onClick={() => setShowForm(false)}
               >
                 Cancelar

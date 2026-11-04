@@ -39,7 +39,7 @@ export default function UserProfile() {
       icon: User, 
       label: 'Información Personal', 
       path: '/edit-user-profile', 
-      color: 'text-[#0197AF]', 
+      color: 'text-[#006E7A]', 
       bgColor: 'bg-[#0197AF]/10' 
     },
     { 
@@ -53,14 +53,14 @@ export default function UserProfile() {
       icon: Bell, 
       label: 'Notificaciones', 
       path: '/notifications', 
-      color: 'text-[#00EED0]', 
+      color: 'text-[#006E7A]', 
       bgColor: 'bg-[#00EED0]/20' 
     },
     { 
       icon: History, 
       label: 'Historial', 
       path: '/history', 
-      color: 'text-[#0197AF]', 
+      color: 'text-[#006E7A]', 
       bgColor: 'bg-[#0197AF]/10' 
     },
     { 
