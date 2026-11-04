@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Automóvil en un taller mecánico">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0F2A33"/>
+      <stop offset="0.55" stop-color="#123B47"/>
+      <stop offset="1" stop-color="#1C1633"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B1F26"/>
+      <stop offset="1" stop-color="#07141A"/>
+    </linearGradient>
+    <linearGradient id="car" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00EED0"/>
+      <stop offset="0.55" stop-color="#0197AF"/>
+      <stop offset="1" stop-color="#4B227A"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#CFFCF6" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#7FE8DD" stop-opacity="0.55"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#00EED0" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#00EED0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="1000" fill="url(#bg)"/>
+  <rect width="800" height="1000" fill="url(#glow)"/>
+
+  <!-- Taller: pared y portón -->
+  <rect x="90" y="120" width="620" height="520" rx="28" fill="#0D2831" stroke="#1F5561" stroke-width="4"/>
+  <g stroke="#1F5561" stroke-width="8" opacity="0.55">
+    <line x1="120" y1="200" x2="680" y2="200"/>
+    <line x1="120" y1="280" x2="680" y2="280"/>
+    <line x1="120" y1="360" x2="680" y2="360"/>
+    <line x1="120" y1="440" x2="680" y2="440"/>
+    <line x1="120" y1="520" x2="680" y2="520"/>
+    <line x1="200" y1="200" x2="200" y2="520"/>
+    <line x1="400" y1="200" x2="400" y2="520"/>
+    <line x1="600" y1="200" x2="600" y2="520"/>
+  </g>
+
+  <!-- Lámparas -->
+  <g fill="#00EED0" opacity="0.9">
+    <rect x="150" y="150" width="180" height="14" rx="7"/>
+    <rect x="470" y="150" width="180" height="14" rx="7"/>
+  </g>
+
+  <!-- Piso -->
+  <rect x="0" y="640" width="800" height="360" fill="url(#floor)"/>
+  <g stroke="#123B47" stroke-width="6" opacity="0.7">
+    <line x1="0" y1="720" x2="800" y2="720"/>
+    <line x1="0" y1="820" x2="800" y2="820"/>
+    <line x1="0" y1="920" x2="800" y2="920"/>
+  </g>
+
+  <!-- Sombra del auto -->
+  <ellipse cx="400" cy="792" rx="300" ry="34" fill="#000000" opacity="0.45"/>
+
+  <!-- Auto deportivo de perfil -->
+  <g>
+    <path d="M118 690 C126 630 168 606 232 596 L318 528 C346 506 380 496 420 496 L540 496 C584 500 612 522 636 560 L676 584 C704 598 716 622 714 656 L708 690 C704 706 692 714 676 714 L150 714 C130 714 118 706 118 690 Z" fill="url(#car)"/>
+    <path d="M336 592 L360 538 C376 518 398 512 424 512 L512 512 C548 514 570 530 586 556 L606 592 Z" fill="url(#glass)" opacity="0.92"/>
+    <path d="M452 512 L452 592" stroke="#0F2A33" stroke-width="8" opacity="0.5"/>
+    <path d="M150 660 C240 646 330 642 420 644 C520 646 616 652 690 664" fill="none" stroke="#0F2A33" stroke-width="10" opacity="0.35"/>
+    <rect x="128" y="640" width="66" height="20" rx="10" fill="#CFFCF6" opacity="0.9"/>
+    <rect x="646" y="646" width="52" height="18" rx="9" fill="#FF7A7A" opacity="0.9"/>
+
+    <!-- Ruedas -->
+    <g fill="#08181E">
+      <circle cx="252" cy="716" r="70"/>
+      <circle cx="588" cy="716" r="70"/>
+    </g>
+    <g fill="#1F5561">
+      <circle cx="252" cy="716" r="40"/>
+      <circle cx="588" cy="716" r="40"/>
+    </g>
+    <g fill="#CFFCF6">
+      <circle cx="252" cy="716" r="16"/>
+      <circle cx="588" cy="716" r="16"/>
+    </g>
+
+    <!-- Brillo -->
+    <path d="M180 606 C240 584 320 576 400 578" fill="none" stroke="#CFFCF6" stroke-width="6" opacity="0.45" stroke-linecap="round"/>
+  </g>
+
+  <!-- Herramientas -->
+  <g transform="translate(96 830) rotate(-18)">
+    <rect x="0" y="0" width="150" height="20" rx="10" fill="#0197AF"/>
+    <circle cx="156" cy="10" r="24" fill="none" stroke="#00EED0" stroke-width="12"/>
+  </g>
+  <g transform="translate(600 812)">
+    <circle cx="60" cy="70" r="62" fill="#0B1F26" stroke="#4B227A" stroke-width="14"/>
+    <circle cx="60" cy="70" r="26" fill="#0B1F26" stroke="#0197AF" stroke-width="10"/>
+  </g>
+</svg>

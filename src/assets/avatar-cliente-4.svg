@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Avatar de cliente">
+  <defs>
+    <linearGradient id="bg4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF9F6B"/>
+      <stop offset="1" stop-color="#4B227A"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="100" fill="url(#bg4)"/>
+  <circle cx="100" cy="80" r="33" fill="#FFF1E6" opacity="0.92"/>
+  <path d="M40 186 C44 138 68 118 100 118 C132 118 156 138 160 186 Z" fill="#FFF1E6" opacity="0.92"/>
+  <path d="M60 96 C50 52 78 28 100 28 C122 28 150 52 140 96 C138 72 122 58 100 58 C78 58 62 72 60 96 Z" fill="#3B1A2E" opacity="0.82"/>
+</svg>

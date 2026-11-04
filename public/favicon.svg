@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Chat de Compras">
+  <path d="M50 5C25.1472 5 5 25.1472 5 50C5 68.3 15.9 84.1 31.6 91L26 102L42.5 94.2C44.9 94.7 47.4 95 50 95C74.8528 95 95 74.8528 95 50C95 25.1472 74.8528 5 50 5Z" fill="#2563EB" stroke="white" stroke-width="4"/>
+  <g transform="rotate(15 50 52)" stroke-linejoin="round">
+    <path d="M50 24L72 36V60L50 72L28 60V36L50 24Z" fill="#FACC15" stroke="white" stroke-width="3"/>
+    <circle cx="50" cy="48" r="10" fill="#2563EB" stroke="white" stroke-width="3"/>
+  </g>
+</svg>

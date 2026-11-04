@@ -1,0 +1,284 @@
+
+import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import { ArrowLeft, Camera, X, Plus, Trash2, ChevronDown, Car } from 'lucide-react';
+
+// Actualización Junio 2026 - Formulario Exclusivo Automotriz
+
+const AUTOMOTIVE_FORM_FIELDS = [
+  { name: 'category', label: 'Tipo de repuesto/accesorio', type: 'select', options: [
+    'Motor', 'Frenos', 'Suspensión', 'Eléctrico',
+    'Llantas y Neumáticos', 'Interior / Exterior',
+    'Lubricantes y Fluidos', 'Taller Mecánico',
+    'Accesorios Vehiculares', 'Audio y Sonido', 'Seguridad Vehicular'
+  ]},
+  { name: 'item', label: 'Producto específico', placeholder: 'Ej: Pastillas de freno, filtro de aceite, batería', type: 'text' },
+  { name: 'vehicleType', label: 'Tipo de vehículo', type: 'select', options: ['Auto', 'Moto', 'Camioneta', 'Camión', 'Tractor', 'Otro'] },
+  { name: 'vehicleBrand', label: 'Marca del vehículo', placeholder: 'Ej: Toyota, Ford, Honda', type: 'text' },
+  { name: 'vehicleModel', label: 'Modelo del vehículo', placeholder: 'Ej: Corolla, Fiesta, Civic', type: 'text' },
+  { name: 'yearFrom', label: 'Año inicial', type: 'number', placeholder: 'Ej: 2015' },
+  { name: 'yearTo', label: 'Año final', type: 'number', placeholder: 'Ej: 2024' },
+  { name: 'reference', label: 'Referencia o número de parte', placeholder: 'Ej: 04465-02060', type: 'text' },
+  { name: 'brand', label: 'Marca del repuesto (opcional)', placeholder: 'Ej: Bosch, Monroe, Fram', type: 'text' },
+  { name: 'condition', label: 'Condición', type: 'select', options: ['Nuevo', 'Usado', 'Indistinto'] },
+  { name: 'quantity', label: 'Cantidad', type: 'number', placeholder: 'Ej: 1', defaultValue: '1' },
+  { name: 'notes', label: 'Notas adicionales', type: 'textarea', placeholder: 'Detalles específicos, color, ubicación, etc.' }
+];
+
+// Campos mínimos para poder enviar una solicitud.
+const REQUIRED_FIELDS = ['category', 'item', 'vehicleType'];
+
+export default function RequestForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [products, setProducts] = useState([
+    { 
+      id: 1, 
+      category: location.state?.system || '', 
+      item: '', 
+      vehicleType: '', 
+      vehicleBrand: '', 
+      vehicleModel: '', 
+      yearFrom: '', 
+      yearTo: '', 
+      reference: '', 
+      brand: '', 
+      condition: '', 
+      quantity: '1', 
+      notes: '', 
+      images: [] 
+    }
+  ]);
+
+  // Errores por producto y campo: { [productId]: { [field]: mensaje } }
+  const [errors, setErrors] = useState({});
+
+  const addProduct = () => {
+    setProducts([...products, { 
+      id: Date.now(), 
+      category: '', 
+      item: '', 
+      vehicleType: '', 
+      vehicleBrand: '', 
+      vehicleModel: '', 
+      yearFrom: '', 
+      yearTo: '', 
+      reference: '', 
+      brand: '', 
+      condition: '', 
+      quantity: '1', 
+      notes: '', 
+      images: [] 
+    }]);
+  };
+
+  const removeProduct = (id) => {
+    if (products.length > 1) {
+      setProducts(products.filter(p => p.id !== id));
+    }
+  };
+
+  const updateProduct = (id, field, value) => {
+    setProducts(products.map(p => p.id === id ? { ...p, [field]: value } : p));
+
+    setErrors((prev) => {
+      const fieldsToClear = field === 'yearFrom' || field === 'yearTo'
+        ? ['yearFrom', 'yearTo']
+        : [field];
+
+      if (!fieldsToClear.some((name) => prev[id]?.[name])) return prev;
+
+      const productErrors = { ...prev[id] };
+      fieldsToClear.forEach((name) => delete productErrors[name]);
+
+      const next = { ...prev };
+      if (Object.keys(productErrors).length > 0) next[id] = productErrors;
+      else delete next[id];
+      return next;
+    });
+  };
+
+  const handleImageUpload = (id, e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setProducts(products.map(p => 
+        p.id === id ? { ...p, images: [...p.images, url] } : p
+      ));
+    }
+  };
+
+  const removeImage = (prodId, imgIndex) => {
+    setProducts(products.map(p => 
+      p.id === prodId ? { ...p, images: p.images.filter((_, i) => i !== imgIndex) } : p
+    ));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    const nextErrors = {};
+
+    products.forEach((product) => {
+      const productErrors = {};
+
+      REQUIRED_FIELDS.forEach((field) => {
+        if (!String(product[field] || '').trim()) {
+          productErrors[field] = 'Este campo es obligatorio.';
+        }
+      });
+
+      if (product.yearFrom && product.yearTo && Number(product.yearFrom) > Number(product.yearTo)) {
+        productErrors.yearTo = 'El año final no puede ser menor al año inicial.';
+      }
+
+      if (Object.keys(productErrors).length > 0) {
+        nextErrors[product.id] = productErrors;
+      }
+    });
+
+    setErrors(nextErrors);
+
+    const firstInvalidId = Object.keys(nextErrors)[0];
+    if (firstInvalidId) {
+      document
+        .getElementById(`product-${firstInvalidId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    navigate('/responses', { state: { products } });
+  };
+
+  return (
+    <div className="min-h-screen bg-[#E7E7E7] flex flex-col">
+      <header className="bg-white/80 backdrop-blur-md px-4 py-4 flex items-center gap-4 shadow-sm sticky top-0 z-10 border-b border-white/30">
+        <button aria-label="Volver" onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/50 rounded-full">
+          <ArrowLeft className="w-6 h-6 text-gray-800" />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <Car className="w-5 h-5 text-[#00EED0]" />
+            Solicitud Automotriz
+          </h1>
+          <p className="text-xs text-gray-600">Describe tu repuesto o accesorio</p>
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          {products.map((product, index) => (
+            <div key={product.id} id={`product-${product.id}`} className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
+              <div className="flex justify-between items-center mb-4 border-b border-white/40 pb-2">
+                <h3 className="font-bold text-[#00EED0] flex items-center gap-2">
+                  <span className="bg-[#00EED0]/20 text-[#4B227A] w-6 h-6 rounded-full flex items-center justify-center text-xs border border-[#00EED0]/30">
+                    {index + 1}
+                  </span>
+                  Producto Automotriz
+                </h3>
+                {products.length > 1 && (
+                  <button 
+                    type="button" 
+                    onClick={() => removeProduct(product.id)}
+                    className="text-[#4B227A] hover:bg-[#4B227A]/10 p-1.5 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {AUTOMOTIVE_FORM_FIELDS.map((field) => (
+                  <div key={field.name}>
+                    {field.type === 'select' ? (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
+                        <div className="relative">
+                          <select
+                            value={product[field.name]}
+                            onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
+                            className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
+                          >
+                            <option value="">Selecciona una opción</option>
+                            {field.options.map(opt => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+                    ) : field.type === 'textarea' ? (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
+                        <textarea 
+                          className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] transition-all placeholder:text-gray-600 min-h-[80px]"
+                          placeholder={field.placeholder}
+                          value={product[field.name]}
+                          onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
+                        />
+                      </div>
+                    ) : (
+                      <Input 
+                        label={field.label}
+                        placeholder={field.placeholder}
+                        type={field.type}
+                        value={product[field.name]}
+                        onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
+                      />
+                    )}
+                    {errors[product.id]?.[field.name] && (
+                      <p className="text-xs text-red-500 mt-1">{errors[product.id][field.name]}</p>
+                    )}
+                  </div>
+                ))}
+
+                {/* Image Upload */}
+                <div className="flex flex-col gap-1.5 pt-2">
+                  <label className="text-sm font-medium text-gray-800">Imágenes de referencia</label>
+                  <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                    <label className="flex flex-col items-center justify-center w-20 h-20 bg-white/70 border-2 border-dashed border-[#0197AF]/30 rounded-xl cursor-pointer hover:bg-white/80 active:scale-95 transition-all flex-shrink-0">
+                      <Camera className="w-5 h-5 text-[#0197AF] mb-1" />
+                      <span className="text-[10px] text-gray-600">Foto</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(product.id, e)} />
+                    </label>
+
+                    {product.images.map((img, idx) => (
+                      <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-white/30 group">
+                        <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => removeImage(product.id, idx)}
+                          className="absolute top-1 right-1 bg-[#4B227A]/80 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addProduct}
+            className="w-full py-4 border-2 border-dashed border-[#00EED0]/30 rounded-2xl flex items-center justify-center gap-2 text-[#00EED0] font-bold hover:bg-[#00EED0]/10 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Agregar otro producto
+          </button>
+        </form>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-white/30 max-w-md mx-auto z-20">
+        <Button fullWidth onClick={handleSubmit} className="shadow-lg shadow-[#00EED0]/30">
+          👉 ENVIAR SOLICITUD AUTOMOTRIZ ({products.length})
+        </Button>
+      </div>
+    </div>
+  );
+}
