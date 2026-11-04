@@ -14,12 +14,12 @@ export default function Notifications() {
 
   const getIcon = (type) => {
     switch(type) {
-      case 'offer': return <Tag className="w-5 h-5 text-blue-500" />;
-      case 'promo': return <Tag className="w-5 h-5 text-pink-500" />;
-      case 'chat': return <MessageSquare className="w-5 h-5 text-green-500" />;
-      case 'confirmed': return <CheckCircle className="w-5 h-5 text-purple-500" />;
-      case 'shipping': return <Truck className="w-5 h-5 text-orange-500" />;
-      default: return <Bell className="w-5 h-5 text-yellow-500" />;
+      case 'offer': return <Tag className="w-5 h-5 text-blue-600" />;
+      case 'promo': return <Tag className="w-5 h-5 text-pink-600" />;
+      case 'chat': return <MessageSquare className="w-5 h-5 text-green-600" />;
+      case 'confirmed': return <CheckCircle className="w-5 h-5 text-purple-600" />;
+      case 'shipping': return <Truck className="w-5 h-5 text-orange-600" />;
+      default: return <Bell className="w-5 h-5 text-yellow-700" />;
     }
   };
 
@@ -49,9 +49,9 @@ export default function Notifications() {
                 <h3 className={`text-sm ${!notif.read ? 'font-bold text-dark' : 'font-medium text-gray-700'}`}>
                   {notif.title}
                 </h3>
-                <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">{notif.time}</span>
+                <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">{notif.time}</span>
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-gray-600 leading-relaxed">
                 {notif.text}
               </p>
             </div>

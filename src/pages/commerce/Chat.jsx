@@ -221,7 +221,7 @@ export default function Chat() {
                     </div>
                   </div>
                   <p className="text-xs text-gray-600 leading-relaxed mb-2 italic">"{rev.comment}"</p>
-                  <span className="text-[10px] text-gray-500 block text-right">{rev.date}</span>
+                  <span className="text-[10px] text-gray-600 block text-right">{rev.date}</span>
                 </div>
               ))}
             </div>

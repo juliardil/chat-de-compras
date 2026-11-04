@@ -67,7 +67,7 @@ export default function RegisterUser() {
             onChange={e => setFormData({...formData, terms: e.target.checked})}
             required
           />
-          <label htmlFor="terms" className="text-sm text-gray-500 leading-tight">
+          <label htmlFor="terms" className="text-sm text-gray-600 leading-tight">
             Acepto los <a href="#" className="text-primary font-medium">Términos y Condiciones</a> y la Política de Privacidad.
           </label>
         </div>

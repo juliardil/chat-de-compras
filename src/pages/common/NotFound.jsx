@@ -13,7 +13,7 @@ export default function NotFound() {
       </div>
       
       <h1 className="text-2xl font-bold text-dark mb-2">Página no encontrada</h1>
-      <p className="text-gray-500 mb-8 max-w-[250px]">
+      <p className="text-gray-600 mb-8 max-w-[250px]">
         Lo sentimos, la página que buscas no existe o ha sido movida.
       </p>
 

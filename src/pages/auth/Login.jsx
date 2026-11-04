@@ -71,7 +71,7 @@ export default function Login() {
       </div>
       
       <div className="mt-auto py-4 text-center">
-        <p className="text-gray-500 text-sm">
+        <p className="text-gray-600 text-sm">
           ¿No tienes cuenta? <Link to="/welcome" className="text-primary font-bold">Regístrate</Link>
         </p>
       </div>

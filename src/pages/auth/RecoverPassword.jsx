@@ -29,7 +29,7 @@ export default function RecoverPassword() {
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">¡Correo enviado!</h2>
-          <p className="text-gray-500 mb-8">
+          <p className="text-gray-600 mb-8">
             Hemos enviado las instrucciones para recuperar tu contraseña a <span className="font-medium text-dark">{email}</span>
           </p>
           <Button fullWidth variant="secondary" onClick={() => navigate('/login')}>
@@ -38,7 +38,7 @@ export default function RecoverPassword() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-6">
-          <p className="text-gray-500">
+          <p className="text-gray-600">
             Ingresa el correo electrónico asociado a tu cuenta y te enviaremos un enlace para restablecer tu contraseña.
           </p>
           

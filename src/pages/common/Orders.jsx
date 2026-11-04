@@ -66,7 +66,7 @@ export default function Orders() {
             "flex-1 py-3 text-sm font-bold border-b-2 transition-colors",
             activeTab === 'active' 
               ? "border-primary text-primary" 
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              : "border-transparent text-gray-600 hover:text-gray-700"
           )}
         >
           Activos ({activeOrders.length})
@@ -76,8 +76,8 @@ export default function Orders() {
           className={clsx(
             "flex-1 py-3 text-sm font-bold border-b-2 transition-colors",
             activeTab === 'completed' 
-              ? "border-green-600 text-green-600" 
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              ? "border-green-600 text-green-700" 
+              : "border-transparent text-gray-600 hover:text-gray-700"
           )}
         >
           Cerrados ({completedOrders.length})
@@ -95,15 +95,15 @@ export default function Orders() {
                 </div>
                 <div>
                   <h3 className="font-bold text-dark text-base">{order.product}</h3>
-                  <p className="text-gray-500 text-sm">{order.price}</p>
+                  <p className="text-gray-600 text-sm">{order.price}</p>
                   {order.tracking && (
-                    <p className="text-xs text-gray-400 mt-1">Guía: {order.tracking}</p>
+                    <p className="text-xs text-gray-500 mt-1">Guía: {order.tracking}</p>
                   )}
                 </div>
               </div>
               <div className={clsx(
                 "px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1",
-                activeTab === 'active' ? "bg-orange-50 text-orange-600" : "bg-green-50 text-green-600"
+                activeTab === 'active' ? "bg-orange-50 text-orange-700" : "bg-green-50 text-green-700"
               )}>
                 {activeTab === 'active' ? <Truck className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
                 {order.status}
@@ -119,7 +119,7 @@ export default function Orders() {
                   <MapPin className="w-4 h-4 text-blue-600" />
                 </div>
                 <div>
-                  <span className="text-xs text-gray-400 block mb-0.5">Dirección de entrega</span>
+                  <span className="text-xs text-gray-500 block mb-0.5">Dirección de entrega</span>
                   <p className="text-sm text-gray-700 leading-tight">{order.address}</p>
                 </div>
               </div>
@@ -130,13 +130,13 @@ export default function Orders() {
                   activeTab === 'active' ? "bg-orange-50" : "bg-green-50"
                 )}>
                   {activeTab === 'active' ? (
-                    <Truck className="w-4 h-4 text-orange-600" />
+                    <Truck className="w-4 h-4 text-orange-700" />
                   ) : (
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <CheckCircle2 className="w-4 h-4 text-green-700" />
                   )}
                 </div>
                 <div>
-                  <span className="text-xs text-gray-400 block mb-0.5">Estado del envío</span>
+                  <span className="text-xs text-gray-500 block mb-0.5">Estado del envío</span>
                   <p className="text-sm font-medium text-dark">{order.statusDetail}</p>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export default function Orders() {
                     ].map((step) => (
                       <li key={step.label} className="flex items-center gap-2 text-sm">
                         <span className={`w-2.5 h-2.5 rounded-full ${step.done ? 'bg-green-500' : 'bg-gray-200'}`} />
-                        <span className={step.current ? 'font-bold text-dark' : step.done ? 'text-gray-700' : 'text-gray-400'}>
+                        <span className={step.current ? 'font-bold text-dark' : step.done ? 'text-gray-700' : 'text-gray-500'}>
                           {step.label}
                         </span>
                       </li>
@@ -186,10 +186,10 @@ export default function Orders() {
         {currentList.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <Package className="w-8 h-8 text-gray-400" />
+              <Package className="w-8 h-8 text-gray-500" />
             </div>
             <h3 className="text-lg font-bold text-gray-600">No tienes pedidos aquí</h3>
-            <p className="text-sm text-gray-400 mt-1">Tus pedidos aparecerán cuando realices compras.</p>
+            <p className="text-sm text-gray-600 mt-1">Tus pedidos aparecerán cuando realices compras.</p>
           </div>
         )}
       </div>

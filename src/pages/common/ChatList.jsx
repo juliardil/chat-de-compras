@@ -112,19 +112,19 @@ export default function ChatList() {
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-1">
                 <h3 className="font-bold text-gray-800 text-sm truncate">{chat.user}</h3>
-                <span className="text-[10px] text-gray-500 whitespace-nowrap ml-2">{chat.time}</span>
+                <span className="text-[10px] text-gray-600 whitespace-nowrap ml-2">{chat.time}</span>
               </div>
               <p className="text-xs font-medium text-[#006E7A] mb-1 truncate">{chat.product}</p>
               <p className={clsx(
                 "text-sm truncate",
-                chat.unread > 0 ? "text-gray-800 font-medium" : "text-gray-500"
+                chat.unread > 0 ? "text-gray-800 font-medium" : "text-gray-600"
               )}>
                 {chat.lastMessage}
               </p>
             </div>
             
             <div className="self-center">
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+              <ChevronRight className="w-5 h-5 text-gray-500" />
             </div>
           </div>
         ))}
@@ -132,10 +132,10 @@ export default function ChatList() {
         {currentList.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-16 h-16 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center mb-4 border border-white/30">
-              <MessageSquare className="w-8 h-8 text-gray-500" />
+              <MessageSquare className="w-8 h-8 text-gray-600" />
             </div>
             <h3 className="text-lg font-bold text-gray-700">No hay chats aquí</h3>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-600 mt-1">
               {activeTab === 'open' ? 'No tienes conversaciones activas.' : 'No tienes mensajes nuevos.'}
             </p>
           </div>

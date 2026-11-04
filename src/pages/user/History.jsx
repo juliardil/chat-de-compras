@@ -32,7 +32,7 @@ export default function History() {
                 <h3 className="font-bold text-gray-800 text-sm">{item.product}</h3>
                 <span className="text-[#006E7A] font-bold text-sm">${item.price}</span>
               </div>
-              <p className="text-xs text-gray-500 mb-2">{item.store} • {item.date}</p>
+              <p className="text-xs text-gray-600 mb-2">{item.store} • {item.date}</p>
               
               <div className="flex items-center justify-between mt-2">
                 <span className="text-xs text-[#4B227A] flex items-center gap-1 bg-[#4B227A]/10 px-2 py-1 rounded-md border border-[#4B227A]/20">

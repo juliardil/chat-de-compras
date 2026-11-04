@@ -57,7 +57,7 @@ export default function Support() {
         </div>
 
         <h3 id="faqs" className="font-bold text-dark mb-4 flex items-center gap-2 scroll-mt-20">
-          <FileQuestion className="w-5 h-5 text-gray-400" />
+          <FileQuestion className="w-5 h-5 text-gray-500" />
           Preguntas Frecuentes
         </h3>
         
@@ -73,11 +73,11 @@ export default function Support() {
                   aria-expanded={isOpen}
                 >
                   <span className="text-sm text-gray-700 font-medium">{faq.question}</span>
-                  <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                  <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                 </button>
 
                 {isOpen && (
-                  <p className="px-4 pb-4 text-sm text-gray-500 leading-relaxed">
+                  <p className="px-4 pb-4 text-sm text-gray-600 leading-relaxed">
                     {faq.answer}
                   </p>
                 )}

@@ -106,11 +106,11 @@ export default function UserProfile() {
           <div className="flex gap-4 mt-6 w-full">
             <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
               <span className="text-lg font-bold text-gray-800">12</span>
-              <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Compras</span>
+              <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Compras</span>
             </div>
             <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
               <span className="text-lg font-bold text-gray-800">4</span>
-              <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Pendientes</span>
+              <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Pendientes</span>
             </div>
           </div>
         </div>
@@ -118,7 +118,7 @@ export default function UserProfile() {
 
       {/* Menu Section */}
       <div className="px-6 mt-8">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest ml-1 mb-4">Ajustes de Cuenta</h3>
+        <h3 className="text-sm font-bold text-gray-600 uppercase tracking-widest ml-1 mb-4">Ajustes de Cuenta</h3>
         <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-sm overflow-hidden border border-white/30">
           {menuItems.map((item, index) => (
             <button
@@ -134,7 +134,7 @@ export default function UserProfile() {
                 </div>
                 <span className="font-semibold text-gray-800 text-sm">{item.label}</span>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+              <ChevronRight className="w-5 h-5 text-gray-500" />
             </button>
           ))}
         </div>

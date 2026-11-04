@@ -722,10 +722,9 @@ Ordenados por impacto. No quedan bugs críticos ni deuda alta de assets/accesibi
 
 ### 13.3 Bajos
 
-9. No hay tests automatizados de los flujos críticos.
-10. No hay backend; la persistencia de chats es local (`localStorage`), no compartida entre dispositivos.
-11. El `appId` nativo (`com.chatexpress.app`) no coincide con la marca visible; se mantiene por compatibilidad con los proyectos Android/iOS.
-12. El contraste de algunos textos sobre fondos glass sigue siendo bajo; conviene revisarlo con una auditoría WCAG.
+9. No hay backend; la persistencia de chats es local (`localStorage`), no compartida entre dispositivos.
+10. El `appId` nativo (`com.chatexpress.app`) no coincide con la marca visible; se mantiene por compatibilidad con los proyectos Android/iOS.
+11. Falta instalar y probar la app en un dispositivo/emulador real (la copia web con `cap:sync` ya funciona).
 
 ### 13.4 Contraste (auditoría Fase 4)
 
@@ -735,12 +734,19 @@ Ordenados por impacto. No quedan bugs críticos ni deuda alta de assets/accesibi
 | `#006E7A` sobre `#E7E7E7` | 4.84:1 | Sí |
 | `#4B227A` sobre `#FFFFFF` | 11.61:1 | Sí |
 | `#1F2937` sobre `#FFFFFF` | 14.68:1 | Sí |
-| `#6B7280` sobre `#FFFFFF` | 4.83:1 | Sí (límite) |
-| `#6B7280` sobre `#E7E7E7` | 3.91:1 | No para texto normal |
+| `#4B5563` (gray-600) sobre `#FFFFFF` | 7.56:1 | Sí |
+| `#4B5563` (gray-600) sobre `#E7E7E7` | 6.11:1 | Sí |
+| `#4B5563` (gray-600) sobre glass (`#F8F8F8`) | 7.12:1 | Sí |
+| `#6B7280` (gray-500) sobre `#FFFFFF` | 4.83:1 | Sí (límite) |
+| `#6B7280` (gray-500) sobre `#E7E7E7` | 3.91:1 | No para texto normal |
+| `#9CA3AF` (gray-400) sobre `#FFFFFF` | 2.54:1 | No |
+| `#15803D` (green-700) sobre `#F0FDF4` | 4.79:1 | Sí |
+| `#C2410C` (orange-700) sobre `#FFF7ED` | 4.88:1 | Sí |
+| `#B91C1C` (red-700) sobre `#FFFFFF` | 6.47:1 | Sí |
 | `#0197AF` sobre `#FFFFFF` | 3.47:1 | Solo texto grande o iconos |
 | `#00EED0` sobre `#FFFFFF` | 1.49:1 | No (se reserva para fondos/bordes) |
 
-Se sustituyó el color de textos e iconos que usaban neón o azul acero por `#006E7A`; el neón se mantiene en botones, fondos y bordes. Queda pendiente revisar `gray-500` sobre el fondo general y los textos sobre vidrio.
+Se sustituyó el color de textos e iconos que usaban neón o azul acero por `#006E7A`; el neón se mantiene en botones, fondos y bordes. Además, todos los textos secundarios pasaron de `gray-500` a `gray-600`, los textos e iconos que usaban `gray-400` sobre tarjetas claras pasaron a `gray-500` (o `gray-600` cuando están sobre el fondo general), los badges de estado usan `green-700`/`orange-700` y los mensajes de error `red-700`.
 
 ---
 
@@ -826,7 +832,7 @@ Puntos de integración recomendados:
 - [ ] Probar sincronización Capacitor en dispositivo/emulador (la copia web ya funciona con `npm run cap:sync`).
 - [x] Añadir tests mínimos de flujos críticos (`npm test`, 8 pruebas).
 - [x] Corregir el contraste de textos e iconos neón/azul acero.
-- [ ] Revisar `text-gray-500` sobre fondos `#E7E7E7` y textos sobre glass.
+- [x] Revisar `text-gray-500` sobre fondos `#E7E7E7`, textos sobre glass y badges de estado.
 
 ---
 
@@ -841,6 +847,7 @@ Puntos de integración recomendados:
 | Noviembre 2026 | Fase 3: chat global, estado por conversación, persistencia local, cierre real del temporizador y respuestas sin pérdidas | Equipo de Desarrollo Chat de Compras |
 | Noviembre 2026 | Fase 4: assets locales, `SafeImage`, `ErrorBoundary`, zoom, aria-labels, foco visible y navegación por teclado | Equipo de Desarrollo Chat de Compras |
 | Noviembre 2026 | Fase 4b: tests con Vitest/Testing Library, `cap sync` verificado y corrección de contraste de textos | Equipo de Desarrollo Chat de Compras |
+| Noviembre 2026 | Fase 4c: contraste AA de textos secundarios, badges de estado y mensajes de error | Equipo de Desarrollo Chat de Compras |
 
 ### 16.1 Instrucciones para actualizar
 

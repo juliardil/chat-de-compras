@@ -99,7 +99,7 @@ export default function RegisterCommerce() {
           {/* Campo de Selección Múltiple: Tipos de Vehículos */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-800">
-              ¿Vendes repuestos o servicios para? <span className="text-red-500">*</span>
+              ¿Vendes repuestos o servicios para? <span className="text-red-700">*</span>
             </label>
             <div className="grid grid-cols-1 gap-3">
               <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -155,14 +155,14 @@ export default function RegisterCommerce() {
               </label>
             </div>
             {formData.vehicleTypes.length === 0 && (
-              <p className="text-red-500 text-xs mt-1">Debes seleccionar al menos una opción</p>
+              <p className="text-red-700 text-xs mt-1">Debes seleccionar al menos una opción</p>
             )}
           </div>
           
           {/* Campo de Selección: Categoría Principal */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-800">
-              ¿En qué categoría te encuentras? <span className="text-red-500">*</span>
+              ¿En qué categoría te encuentras? <span className="text-red-700">*</span>
             </label>
             <div className="grid grid-cols-1 gap-3">
               {/* Opción preseleccionada: Repuestos Originales / Genéricos */}
@@ -193,7 +193,7 @@ export default function RegisterCommerce() {
               {formData.mainCategory === 'repuestos' && (
                 <div className="pl-8 border-l-2 border-[#00EED0]/30 ml-3 space-y-3">
                   <label className="text-sm font-medium text-gray-700">
-                    ¿Qué sistemas o líneas abarca tu inventario? <span className="text-red-500">*</span>
+                    ¿Qué sistemas o líneas abarca tu inventario? <span className="text-red-700">*</span>
                   </label>
                   <div className="space-y-2">
                     {[
@@ -227,7 +227,7 @@ export default function RegisterCommerce() {
                     ))}
                   </div>
                   {formData.inventorySystems.length === 0 && (
-                    <p className="text-red-500 text-xs">Debes seleccionar al menos un sistema</p>
+                    <p className="text-red-700 text-xs">Debes seleccionar al menos un sistema</p>
                   )}
                 </div>
               )}
@@ -266,15 +266,15 @@ export default function RegisterCommerce() {
             <h3 className="font-semibold text-[#4B227A] mb-3">Beneficios de Registrarte</h3>
             <ul className="space-y-2">
               <li className="flex items-center gap-2 text-sm text-gray-700">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
                 Recibe solicitudes de clientes automotrices en tu área
               </li>
               <li className="flex items-center gap-2 text-sm text-gray-700">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
                 Perfil destacado y categorización correcta
               </li>
               <li className="flex items-center gap-2 text-sm text-gray-700">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
                 Chat directo y seguimiento de servicios
               </li>
             </ul>

@@ -14,7 +14,7 @@ export default function Welcome() {
 
       <div className="flex-1 flex flex-col items-center justify-center gap-6 mt-10">
         <Logo size="lg" />
-        <p className="text-gray-500 text-center max-w-[250px] text-lg">
+        <p className="text-gray-600 text-center max-w-[250px] text-lg">
           Conectamos tu vehículo con los mejores repuestos y comercios en minutos.
         </p>
       </div>
@@ -41,7 +41,7 @@ export default function Welcome() {
         </div>
 
         <div className="text-center mt-4">
-          <span className="text-gray-400 text-sm">¿Ya tienes cuenta? </span>
+          <span className="text-gray-600 text-sm">¿Ya tienes cuenta? </span>
           <button 
             onClick={() => navigate('/login')}
             className="text-[#006E7A] font-semibold text-sm hover:underline"

@@ -173,7 +173,7 @@ export default function SalesHistory() {
                 <button
                   aria-label="Semana anterior"
                   onClick={handlePreviousWeek}
-                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-gray-500 hover:text-[#4B227A]"
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-gray-600 hover:text-[#4B227A]"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -183,7 +183,7 @@ export default function SalesHistory() {
                 <button
                   aria-label="Semana siguiente"
                   onClick={handleNextWeek}
-                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-gray-500 hover:text-[#4B227A]"
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-full transition-all text-gray-600 hover:text-[#4B227A]"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -195,7 +195,7 @@ export default function SalesHistory() {
                 className={`px-4 py-2 rounded-xl text-[10px] tracking-widest uppercase transition-all ${
                   period === 'week'
                     ? 'bg-[#00EED0] text-gray-900 font-black shadow-[0_0_10px_rgba(0,238,208,0.4)]'
-                    : 'text-gray-500 font-bold'
+                    : 'text-gray-600 font-bold'
                 }`}
               >
                 Semana
@@ -205,7 +205,7 @@ export default function SalesHistory() {
                 className={`px-4 py-2 rounded-xl text-[10px] tracking-widest uppercase transition-all ${
                   period === 'month'
                     ? 'bg-[#00EED0] text-gray-900 font-black shadow-[0_0_10px_rgba(0,238,208,0.4)]'
-                    : 'text-gray-500 font-bold'
+                    : 'text-gray-600 font-bold'
                 }`}
               >
                 Mes
@@ -245,7 +245,7 @@ export default function SalesHistory() {
                       ${day.value}
                     </div>
                   </div>
-                  <span className={`text-[10px] font-black tracking-tighter uppercase ${day.star ? 'text-[#006E7A]' : 'text-gray-500'}`}>
+                  <span className={`text-[10px] font-black tracking-tighter uppercase ${day.star ? 'text-[#006E7A]' : 'text-gray-600'}`}>
                     {day.name}
                   </span>
                 </div>
@@ -266,7 +266,7 @@ export default function SalesHistory() {
               <span className="text-xs font-bold text-gray-600">{kpi.label}</span>
             </div>
             <span className="text-2xl font-black text-gray-800">{kpi.value}</span>
-            <span className="text-[10px] font-medium text-gray-500">{kpi.change}</span>
+            <span className="text-[10px] font-medium text-gray-600">{kpi.change}</span>
           </div>
         ))}
       </div>
@@ -276,9 +276,9 @@ export default function SalesHistory() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-xl font-black text-gray-800 tracking-tight">Transacciones</h2>
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Últimos 7 días</p>
+            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mt-1">Últimos 7 días</p>
           </div>
-          <button aria-label="Opciones de transacciones" className="p-2 bg-white/80 rounded-xl shadow-sm border border-white/30 text-gray-500 hover:text-[#4B227A] transition-all">
+          <button aria-label="Opciones de transacciones" className="p-2 bg-white/80 rounded-xl shadow-sm border border-white/30 text-gray-600 hover:text-[#4B227A] transition-all">
             <MoreVertical className="w-5 h-5" />
           </button>
         </div>
@@ -301,7 +301,7 @@ export default function SalesHistory() {
                     <span className="text-[11px] font-bold text-gray-600">{tx.user}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest bg-white/70 px-2 py-0.5 rounded-md border border-white/30">{tx.date}</span>
+                    <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest bg-white/70 px-2 py-0.5 rounded-md border border-white/30">{tx.date}</span>
                     <div className="flex items-center gap-1 bg-[#00EED0]/20 px-2 py-0.5 rounded-md border border-[#00EED0]/30">
                       <div className="w-1 h-1 rounded-full bg-[#00EED0] animate-pulse"></div>
                       <span className="text-[9px] font-black text-[#4B227A] uppercase tracking-widest">{tx.status}</span>
@@ -311,7 +311,7 @@ export default function SalesHistory() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <span className="font-black text-gray-800 text-lg tracking-tighter">{tx.amount}</span>
-                <div className="flex items-center gap-1.5 text-gray-500 bg-white/70 px-2.5 py-1 rounded-xl border border-white/30">
+                <div className="flex items-center gap-1.5 text-gray-600 bg-white/70 px-2.5 py-1 rounded-xl border border-white/30">
                   {tx.method.includes('Transferencia') ? <Wallet className="w-3 h-3 text-[#4B227A]" /> : 
                    tx.method.includes('Tarjeta') ? <CreditCard className="w-3 h-3 text-[#006E7A]" /> : 
                    <DollarSign className="w-3 h-3 text-[#006E7A]" />}

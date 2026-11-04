@@ -230,7 +230,7 @@ export default function RequestForm() {
                       />
                     )}
                     {errors[product.id]?.[field.name] && (
-                      <p className="text-xs text-red-500 mt-1">{errors[product.id][field.name]}</p>
+                      <p className="text-xs text-red-700 mt-1">{errors[product.id][field.name]}</p>
                     )}
                   </div>
                 ))}

@@ -71,7 +71,7 @@ export default function NicheConfig() {
               <p className="text-xs text-gray-600">Editar información pública</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-500" />
+          <ChevronRight className="w-5 h-5 text-gray-600" />
         </div>
 
         {/* Cambiar Contraseña */}
@@ -88,7 +88,7 @@ export default function NicheConfig() {
               <p className="text-xs text-gray-600">Cambiar contraseña</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-500" />
+          <ChevronRight className="w-5 h-5 text-gray-600" />
         </div>
 
         <h2 className="font-bold text-gray-800 text-lg px-2 pt-2">Nichos Activos</h2>

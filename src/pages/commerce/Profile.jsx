@@ -35,7 +35,7 @@ export default function Profile() {
         <button 
           aria-label="Cerrar sesión"
           onClick={logout} 
-          className="absolute top-4 right-4 p-2 text-gray-500 hover:text-[#4B227A] hover:bg-[#4B227A]/10 rounded-full transition-colors"
+          className="absolute top-4 right-4 p-2 text-gray-600 hover:text-[#4B227A] hover:bg-[#4B227A]/10 rounded-full transition-colors"
         >
           <LogOut className="w-6 h-6" />
         </button>
@@ -71,17 +71,17 @@ export default function Profile() {
               <div className="flex items-center gap-1 font-bold text-gray-800 text-lg">
                 4.8 <Star className="w-4 h-4 text-[#006E7A] fill-current" />
               </div>
-              <span className="text-xs text-gray-500">Rating</span>
+              <span className="text-xs text-gray-600">Rating</span>
             </div>
             <div className="w-[1px] h-8 bg-white/40" />
             <div className="flex flex-col items-center">
               <div className="font-bold text-gray-800 text-lg">156</div>
-              <span className="text-xs text-gray-500">Ventas</span>
+              <span className="text-xs text-gray-600">Ventas</span>
             </div>
             <div className="w-[1px] h-8 bg-white/40" />
             <div className="flex flex-col items-center">
               <div className="font-bold text-[#006E7A] text-lg">PRO</div>
-              <span className="text-xs text-gray-500">Nivel</span>
+              <span className="text-xs text-gray-600">Nivel</span>
             </div>
           </div>
         </div>
@@ -92,7 +92,7 @@ export default function Profile() {
           <h2 className="font-bold text-gray-800 mb-4">Información del Negocio</h2>
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/30 p-4 space-y-4">
             <div>
-              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Descripción</label>
+              <label className="text-xs text-gray-600 font-bold uppercase tracking-wider">Descripción</label>
               <p className="text-sm text-gray-700 mt-1">
                 Repuestos originales y alternativos para tu vehículo. Asesoría técnica, garantía y envíos a todo el país.
               </p>
@@ -101,7 +101,7 @@ export default function Profile() {
             <div className="h-[1px] bg-white/40" />
 
             <div>
-              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Nichos Activos</label>
+              <label className="text-xs text-gray-600 font-bold uppercase tracking-wider">Nichos Activos</label>
               <div className="flex flex-wrap gap-2 mt-2">
                 <span className="px-3 py-1 bg-[#0197AF]/10 text-[#006E7A] rounded-lg text-xs font-bold border border-[#0197AF]/20">Automotriz</span>
                 <span className="px-3 py-1 bg-white/50 text-gray-600 rounded-lg text-xs font-bold border border-white/30">Repuestos</span>
@@ -111,7 +111,7 @@ export default function Profile() {
             <div className="h-[1px] bg-white/40" />
 
             <div>
-              <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Membresía</label>
+              <label className="text-xs text-gray-600 font-bold uppercase tracking-wider">Membresía</label>
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2">
                   <div className="bg-gradient-to-r from-[#00EED0] to-[#0197AF] p-1.5 rounded-lg text-white">

@@ -105,7 +105,7 @@ Cubren creación/envío/persistencia/cierre del chat y las guardas de ruta por r
 - Sin backend, autenticación real ni persistencia en servidor.
 - Las conversaciones se guardan solo en el dispositivo (`localStorage`); no se sincronizan entre comprador y comercio en equipos distintos.
 - Conviven dos sistemas de diseño (azul legacy y neón/glass).
-- Se corrigió el contraste de los textos principales; queda revisar `gray-500` sobre el fondo general y los textos sobre vidrio.
+- Se corrigió el contraste AA de textos secundarios (gray-600), badges de estado y errores; el neón se reserva para fondos y bordes.
 - La copia web a Android/iOS (`npm run cap:sync`) funciona, pero falta instalar y probar en un dispositivo/emulador.
 
 Consulta la sección 13 de la documentación técnica para el listado completo.
