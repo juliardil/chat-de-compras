@@ -1,0 +1,196 @@
+export const PHASES = {
+  1: 'Fase 1 · Fundación',
+  2: 'Fase 2 · Personas y catálogo',
+  3: 'Fase 3 · Operación',
+  4: 'Fase 4 · Confianza y atención',
+  5: 'Fase 5 · Analítica y pagos',
+};
+
+// Menú lateral definitivo. `permission` controla visibilidad; `phase` indica
+// en qué fase se implementa el módulo completo.
+export const NAVIGATION_GROUPS = [
+  {
+    key: 'main',
+    label: null,
+    items: [
+      { key: 'dashboard', label: 'Panel', path: '/', icon: 'LayoutDashboard', permission: 'dashboard.view', phase: 1 },
+    ],
+  },
+  {
+    key: 'people',
+    label: 'Personas',
+    items: [
+      { key: 'users', label: 'Compradores', path: '/compradores', icon: 'Users', permission: 'users.view', phase: 2 },
+      {
+        key: 'commerce',
+        label: 'Comercios',
+        path: '/comercios',
+        icon: 'Store',
+        permission: 'commerce.view',
+        phase: 2,
+        attention: 'pending',
+      },
+    ],
+  },
+  {
+    key: 'market',
+    label: 'Mercado',
+    items: [
+      {
+        key: 'requests',
+        label: 'Solicitudes',
+        path: '/solicitudes',
+        icon: 'ClipboardList',
+        permission: 'requests.view',
+        phase: 3,
+      },
+      {
+        key: 'offers',
+        label: 'Ofertas',
+        path: '/ofertas',
+        icon: 'BadgeDollarSign',
+        permission: 'offers.view',
+        phase: 3,
+        attention: 'flagged',
+      },
+      { key: 'catalog', label: 'Categorías y datos', path: '/categorias', icon: 'Tags', permission: 'catalog.view', phase: 2 },
+    ],
+  },
+  {
+    key: 'operations',
+    label: 'Operaciones',
+    items: [
+      { key: 'orders', label: 'Pedidos', path: '/pedidos', icon: 'Package', permission: 'orders.view', phase: 3 },
+      { key: 'deliveries', label: 'Entregas', path: '/entregas', icon: 'Truck', permission: 'deliveries.view', phase: 3 },
+      {
+        key: 'payments',
+        label: 'Pagos',
+        path: '/pagos',
+        icon: 'CreditCard',
+        permission: 'payments.view',
+        phase: 5,
+        attention: 'not-configured',
+      },
+    ],
+  },
+  {
+    key: 'trust',
+    label: 'Confianza',
+    items: [
+      {
+        key: 'chats',
+        label: 'Chats',
+        path: '/chats',
+        icon: 'MessagesSquare',
+        permission: 'chats.view_metadata',
+        phase: 4,
+        attention: 'reports',
+      },
+      {
+        key: 'moderation',
+        label: 'Moderación',
+        path: '/moderacion',
+        icon: 'ShieldAlert',
+        permission: 'moderation.view',
+        phase: 4,
+        attention: 'reports',
+      },
+      { key: 'reviews', label: 'Reseñas', path: '/resenas', icon: 'Star', permission: 'reviews.view', phase: 4 },
+    ],
+  },
+  {
+    key: 'care',
+    label: 'Atención',
+    items: [
+      {
+        key: 'support',
+        label: 'Soporte',
+        path: '/soporte',
+        icon: 'LifeBuoy',
+        permission: 'support.view',
+        phase: 4,
+        attention: 'sla',
+      },
+    ],
+  },
+  {
+    key: 'growth',
+    label: 'Crecimiento',
+    items: [
+      {
+        key: 'communications',
+        label: 'Comunicaciones',
+        path: '/comunicaciones',
+        icon: 'Megaphone',
+        permission: 'communications.view',
+        phase: 4,
+      },
+      { key: 'analytics', label: 'Analítica', path: '/analitica', icon: 'BarChart3', permission: 'analytics.view', phase: 5 },
+    ],
+  },
+  {
+    key: 'system',
+    label: 'Sistema',
+    items: [
+      { key: 'staff', label: 'Personal y permisos', path: '/personal', icon: 'UserCog', permission: 'staff.view', phase: 1 },
+      { key: 'audit', label: 'Auditoría', path: '/auditoria', icon: 'ScrollText', permission: 'audit.view', phase: 1 },
+      { key: 'settings', label: 'Configuración', path: '/configuracion', icon: 'Settings', permission: 'settings.view', phase: 1 },
+    ],
+  },
+];
+
+export const NAVIGATION_ITEMS = NAVIGATION_GROUPS.flatMap((group) => group.items);
+
+// Módulos que todavía no se implementan. Se muestran con su fase para no
+// aparentar funcionalidad que no existe.
+export const PENDING_MODULES = {
+  '/pagos': {
+    title: 'Pagos',
+    permission: 'payments.view',
+    phase: 5,
+    description: 'Módulo preparado para una pasarela real. Hoy no existe ninguna conectada.',
+    capabilities: ['Transacciones y comisiones', 'Reembolsos y conciliación', 'Liquidaciones a comercios'],
+  },
+  '/chats': {
+    title: 'Chats',
+    permission: 'chats.view_metadata',
+    phase: 4,
+    description: 'Supervisión de conversaciones con acceso excepcional, motivado y auditado.',
+    capabilities: ['Metadatos de conversaciones', 'Solicitud y concesión temporal de acceso', 'Lectura auditada sin búsqueda masiva'],
+  },
+  '/moderacion': {
+    title: 'Moderación',
+    permission: 'moderation.view',
+    phase: 4,
+    description: 'Reportes, asignación de casos y medidas de confianza.',
+    capabilities: ['Bandeja de reportes', 'Asignación y prioridad', 'Acciones con motivo y evidencia'],
+  },
+  '/resenas': {
+    title: 'Reseñas',
+    permission: 'reviews.view',
+    phase: 4,
+    description: 'Moderación de reseñas sin alterar la opinión de los usuarios.',
+    capabilities: ['Consulta por pedido', 'Ocultar y restaurar con motivo', 'Recálculo de reputación'],
+  },
+  '/soporte': {
+    title: 'Soporte',
+    permission: 'support.view',
+    phase: 4,
+    description: 'Tickets, prioridades, responsables y SLA.',
+    capabilities: ['Bandeja de tickets', 'Respuestas y notas internas', 'Asignación y cierre'],
+  },
+  '/comunicaciones': {
+    title: 'Comunicaciones',
+    permission: 'communications.view',
+    phase: 4,
+    description: 'Plantillas, comunicados y segmentos con consentimiento.',
+    capabilities: ['Plantillas y previsualización', 'Envíos masivos con aprobación', 'Historial de entregas y bajas'],
+  },
+  '/analitica': {
+    title: 'Analítica',
+    permission: 'analytics.view',
+    phase: 5,
+    description: 'Métricas confiables, filtros por fecha y exportaciones auditadas.',
+    capabilities: ['Crecimiento y actividad', 'Rendimiento de comercios', 'Exportación con permisos'],
+  },
+};

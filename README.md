@@ -56,6 +56,43 @@ Usuarios de prueba:
 | Usuario | Cualquier correo sin `shop` (por defecto `Julia`) |
 | Comercio | Cualquier correo que contenga `shop` |
 
+## Administración (Fases 1, 2 y 3)
+
+El panel administrativo es una entrada separada: `admin.html` (en desarrollo,
+`http://localhost:5173/admin.html`). No cambia las rutas ni el diseño de la app
+de comprador/comercio.
+
+- Sin `VITE_INSFORGE_URL` y `VITE_INSFORGE_ANON_KEY`, arranca en **modo
+  demostración** con datos de ejemplo en `localStorage`.
+- Contraseña demo: `Demo1234!`. Cuentas: `superadmin@demo.local`,
+  `admin@demo.local`, `comercios@demo.local`, `moderador@demo.local`,
+  `soporte@demo.local`, `analista@demo.local`.
+- Fase 1: autenticación, personal, permisos, auditoría, sesión y panel.
+- Fase 2: compradores con PII enmascarada, verificación de comercios y
+  documentos, y categorías de dos niveles. Incluye
+  `#/compradores`, `#/comercios` y `#/categorias`.
+- Fase 3: operación de solicitudes, ofertas, pedidos y entregas. Incluye
+  `#/solicitudes`, `#/ofertas`, `#/pedidos` y `#/entregas`, con moderación,
+  retirada administrativa, línea de tiempo de pedidos, disputas, seguimiento de
+  entregas, incidencias y evidencias como metadatos.
+- Con InsForge configurado usa autenticación real y permisos en servidor
+  (RLS + funciones). Requiere aplicar las migraciones
+  `migrations/20261106000000_admin_foundation.sql`,
+  `migrations/20261106010000_people_catalog.sql` y
+  `migrations/20261106020000_operations.sql`, además de dos buckets privados:
+  documentos (`VITE_INSFORGE_DOCUMENTS_BUCKET`, por defecto
+  `commerce-documents`) y evidencias de entrega
+  (`VITE_INSFORGE_EVIDENCE_BUCKET`, por defecto `delivery-evidence`).
+
+Documentación:
+
+- [Fase 1 · Fundación administrativa](./docs/admin/FASE_1.md)
+- [Fase 2 · Personas y catálogo](./docs/admin/FASE_2.md)
+- [Fase 3 · Operación](./docs/admin/FASE_3.md)
+
+Las tres fases están verificadas en modo demostración. El modo InsForge está
+escrito pero **no probado contra un proyecto real** todavía.
+
 ## Flujo principal
 
 1. Categorías → Solicitud automotriz (`/request`)
@@ -93,12 +130,15 @@ public/
 ## Pruebas
 
 ```bash
-npm test        # Vitest + Testing Library (8 pruebas)
+npm test        # Vitest + Testing Library
 npm run lint    # ESLint
 npm run build   # Build de producción
 ```
 
-Cubren creación/envío/persistencia/cierre del chat y las guardas de ruta por rol.
+Cubren creación/envío/persistencia/cierre del chat, las guardas de ruta por rol
+y la fundación administrativa (permisos, sesión, repositorio demo y reglas de
+Fase 2 para compradores, comercios, documentos y categorías, y reglas de Fase 3
+para solicitudes, ofertas, pedidos, entregas y evidencias).
 
 ## Limitaciones conocidas
 
