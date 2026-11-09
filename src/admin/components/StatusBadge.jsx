@@ -31,6 +31,18 @@ const STATUS_MAP = {
   disputed: { label: 'En disputa', className: 'bg-red-50 text-red-700 ring-red-200' },
   failed: { label: 'Entrega fallida', className: 'bg-red-50 text-red-700 ring-red-200' },
   returned: { label: 'Devuelto', className: 'bg-orange-50 text-orange-700 ring-orange-200' },
+  approved: { label: 'Aprobado', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  denied: { label: 'Denegado', className: 'bg-red-50 text-red-700 ring-red-200' },
+  revoked: { label: 'Revocado', className: 'bg-red-50 text-red-700 ring-red-200' },
+  archived: { label: 'Archivada', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
+  in_progress: { label: 'En progreso', className: 'bg-sky-50 text-sky-700 ring-sky-200' },
+  waiting_user: { label: 'Espera del usuario', className: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  resolved: { label: 'Resuelta', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  dismissed: { label: 'Descartado', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
+  draft: { label: 'Borrador', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
+  queued: { label: 'En cola (simulada)', className: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
+  sent: { label: 'Enviada (simulada)', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  published: { label: 'Publicada', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
 };
 
 export default function StatusBadge({ status, children }) {

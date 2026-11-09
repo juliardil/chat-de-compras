@@ -6,10 +6,15 @@ import {
   BadgeDollarSign,
   ClipboardList,
   FileCheck2,
+  LifeBuoy,
   MailPlus,
+  Megaphone,
+  MessageSquare,
   Package,
   ScrollText,
+  ShieldAlert,
   ShieldCheck,
+  Star,
   Store,
   Tags,
   Truck,
@@ -62,6 +67,33 @@ const ACTION_LABELS = {
   'delivery.confirm': 'Recepción confirmada',
   'delivery.incident': 'Incidencia registrada',
   'delivery.incident.resolve': 'Incidencia resuelta',
+  'chat.access.request': 'Acceso a chat solicitado',
+  'chat.access.approved': 'Acceso a chat aprobado',
+  'chat.access.denied': 'Acceso a chat denegado',
+  'chat.access.revoked': 'Acceso a chat revocado',
+  'chat.content.read': 'Contenido de chat leído',
+  'moderation.assign': 'Reporte de moderación asignado',
+  'moderation.resolve': 'Reporte de moderación resuelto',
+  'moderation.dismiss': 'Reporte de moderación descartado',
+  'review.hide': 'Reseña oculta',
+  'review.restore': 'Reseña restaurada',
+  'review.flag': 'Reseña marcada',
+  'review.publish': 'Reseña publicada',
+  'support.assign': 'Ticket asignado',
+  'support.reply': 'Ticket respondido',
+  'support.resolve': 'Ticket resuelto',
+  'support.close': 'Ticket cerrado',
+  'support.reopen': 'Ticket reabierto',
+  'support.status': 'Estado de ticket actualizado',
+  'communications.template.active': 'Plantilla activada',
+  'communications.template.archived': 'Plantilla archivada',
+  'communications.template.draft': 'Plantilla devuelta a borrador',
+  'communications.campaign.create': 'Campaña creada',
+  'communications.campaign.queue': 'Campaña en cola simulada',
+  'communications.campaign.send': 'Campaña marcada como enviada (simulada)',
+  'communications.campaign.cancel': 'Campaña cancelada',
+  'communications.campaign.fail': 'Campaña marcada como fallida',
+  'communications.campaign.draft': 'Campaña devuelta a borrador',
 };
 
 const ACTION_STYLES = {
@@ -101,6 +133,33 @@ const ACTION_STYLES = {
   'delivery.confirm': 'bg-emerald-50 text-emerald-700',
   'delivery.incident': 'bg-amber-50 text-amber-700',
   'delivery.incident.resolve': 'bg-emerald-50 text-emerald-700',
+  'chat.access.request': 'bg-sky-50 text-sky-700',
+  'chat.access.approved': 'bg-emerald-50 text-emerald-700',
+  'chat.access.denied': 'bg-red-50 text-red-700',
+  'chat.access.revoked': 'bg-red-50 text-red-700',
+  'chat.content.read': 'bg-amber-50 text-amber-700',
+  'moderation.assign': 'bg-sky-50 text-sky-700',
+  'moderation.resolve': 'bg-emerald-50 text-emerald-700',
+  'moderation.dismiss': 'bg-slate-100 text-slate-600',
+  'review.hide': 'bg-amber-50 text-amber-700',
+  'review.restore': 'bg-emerald-50 text-emerald-700',
+  'review.flag': 'bg-amber-50 text-amber-700',
+  'review.publish': 'bg-emerald-50 text-emerald-700',
+  'support.assign': 'bg-sky-50 text-sky-700',
+  'support.reply': 'bg-sky-50 text-sky-700',
+  'support.resolve': 'bg-emerald-50 text-emerald-700',
+  'support.close': 'bg-slate-100 text-slate-600',
+  'support.reopen': 'bg-amber-50 text-amber-700',
+  'support.status': 'bg-sky-50 text-sky-700',
+  'communications.template.active': 'bg-emerald-50 text-emerald-700',
+  'communications.template.archived': 'bg-slate-100 text-slate-600',
+  'communications.template.draft': 'bg-sky-50 text-sky-700',
+  'communications.campaign.create': 'bg-violet-50 text-violet-700',
+  'communications.campaign.queue': 'bg-indigo-50 text-indigo-700',
+  'communications.campaign.send': 'bg-emerald-50 text-emerald-700',
+  'communications.campaign.cancel': 'bg-red-50 text-red-700',
+  'communications.campaign.fail': 'bg-red-50 text-red-700',
+  'communications.campaign.draft': 'bg-sky-50 text-sky-700',
 };
 
 function statusTone(tone) {
@@ -123,10 +182,21 @@ export default function Dashboard() {
   const canViewOffers = hasPermission('offers.view');
   const canViewOrders = hasPermission('orders.view');
   const canViewDeliveries = hasPermission('deliveries.view');
+  const canViewChats = hasPermission('chats.view_metadata');
+  const canViewModeration = hasPermission('moderation.view');
+  const canViewReviews = hasPermission('reviews.view');
+  const canViewSupport = hasPermission('support.view');
+  const canViewCommunications = hasPermission('communications.view');
   const hasPeopleMetrics =
     canViewBuyers || canViewCommerce || canViewDocuments || canViewCatalog;
   const hasOperationsMetrics =
     canViewRequests || canViewOffers || canViewOrders || canViewDeliveries;
+  const hasTrustMetrics =
+    canViewChats ||
+    canViewModeration ||
+    canViewReviews ||
+    canViewSupport ||
+    canViewCommunications;
 
   useEffect(() => {
     let cancelled = false;
@@ -150,11 +220,13 @@ export default function Dashboard() {
     mode === 'insforge'
       ? [
           { key: 'backend', label: 'Backend InsForge', detail: 'Configurado por variables de entorno', tone: 'success', value: 'Conectado' },
-          { key: 'migrations', label: 'Migraciones de Fase 1, 2 y 3', detail: 'Verifica que estén aplicadas en el proyecto', tone: 'info', value: 'Por verificar' },
+          { key: 'migrations', label: 'Migraciones de Fase 1 a 4', detail: 'Verifica que estén aplicadas en el proyecto', tone: 'info', value: 'Por verificar' },
           { key: 'permissions', label: 'Permisos', detail: 'Calculados en servidor (RLS + funciones)', tone: 'success', value: 'Servidor' },
           { key: 'audit', label: 'Auditoría', detail: 'Escrita en el servidor y de solo lectura', tone: 'success', value: 'Servidor' },
           { key: 'storage', label: 'Documentos privados', detail: 'Requiere bucket privado y URLs firmadas', tone: 'warning', value: 'Por verificar' },
           { key: 'evidence', label: 'Evidencias de entrega', detail: 'Requiere bucket privado y ruta autorizada', tone: 'warning', value: 'Por verificar' },
+          { key: 'chatAccess', label: 'Acceso a chats', detail: 'Autorización aprobada, vigente y auditada por lectura', tone: 'success', value: 'Servidor' },
+          { key: 'messaging', label: 'Envío de comunicaciones', detail: 'Requiere proveedor de correo y dominio verificado', tone: 'warning', value: 'Pendiente' },
           { key: 'mfa', label: 'MFA', detail: 'El SDK actual no expone segundo factor', tone: 'warning', value: 'Pendiente' },
           { key: 'email', label: 'Correo de invitaciones', detail: 'Requiere InsForge Messaging y dominio', tone: 'warning', value: 'Pendiente' },
         ]
@@ -164,6 +236,8 @@ export default function Dashboard() {
           { key: 'audit', label: 'Auditoría', detail: 'Guardada en localStorage; no es confiable', tone: 'warning', value: 'Demostración' },
           { key: 'storage', label: 'Documentos privados', detail: 'La demo solo guarda metadatos, sin archivos', tone: 'warning', value: 'Sin archivos' },
           { key: 'evidence', label: 'Evidencias de entrega', detail: 'Solo metadatos de ejemplo; no hay archivos', tone: 'warning', value: 'Sin archivos' },
+          { key: 'chatAccess', label: 'Acceso a chats', detail: 'Flujo simulado local con auditoría de cada lectura', tone: 'warning', value: 'Demostración' },
+          { key: 'messaging', label: 'Envío de comunicaciones', detail: 'No hay proveedor: los envíos son simulados', tone: 'warning', value: 'Simulado' },
           { key: 'mfa', label: 'MFA', detail: 'El SDK actual no expone segundo factor', tone: 'warning', value: 'Pendiente' },
           { key: 'email', label: 'Correo de invitaciones', detail: 'Requiere InsForge Messaging y dominio', tone: 'warning', value: 'Pendiente' },
         ];
@@ -175,7 +249,7 @@ export default function Dashboard() {
       <PageHeader
         eyebrow={`Hola, ${session?.name?.split(' ')[0] || 'equipo'}`}
         title="Panel de control"
-        description="Estado de personas, operación, catálogo, personal, permisos y auditoría. Los módulos de confianza, atención, analítica y pagos se incorporan en las siguientes fases."
+        description="Estado de personas, operación, confianza, atención, personal, permisos y auditoría. Analítica y pagos se incorporan en la Fase 5."
         actions={
           <>
             {hasPermission('staff.view') ? (
@@ -203,8 +277,9 @@ export default function Dashboard() {
       {mode === 'demo' ? (
         <Alert tone="warning" title="Estás en modo demostración">
           No hay backend conectado. Las cuentas, invitaciones, compradores, comercios, categorías,
-          solicitudes, ofertas, pedidos, entregas y eventos de auditoría son ejemplos guardados en
-          este navegador. Nada de lo que veas aquí representa datos reales de la plataforma.
+          solicitudes, ofertas, pedidos, entregas, chats, reportes, reseñas, tickets, plantillas,
+          campañas y eventos de auditoría son ejemplos guardados en este navegador. Nada de lo que
+          veas aquí representa datos reales de la plataforma.
         </Alert>
       ) : null}
 
@@ -337,6 +412,64 @@ export default function Dashboard() {
             </div>
           ) : null}
 
+          {hasTrustMetrics ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {canViewChats ? (
+                <KpiCard
+                  label="Chats marcados"
+                  value={metrics.flaggedChats}
+                  hint={`${metrics.totalChats} conversación(es) · ${metrics.pendingChatAccessRequests} acceso(s) pendiente(s)`}
+                  Icon={MessageSquare}
+                  tone={
+                    metrics.flaggedChats > 0 || metrics.pendingChatAccessRequests > 0
+                      ? 'warning'
+                      : 'default'
+                  }
+                />
+              ) : null}
+              {canViewModeration ? (
+                <KpiCard
+                  label="Reportes de moderación abiertos"
+                  value={metrics.openModerationReports}
+                  hint={`${metrics.inReviewModerationReports} en revisión · ${metrics.totalModerationReports} en total`}
+                  Icon={ShieldAlert}
+                  tone={metrics.openModerationReports > 0 ? 'warning' : 'default'}
+                />
+              ) : null}
+              {canViewReviews ? (
+                <KpiCard
+                  label="Reseñas publicadas"
+                  value={metrics.publishedReviews}
+                  hint={`${metrics.flaggedReviews} marcada(s) · ${metrics.hiddenReviews} oculta(s) · ${metrics.totalReviews} en total`}
+                  Icon={Star}
+                  tone={metrics.flaggedReviews > 0 ? 'warning' : 'default'}
+                />
+              ) : null}
+              {canViewSupport ? (
+                <KpiCard
+                  label="Tickets de soporte abiertos"
+                  value={metrics.openSupportTickets}
+                  hint={`${metrics.inProgressSupportTickets} en progreso · ${metrics.overdueSupportTickets} fuera de plazo`}
+                  Icon={LifeBuoy}
+                  tone={
+                    metrics.overdueSupportTickets > 0 || metrics.openSupportTickets > 0
+                      ? 'warning'
+                      : 'default'
+                  }
+                />
+              ) : null}
+              {canViewCommunications ? (
+                <KpiCard
+                  label="Campañas en cola simulada"
+                  value={metrics.queuedCampaigns}
+                  hint={`${metrics.activeTemplates} plantilla(s) activa(s) · sin proveedor de envío`}
+                  Icon={Megaphone}
+                  tone={metrics.queuedCampaigns > 0 ? 'warning' : 'default'}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="grid gap-6 xl:grid-cols-3">
             <section className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
@@ -381,15 +514,15 @@ export default function Dashboard() {
                   <EmptyState
                     Icon={ShieldCheck}
                     title="Sin avisos pendientes"
-                    description="No hay invitaciones, comercios, documentos, solicitudes, ofertas, pedidos o entregas que requieran tu intervención ahora mismo."
+                    description="No hay invitaciones, comercios, documentos, solicitudes, ofertas, pedidos, entregas, chats, reportes ni tickets que requieran tu intervención ahora mismo."
                   />
                 )}
 
                 <div className="mt-6 rounded-xl bg-slate-50 px-4 py-3">
                   <p className="text-xs leading-5 text-slate-500">
-                    Las fases 4 y 5 añadirán chats, moderación, soporte, comunicaciones, analítica y
-                    pagos a esta cola. Solo se muestran datos registrados en el origen activo, nunca
-                    datos inventados.
+                    La Fase 5 añadirá analítica y pagos a esta cola. Solo se muestran datos
+                    registrados en el origen activo, nunca datos inventados. Las campañas de
+                    comunicación son simuladas: no existe proveedor de envío real.
                   </p>
                 </div>
               </div>
@@ -499,15 +632,15 @@ export default function Dashboard() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#006E7A]">Siguiente fase</p>
                 <h2 className="mt-1 text-base font-semibold text-slate-900">
-                  Fase 4 · Confianza y atención
+                  Fase 5 · Analítica y pagos
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Chats, moderación, reseñas, soporte y comunicaciones con acceso excepcional,
-                  motivado y auditado. Requiere aprobación tuya antes de comenzar.
+                  Métricas confiables y operación de pagos reales. Requiere una pasarela conectada y
+                  aprobación tuya antes de comenzar.
                 </p>
               </div>
               <span className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
-                Pendiente de aprobación
+                No iniciada
               </span>
             </div>
           </section>

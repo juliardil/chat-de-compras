@@ -19,13 +19,38 @@ import {
   requestActionKey,
   requestActionPermission,
 } from '../constants/phase3';
+import {
+  CAMPAIGN_TRANSITIONS,
+  CHAT_ACCESS_DEFAULT_HOURS,
+  CHAT_ACCESS_TRANSITIONS,
+  COMMUNICATION_SEGMENT_LABELS,
+  COMMUNICATION_TEMPLATE_TRANSITIONS,
+  MODERATION_PRIORITY_LABELS,
+  MODERATION_REPORT_TYPE_LABELS,
+  MODERATION_TRANSITIONS,
+  REVIEW_TRANSITIONS,
+  SUPPORT_CATEGORY_LABELS,
+  SUPPORT_PRIORITY_LABELS,
+  SUPPORT_SLA_HOURS,
+  SUPPORT_TRANSITIONS,
+  campaignActionKey,
+  campaignPermission,
+  chatAccessEffectiveStatus,
+  moderationActionKey,
+  moderationActionPermission,
+  reviewActionKey,
+  reviewActionPermission,
+  supportActionKey,
+  supportStatusPermission,
+} from '../constants/phase4';
 import { buildPhase2Audit, buildPhase2Seed } from './demoSeedPhase2';
 import { buildPhase3Audit, buildPhase3Seed } from './demoSeedPhase3';
+import { buildPhase4Audit, buildPhase4Seed } from './demoSeedPhase4';
 import { maskEmail, maskPhone, slugify } from '../utils/mask';
 
 const STORE_KEY = 'chat_compras_admin_demo_v1';
 const SESSION_KEY = 'chat_compras_admin_demo_session_v1';
-const STORE_VERSION = 3;
+const STORE_VERSION = 4;
 
 // Credenciales exclusivas del modo demostración. No existen en producción.
 export const DEMO_PASSWORD = 'Demo1234!';
@@ -80,11 +105,13 @@ function buildSeed() {
 
   const phase2 = buildPhase2Seed();
   const phase3 = buildPhase3Seed();
+  const phase4 = buildPhase4Seed();
 
   return {
     version: STORE_VERSION,
     ...phase2,
     ...phase3,
+    ...phase4,
     members,
     invitations: [
       {
@@ -98,6 +125,7 @@ function buildSeed() {
       },
     ],
     audit: [
+      ...buildPhase4Audit(),
       ...buildPhase3Audit(),
       ...buildPhase2Audit(),
       {
@@ -148,6 +176,7 @@ function upgradeStore(stored) {
 
   const phase2 = buildPhase2Seed();
   const phase3 = buildPhase3Seed();
+  const phase4 = buildPhase4Seed();
   const upgraded = {
     ...stored,
     version: STORE_VERSION,
@@ -171,6 +200,23 @@ function upgradeStore(stored) {
     deliveryEvidence: Array.isArray(stored.deliveryEvidence)
       ? stored.deliveryEvidence
       : phase3.deliveryEvidence,
+    chats: Array.isArray(stored.chats) ? stored.chats : phase4.chats,
+    chatAccessRequests: Array.isArray(stored.chatAccessRequests)
+      ? stored.chatAccessRequests
+      : phase4.chatAccessRequests,
+    moderationReports: Array.isArray(stored.moderationReports)
+      ? stored.moderationReports
+      : phase4.moderationReports,
+    reviews: Array.isArray(stored.reviews) ? stored.reviews : phase4.reviews,
+    supportTickets: Array.isArray(stored.supportTickets)
+      ? stored.supportTickets
+      : phase4.supportTickets,
+    communicationTemplates: Array.isArray(stored.communicationTemplates)
+      ? stored.communicationTemplates
+      : phase4.communicationTemplates,
+    communicationCampaigns: Array.isArray(stored.communicationCampaigns)
+      ? stored.communicationCampaigns
+      : phase4.communicationCampaigns,
     audit: Array.isArray(stored.audit) ? stored.audit : [],
   };
 
@@ -178,12 +224,19 @@ function upgradeStore(stored) {
   // anterior, sin tocar miembros, invitaciones ni eventos ya existentes.
   if (stored.version === 1) {
     upgraded.audit = [
+      ...buildPhase4Audit(),
       ...buildPhase3Audit(),
       ...buildPhase2Audit(),
       ...upgraded.audit,
     ].slice(0, 200);
   } else if (stored.version === 2) {
-    upgraded.audit = [...buildPhase3Audit(), ...upgraded.audit].slice(0, 200);
+    upgraded.audit = [
+      ...buildPhase4Audit(),
+      ...buildPhase3Audit(),
+      ...upgraded.audit,
+    ].slice(0, 200);
+  } else if (stored.version === 3) {
+    upgraded.audit = [...buildPhase4Audit(), ...upgraded.audit].slice(0, 200);
   }
 
   return upgraded;
@@ -406,6 +459,143 @@ function decorateOrder(store, order, { details = false, canViewDeliveries = fals
       canViewDeliveries && delivery ? decorateDelivery(store, delivery, { details: true }) : null,
     deliveryRestricted: !canViewDeliveries,
   };
+}
+
+// -----------------------------------------------------------------------------
+// Presentación de confianza y atención (Fase 4)
+// -----------------------------------------------------------------------------
+function activeChatAccess(store, chatId, actor) {
+  if (!actor?.memberId) return null;
+  return (
+    store.chatAccessRequests.find(
+      (request) =>
+        request.chatId === chatId &&
+        request.requestedById === actor.memberId &&
+        chatAccessEffectiveStatus(request) === 'approved'
+    ) || null
+  );
+}
+
+export function presentChatAccess(request) {
+  const effectiveStatus = chatAccessEffectiveStatus(request);
+  return {
+    ...request,
+    effectiveStatus,
+    isActive: effectiveStatus === 'approved',
+  };
+}
+
+function decorateChat(store, chat, actor) {
+  const { messages, ...metadata } = chat;
+  const order = store.orders.find((item) => item.id === chat.orderId);
+  const access = activeChatAccess(store, chat.id, actor);
+  const ownRequests = store.chatAccessRequests
+    .filter((request) => request.chatId === chat.id && request.requestedById === actor?.memberId)
+    .slice()
+    .sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+
+  return {
+    ...metadata,
+    buyerName: buyerName(store, chat.buyerId),
+    commerceName: commerceName(store, chat.commerceId),
+    orderNumber: order?.orderNumber || null,
+    messageCount: Array.isArray(messages) ? messages.length : 0,
+    lastMessagePreview:
+      Array.isArray(messages) && messages.length
+        ? messages[messages.length - 1].body.slice(0, 140)
+        : null,
+    canReadContent: Boolean(access),
+    activeAccessRequestId: access?.id || null,
+    accessExpiresAt: access?.expiresAt || null,
+    myAccessRequest: ownRequests.length ? presentChatAccess(ownRequests[0]) : null,
+  };
+}
+
+function presentModerationReport(report, actor) {
+  return {
+    ...report,
+    typeLabel: MODERATION_REPORT_TYPE_LABELS[report.reportType] || report.reportType,
+    priorityLabel: MODERATION_PRIORITY_LABELS[report.priority] || report.priority,
+    assignedToMe: Boolean(actor?.memberId && report.assignedToId === actor.memberId),
+  };
+}
+
+function presentReview(store, review) {
+  const order = store.orders.find((item) => item.id === review.orderId);
+  return {
+    ...review,
+    buyerName: buyerName(store, review.buyerId),
+    commerceName: commerceName(store, review.commerceId),
+    orderNumber: order?.orderNumber || null,
+  };
+}
+
+function presentSupportTicket(store, ticket, { details = false } = {}) {
+  const { messages, ...metadata } = ticket;
+  const order = ticket.orderId
+    ? store.orders.find((item) => item.id === ticket.orderId)
+    : null;
+  const isOverdue =
+    ['open', 'in_progress', 'waiting_user'].includes(ticket.status) &&
+    Boolean(ticket.dueAt) &&
+    new Date(ticket.dueAt).getTime() < Date.now();
+
+  return {
+    ...metadata,
+    categoryLabel: SUPPORT_CATEGORY_LABELS[ticket.category] || ticket.category,
+    priorityLabel: SUPPORT_PRIORITY_LABELS[ticket.priority] || ticket.priority,
+    orderNumber: order?.orderNumber || null,
+    messageCount: Array.isArray(messages) ? messages.length : 0,
+    isOverdue,
+    ...(details
+      ? {
+          messages: (Array.isArray(messages) ? messages : [])
+            .slice()
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+        }
+      : {}),
+  };
+}
+
+function presentCommunicationTemplate(template) {
+  return {
+    ...template,
+    segmentLabel: COMMUNICATION_SEGMENT_LABELS[template.segment] || template.segment,
+  };
+}
+
+function presentCampaign(store, campaign) {
+  const template = store.communicationTemplates.find((item) => item.id === campaign.templateId);
+  return {
+    ...campaign,
+    templateName: template?.name || null,
+    segmentLabel: COMMUNICATION_SEGMENT_LABELS[campaign.segment] || campaign.segment,
+  };
+}
+
+function segmentAudienceCount(store, segment) {
+  switch (segment) {
+    case 'all_buyers':
+      return store.buyers.length;
+    case 'active_buyers':
+      return store.buyers.filter((buyer) => buyer.status === 'active').length;
+    case 'all_commerces':
+      return store.commerces.length;
+    case 'active_commerces':
+      return store.commerces.filter((commerce) => commerce.status === 'approved').length;
+    case 'mixed':
+      return store.buyers.length + store.commerces.length;
+    case 'support_contacts': {
+      const contacts = new Set(
+        store.supportTickets
+          .map((ticket) => String(ticket.requesterEmail || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+      return contacts.size;
+    }
+    default:
+      return 0;
+  }
 }
 
 function applyOrderTransition(
@@ -811,6 +1001,49 @@ export const demoRepository = {
       (incident) => incident.status === 'open'
     ).length;
 
+    const canViewChats = actorHas(actor, 'chats.view_metadata');
+    const canGrantChatAccess = actorHas(actor, 'chats.grant_access');
+    const canViewModeration = actorHas(actor, 'moderation.view');
+    const canViewReviews = actorHas(actor, 'reviews.view');
+    const canViewSupport = actorHas(actor, 'support.view');
+    const canViewCommunications = actorHas(actor, 'communications.view');
+
+    const flaggedChats = store.chats.filter((chat) => chat.status === 'flagged').length;
+    const pendingChatAccessRequests = store.chatAccessRequests.filter(
+      (request) => chatAccessEffectiveStatus(request) === 'pending'
+    ).length;
+
+    const openModerationReports = store.moderationReports.filter(
+      (report) => report.status === 'open'
+    ).length;
+    const inReviewModerationReports = store.moderationReports.filter(
+      (report) => report.status === 'in_review'
+    ).length;
+
+    const publishedReviews = store.reviews.filter((review) => review.status === 'published').length;
+    const hiddenReviews = store.reviews.filter((review) => review.status === 'hidden').length;
+    const flaggedReviews = store.reviews.filter((review) => review.status === 'flagged').length;
+
+    const openSupportTickets = store.supportTickets.filter(
+      (ticket) => ticket.status === 'open'
+    ).length;
+    const inProgressSupportTickets = store.supportTickets.filter(
+      (ticket) => ticket.status === 'in_progress'
+    ).length;
+    const overdueSupportTickets = store.supportTickets.filter(
+      (ticket) =>
+        ['open', 'in_progress', 'waiting_user'].includes(ticket.status) &&
+        Boolean(ticket.dueAt) &&
+        new Date(ticket.dueAt).getTime() < Date.now()
+    ).length;
+
+    const activeTemplates = store.communicationTemplates.filter(
+      (template) => template.status === 'active'
+    ).length;
+    const queuedCampaigns = store.communicationCampaigns.filter(
+      (campaign) => campaign.status === 'queued'
+    ).length;
+
     const attention = [
       ...(canViewStaff && pendingInvitations > 0
         ? [{
@@ -900,6 +1133,70 @@ export const demoRepository = {
             path: '/entregas',
           }]
         : []),
+      ...(canGrantChatAccess && pendingChatAccessRequests > 0
+        ? [{
+            id: 'pendingChatAccess',
+            label: `${pendingChatAccessRequests} solicitud(es) de acceso a chats pendiente(s)`,
+            tone: 'warning',
+            path: '/chats',
+          }]
+        : []),
+      ...(canViewChats && flaggedChats > 0
+        ? [{
+            id: 'flaggedChats',
+            label: `${flaggedChats} conversación(es) marcada(s) por moderación`,
+            tone: 'warning',
+            path: '/chats',
+          }]
+        : []),
+      ...(canViewModeration && openModerationReports > 0
+        ? [{
+            id: 'openModerationReports',
+            label: `${openModerationReports} reporte(s) de moderación sin asignar`,
+            tone: 'danger',
+            path: '/moderacion',
+          }]
+        : []),
+      ...(canViewModeration && inReviewModerationReports > 0
+        ? [{
+            id: 'inReviewModerationReports',
+            label: `${inReviewModerationReports} reporte(s) de moderación en revisión`,
+            tone: 'info',
+            path: '/moderacion',
+          }]
+        : []),
+      ...(canViewReviews && flaggedReviews > 0
+        ? [{
+            id: 'flaggedReviews',
+            label: `${flaggedReviews} reseña(s) marcada(s) para revisión`,
+            tone: 'warning',
+            path: '/resenas',
+          }]
+        : []),
+      ...(canViewSupport && overdueSupportTickets > 0
+        ? [{
+            id: 'overdueSupportTickets',
+            label: `${overdueSupportTickets} ticket(s) de soporte fuera de plazo`,
+            tone: 'danger',
+            path: '/soporte',
+          }]
+        : []),
+      ...(canViewSupport && openSupportTickets > 0
+        ? [{
+            id: 'openSupportTickets',
+            label: `${openSupportTickets} ticket(s) de soporte sin asignar`,
+            tone: 'warning',
+            path: '/soporte',
+          }]
+        : []),
+      ...(canViewCommunications && queuedCampaigns > 0
+        ? [{
+            id: 'queuedCampaigns',
+            label: `${queuedCampaigns} campaña(s) en cola simulada sin proveedor de envío`,
+            tone: 'neutral',
+            path: '/comunicaciones',
+          }]
+        : []),
     ];
 
     return {
@@ -945,6 +1242,24 @@ export const demoRepository = {
       deliveredDeliveries: canViewDeliveries ? deliveredDeliveries : 0,
       openIncidents: canViewDeliveries ? openIncidents : 0,
       totalDeliveries: canViewDeliveries ? store.deliveries.length : 0,
+      flaggedChats: canViewChats ? flaggedChats : 0,
+      pendingChatAccessRequests: canGrantChatAccess ? pendingChatAccessRequests : 0,
+      totalChats: canViewChats ? store.chats.length : 0,
+      openModerationReports: canViewModeration ? openModerationReports : 0,
+      inReviewModerationReports: canViewModeration ? inReviewModerationReports : 0,
+      totalModerationReports: canViewModeration ? store.moderationReports.length : 0,
+      publishedReviews: canViewReviews ? publishedReviews : 0,
+      hiddenReviews: canViewReviews ? hiddenReviews : 0,
+      flaggedReviews: canViewReviews ? flaggedReviews : 0,
+      totalReviews: canViewReviews ? store.reviews.length : 0,
+      openSupportTickets: canViewSupport ? openSupportTickets : 0,
+      inProgressSupportTickets: canViewSupport ? inProgressSupportTickets : 0,
+      overdueSupportTickets: canViewSupport ? overdueSupportTickets : 0,
+      totalSupportTickets: canViewSupport ? store.supportTickets.length : 0,
+      activeTemplates: canViewCommunications ? activeTemplates : 0,
+      queuedCampaigns: canViewCommunications ? queuedCampaigns : 0,
+      totalTemplates: canViewCommunications ? store.communicationTemplates.length : 0,
+      totalCampaigns: canViewCommunications ? store.communicationCampaigns.length : 0,
       recentAudit: canViewAudit ? store.audit.slice(0, 6) : [],
       attention,
     };
@@ -1849,6 +2164,820 @@ export const demoRepository = {
     saveStore(store);
 
     return presentIncident(incident);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Chats
+  // ---------------------------------------------------------------------------
+  async listChats({ search = '', status = 'all', actor } = {}) {
+    requirePermission(actor, 'chats.view_metadata', 'No tienes permiso para ver chats.');
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+
+    return store.chats
+      .filter((chat) => (status === 'all' ? true : chat.status === status))
+      .filter((chat) => {
+        if (!term) return true;
+        const decorated = decorateChat(store, chat, actor);
+        return [decorated.subject, decorated.buyerName, decorated.commerceName, decorated.orderNumber]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .slice()
+      .sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
+      .map((chat) => decorateChat(store, chat, actor));
+  },
+
+  async getChat({ chatId, actor }) {
+    requirePermission(actor, 'chats.view_metadata', 'No tienes permiso para ver chats.');
+
+    const store = readStore();
+    const chat = store.chats.find((item) => item.id === chatId);
+    if (!chat) throw new Error('La conversación no existe.');
+
+    const canGrant = actorHas(actor, 'chats.grant_access');
+    const accessRequests = store.chatAccessRequests
+      .filter((request) => request.chatId === chatId)
+      .filter((request) => canGrant || request.requestedById === actor?.memberId)
+      .slice()
+      .sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt))
+      .map(presentChatAccess);
+
+    return {
+      ...decorateChat(store, chat, actor),
+      accessRequests,
+      accessRequestsRestricted: !canGrant,
+      canGrantAccess: canGrant,
+    };
+  },
+
+  async requestChatAccess({ chatId, reason, reasonCode = 'other', actor }) {
+    requirePermission(
+      actor,
+      'chats.request_access',
+      'No tienes permiso para solicitar acceso al contenido de chats.'
+    );
+    requireReason(reason);
+
+    const store = readStore();
+    const chat = store.chats.find((item) => item.id === chatId);
+    if (!chat) throw new Error('La conversación no existe.');
+
+    const existing = store.chatAccessRequests.find(
+      (request) =>
+        request.chatId === chatId &&
+        request.requestedById === actor?.memberId &&
+        ['pending', 'approved'].includes(chatAccessEffectiveStatus(request))
+    );
+    if (existing) {
+      throw new Error('Ya tienes una solicitud pendiente o aprobada para esta conversación.');
+    }
+
+    const request = {
+      id: makeId(),
+      chatId,
+      requestedById: actor?.memberId || null,
+      requestedByName: actor?.name || 'Sistema',
+      requestedByRole: actor?.roleKey || null,
+      reason: String(reason).trim(),
+      reasonCode,
+      status: 'pending',
+      requestedAt: nowIso(),
+      reviewedById: null,
+      reviewedByName: null,
+      reviewedAt: null,
+      reviewReason: null,
+      reviewReasonCode: null,
+      expiresAt: null,
+      revokedAt: null,
+    };
+
+    store.chatAccessRequests = [request, ...store.chatAccessRequests];
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'chat.access.request',
+      module: 'Chats',
+      entityType: 'chat_access_request',
+      entityId: request.id,
+      reason: request.reason,
+      metadata: { chatId, reasonCode },
+    });
+    saveStore(store);
+
+    return presentChatAccess(request);
+  },
+
+  async decideChatAccess({
+    accessRequestId,
+    decision,
+    reason,
+    reasonCode = null,
+    expiresInHours = CHAT_ACCESS_DEFAULT_HOURS,
+    actor,
+  }) {
+    requirePermission(
+      actor,
+      'chats.grant_access',
+      'No tienes permiso para aprobar, denegar o revocar accesos a chats.'
+    );
+
+    if (!['approved', 'denied', 'revoked'].includes(decision)) {
+      throw new Error('Decisión de acceso no válida.');
+    }
+    requireReason(reason);
+
+    const store = readStore();
+    const request = store.chatAccessRequests.find((item) => item.id === accessRequestId);
+    if (!request) throw new Error('La solicitud de acceso no existe.');
+
+    const allowed = CHAT_ACCESS_TRANSITIONS[request.status] || [];
+    if (!allowed.includes(decision)) {
+      throw new Error('Transición de acceso no permitida para esta solicitud.');
+    }
+
+    const now = nowIso();
+    request.status = decision;
+    request.reviewedById = actor?.memberId || null;
+    request.reviewedByName = actor?.name || 'Sistema';
+    request.reviewedAt = now;
+    request.reviewReason = String(reason).trim();
+    request.reviewReasonCode = reasonCode;
+
+    if (decision === 'approved') {
+      const hours = Math.min(Math.max(Number(expiresInHours) || CHAT_ACCESS_DEFAULT_HOURS, 1), 168);
+      request.expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    }
+    if (decision === 'revoked') {
+      request.revokedAt = now;
+    }
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: `chat.access.${decision}`,
+      module: 'Chats',
+      entityType: 'chat_access_request',
+      entityId: request.id,
+      reason: request.reviewReason,
+      metadata: {
+        decision,
+        chatId: request.chatId,
+        requestedById: request.requestedById,
+        reasonCode,
+        expiresAt: request.expiresAt,
+      },
+    });
+    saveStore(store);
+
+    return presentChatAccess(request);
+  },
+
+  async readChatContent({ chatId, actor }) {
+    requirePermission(
+      actor,
+      'chats.access_content',
+      'No tienes permiso para leer el contenido de chats.'
+    );
+
+    const store = readStore();
+    const chat = store.chats.find((item) => item.id === chatId);
+    if (!chat) throw new Error('La conversación no existe.');
+
+    const access = activeChatAccess(store, chatId, actor);
+    if (!access) {
+      throw new Error(
+        'No tienes una autorización de acceso aprobada y vigente para esta conversación. Solicítala y espera la aprobación.'
+      );
+    }
+
+    const messages = (Array.isArray(chat.messages) ? chat.messages : [])
+      .slice()
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    // Toda lectura de contenido queda auditada, incluso si no hay mensajes.
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'chat.content.read',
+      module: 'Chats',
+      entityType: 'chat_thread',
+      entityId: chat.id,
+      reason: access.reason,
+      metadata: {
+        accessRequestId: access.id,
+        messageCount: messages.length,
+        expiresAt: access.expiresAt,
+        result: 'granted',
+      },
+    });
+    saveStore(store);
+
+    return {
+      id: chat.id,
+      subject: chat.subject,
+      accessRequestId: access.id,
+      accessExpiresAt: access.expiresAt,
+      messages,
+      simulated: true,
+    };
+  },
+
+  // ---------------------------------------------------------------------------
+  // Moderación
+  // ---------------------------------------------------------------------------
+  async listModerationReports({ search = '', status = 'all', reportType = 'all', actor } = {}) {
+    requirePermission(actor, 'moderation.view', 'No tienes permiso para ver reportes de moderación.');
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+
+    return store.moderationReports
+      .filter((report) => (status === 'all' ? true : report.status === status))
+      .filter((report) => (reportType === 'all' ? true : report.reportType === reportType))
+      .filter((report) => {
+        if (!term) return true;
+        return [report.subject, report.entityLabel, report.reporterName, report.description]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .slice()
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map((report) => presentModerationReport(report, actor));
+  },
+
+  async getModerationReport({ reportId, actor }) {
+    requirePermission(actor, 'moderation.view', 'No tienes permiso para ver reportes de moderación.');
+
+    const store = readStore();
+    const report = store.moderationReports.find((item) => item.id === reportId);
+    if (!report) throw new Error('El reporte de moderación no existe.');
+
+    return presentModerationReport(report, actor);
+  },
+
+  async updateModerationReport({
+    reportId,
+    status,
+    reason,
+    reasonCode = null,
+    actor,
+  }) {
+    requirePermission(actor, 'moderation.view', 'No tienes permiso para ver reportes de moderación.');
+
+    const store = readStore();
+    const report = store.moderationReports.find((item) => item.id === reportId);
+    if (!report) throw new Error('El reporte de moderación no existe.');
+
+    const allowed = MODERATION_TRANSITIONS[report.status] || [];
+    if (!allowed.includes(status)) {
+      throw new Error('Transición de moderación no permitida para este reporte.');
+    }
+
+    const actionKey = moderationActionKey(report.status, status);
+    const messages = {
+      assign: 'No tienes permiso para asignarte reportes de moderación.',
+      resolve: 'No tienes permiso para resolver reportes de moderación.',
+      dismiss: 'No tienes permiso para descartar reportes de moderación.',
+    };
+    requirePermission(actor, moderationActionPermission(status), messages[actionKey]);
+    requireReason(reason);
+
+    const previousStatus = report.status;
+    const now = nowIso();
+    report.status = status;
+    report.updatedAt = now;
+
+    if (status === 'in_review') {
+      report.assignedToId = actor?.memberId || null;
+      report.assignedToName = actor?.name || 'Sistema';
+      report.assignedAt = now;
+    }
+
+    if (status === 'resolved' || status === 'dismissed') {
+      report.resolvedById = actor?.memberId || null;
+      report.resolvedByName = actor?.name || 'Sistema';
+      report.resolvedAt = now;
+      report.resolutionReason = String(reason).trim();
+      report.resolutionCode = reasonCode;
+    }
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: `moderation.${actionKey}`,
+      module: 'Moderación',
+      entityType: 'moderation_report',
+      entityId: report.id,
+      reason: String(reason).trim(),
+      metadata: {
+        previousStatus,
+        newStatus: status,
+        reasonCode,
+        reportType: report.reportType,
+        assignedToId: report.assignedToId,
+      },
+    });
+    saveStore(store);
+
+    return presentModerationReport(report, actor);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Reseñas
+  // ---------------------------------------------------------------------------
+  async listReviews({ search = '', status = 'all', rating = 'all', actor } = {}) {
+    requirePermission(actor, 'reviews.view', 'No tienes permiso para ver reseñas.');
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+
+    return store.reviews
+      .filter((review) => (status === 'all' ? true : review.status === status))
+      .filter((review) => (rating === 'all' ? true : Number(review.rating) === Number(rating)))
+      .filter((review) => {
+        if (!term) return true;
+        const decorated = presentReview(store, review);
+        return [decorated.comment, decorated.buyerName, decorated.commerceName, decorated.orderNumber]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .slice()
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map((review) => presentReview(store, review));
+  },
+
+  async getReview({ reviewId, actor }) {
+    requirePermission(actor, 'reviews.view', 'No tienes permiso para ver reseñas.');
+
+    const store = readStore();
+    const review = store.reviews.find((item) => item.id === reviewId);
+    if (!review) throw new Error('La reseña no existe.');
+
+    return presentReview(store, review);
+  },
+
+  async setReviewStatus({ reviewId, status, reason, reasonCode = null, actor }) {
+    requirePermission(actor, reviewActionPermission(), 'No tienes permiso para moderar reseñas.');
+
+    const store = readStore();
+    const review = store.reviews.find((item) => item.id === reviewId);
+    if (!review) throw new Error('La reseña no existe.');
+
+    const allowed = REVIEW_TRANSITIONS[review.status] || [];
+    if (!allowed.includes(status)) {
+      throw new Error('Transición de reseña no permitida.');
+    }
+    requireReason(reason);
+
+    const actionKey = reviewActionKey(review.status, status);
+    const previousStatus = review.status;
+    const now = nowIso();
+
+    review.status = status;
+    review.statusReason = String(reason).trim();
+    review.moderatedById = actor?.memberId || null;
+    review.moderatedByName = actor?.name || 'Sistema';
+    review.moderatedAt = now;
+
+    if (status === 'published' && !review.publishedAt) {
+      review.publishedAt = now;
+    }
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: `review.${actionKey}`,
+      module: 'Reseñas',
+      entityType: 'commerce_review',
+      entityId: review.id,
+      reason: review.statusReason,
+      metadata: {
+        previousStatus,
+        newStatus: status,
+        reasonCode,
+        rating: review.rating,
+        commerceId: review.commerceId,
+      },
+    });
+    saveStore(store);
+
+    return presentReview(store, review);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Soporte
+  // ---------------------------------------------------------------------------
+  async listSupportTickets({ search = '', status = 'all', priority = 'all', actor } = {}) {
+    requirePermission(actor, 'support.view', 'No tienes permiso para ver tickets de soporte.');
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+
+    return store.supportTickets
+      .filter((ticket) => (status === 'all' ? true : ticket.status === status))
+      .filter((ticket) => (priority === 'all' ? true : ticket.priority === priority))
+      .filter((ticket) => {
+        if (!term) return true;
+        return [ticket.ticketNumber, ticket.subject, ticket.requesterName, ticket.description]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .slice()
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+      .map((ticket) => presentSupportTicket(store, ticket));
+  },
+
+  async getSupportTicket({ ticketId, actor }) {
+    requirePermission(actor, 'support.view', 'No tienes permiso para ver tickets de soporte.');
+
+    const store = readStore();
+    const ticket = store.supportTickets.find((item) => item.id === ticketId);
+    if (!ticket) throw new Error('El ticket de soporte no existe.');
+
+    return presentSupportTicket(store, ticket, { details: true });
+  },
+
+  async assignSupportTicket({ ticketId, reason = 'Asignación manual', actor }) {
+    requirePermission(actor, 'support.assign', 'No tienes permiso para asignar tickets de soporte.');
+    requireReason(reason);
+
+    const store = readStore();
+    const ticket = store.supportTickets.find((item) => item.id === ticketId);
+    if (!ticket) throw new Error('El ticket de soporte no existe.');
+    if (ticket.status === 'closed') {
+      throw new Error('No se puede asignar un ticket cerrado. Reábrelo primero.');
+    }
+
+    const previousAssigneeId = ticket.assignedToId;
+    ticket.assignedToId = actor?.memberId || null;
+    ticket.assignedToName = actor?.name || 'Sistema';
+    ticket.assignedAt = nowIso();
+    ticket.updatedAt = ticket.assignedAt;
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'support.assign',
+      module: 'Soporte',
+      entityType: 'support_ticket',
+      entityId: ticket.id,
+      reason: String(reason).trim(),
+      metadata: {
+        previousAssigneeId,
+        assignedToId: ticket.assignedToId,
+        status: ticket.status,
+      },
+    });
+    saveStore(store);
+
+    return presentSupportTicket(store, ticket, { details: true });
+  },
+
+  async updateSupportStatus({ ticketId, status, reason, reasonCode = null, actor }) {
+    const store = readStore();
+    const ticket = store.supportTickets.find((item) => item.id === ticketId);
+    if (!ticket) throw new Error('El ticket de soporte no existe.');
+
+    const allowed = SUPPORT_TRANSITIONS[ticket.status] || [];
+    if (!allowed.includes(status)) {
+      throw new Error('Transición de soporte no permitida para este ticket.');
+    }
+
+    const actionKey = supportActionKey(ticket.status, status);
+    const messages = {
+      'support.resolve': 'No tienes permiso para resolver tickets de soporte.',
+      'support.close': 'No tienes permiso para cerrar tickets de soporte.',
+      'support.reopen': 'No tienes permiso para reabrir tickets de soporte.',
+      'support.status': 'No tienes permiso para actualizar el estado de tickets de soporte.',
+    };
+    requirePermission(actor, supportStatusPermission(status), messages[actionKey]);
+    requireReason(reason);
+
+    const previousStatus = ticket.status;
+    const now = nowIso();
+    ticket.status = status;
+    ticket.statusReason = String(reason).trim();
+    ticket.updatedAt = now;
+
+    if (status === 'open') {
+      ticket.resolvedAt = null;
+      ticket.closedAt = null;
+      ticket.dueAt = new Date(
+        Date.now() + (SUPPORT_SLA_HOURS[ticket.priority] || 24) * 60 * 60 * 1000
+      ).toISOString();
+    }
+    if (status === 'resolved') {
+      ticket.resolvedAt = now;
+    }
+    if (status === 'closed') {
+      ticket.closedAt = now;
+    }
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: actionKey,
+      module: 'Soporte',
+      entityType: 'support_ticket',
+      entityId: ticket.id,
+      reason: ticket.statusReason,
+      metadata: {
+        previousStatus,
+        newStatus: status,
+        reasonCode,
+        assignedToId: ticket.assignedToId,
+      },
+    });
+    saveStore(store);
+
+    return presentSupportTicket(store, ticket, { details: true });
+  },
+
+  async replySupportTicket({ ticketId, body, internal = false, actor }) {
+    requirePermission(actor, 'support.reply', 'No tienes permiso para responder tickets de soporte.');
+    requireReason(body);
+
+    const store = readStore();
+    const ticket = store.supportTickets.find((item) => item.id === ticketId);
+    if (!ticket) throw new Error('El ticket de soporte no existe.');
+    if (ticket.status === 'closed') {
+      throw new Error('El ticket está cerrado. Reábrelo antes de responder.');
+    }
+
+    const previousStatus = ticket.status;
+    const now = nowIso();
+    const message = {
+      id: makeId(),
+      ticketId: ticket.id,
+      authorType: 'support',
+      authorName: actor?.name || 'Sistema',
+      body: String(body).trim(),
+      internal: Boolean(internal),
+      createdAt: now,
+    };
+
+    ticket.messages = [...(Array.isArray(ticket.messages) ? ticket.messages : []), message];
+    if (ticket.status === 'open') {
+      ticket.status = 'in_progress';
+    }
+    ticket.updatedAt = now;
+
+    if (!ticket.assignedToId) {
+      ticket.assignedToId = actor?.memberId || null;
+      ticket.assignedToName = actor?.name || 'Sistema';
+      ticket.assignedAt = now;
+    }
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'support.reply',
+      module: 'Soporte',
+      entityType: 'support_ticket',
+      entityId: ticket.id,
+      reason: internal ? 'Nota interna añadida' : 'Respuesta pública enviada',
+      metadata: {
+        internal: Boolean(internal),
+        messageId: message.id,
+        previousStatus,
+        newStatus: ticket.status,
+      },
+    });
+    saveStore(store);
+
+    return presentSupportTicket(store, ticket, { details: true });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Comunicaciones
+  // ---------------------------------------------------------------------------
+  async listCommunicationTemplates({ search = '', status = 'all', actor } = {}) {
+    requirePermission(
+      actor,
+      'communications.view',
+      'No tienes permiso para ver plantillas de comunicación.'
+    );
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+
+    return store.communicationTemplates
+      .filter((template) => (status === 'all' ? true : template.status === status))
+      .filter((template) => {
+        if (!term) return true;
+        return [template.name, template.subject, template.body, template.segmentLabel]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .slice()
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+      .map(presentCommunicationTemplate);
+  },
+
+  async setCommunicationTemplateStatus({
+    templateId,
+    status,
+    reason,
+    reasonCode = null,
+    actor,
+  }) {
+    requirePermission(
+      actor,
+      'communications.template',
+      'No tienes permiso para cambiar el estado de plantillas.'
+    );
+
+    const store = readStore();
+    const template = store.communicationTemplates.find((item) => item.id === templateId);
+    if (!template) throw new Error('La plantilla no existe.');
+
+    const allowed = COMMUNICATION_TEMPLATE_TRANSITIONS[template.status] || [];
+    if (!allowed.includes(status)) {
+      throw new Error('Transición de plantilla no permitida.');
+    }
+    requireReason(reason);
+
+    const previousStatus = template.status;
+    template.status = status;
+    template.updatedAt = nowIso();
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: `communications.template.${status}`,
+      module: 'Comunicaciones',
+      entityType: 'communication_template',
+      entityId: template.id,
+      reason: String(reason).trim(),
+      metadata: { previousStatus, newStatus: status, reasonCode, segment: template.segment },
+    });
+    saveStore(store);
+
+    return presentCommunicationTemplate(template);
+  },
+
+  async listCommunicationCampaigns({ search = '', status = 'all', actor } = {}) {
+    requirePermission(
+      actor,
+      'communications.view',
+      'No tienes permiso para ver campañas de comunicación.'
+    );
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+
+    return store.communicationCampaigns
+      .filter((campaign) => (status === 'all' ? true : campaign.status === status))
+      .filter((campaign) => {
+        if (!term) return true;
+        const decorated = presentCampaign(store, campaign);
+        return [decorated.name, decorated.templateName, decorated.segmentLabel]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .slice()
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+      .map((campaign) => presentCampaign(store, campaign));
+  },
+
+  async createCommunicationCampaign({ name, templateId, segment, scheduledAt = null, actor }) {
+    const permission = campaignPermission(segment);
+    requirePermission(actor, permission, 'No tienes permiso para crear esta campaña.');
+    requireReason(name);
+
+    const store = readStore();
+    const template = store.communicationTemplates.find((item) => item.id === templateId);
+    if (!template) throw new Error('La plantilla seleccionada no existe.');
+    if (template.status !== 'active') {
+      throw new Error('Solo se pueden usar plantillas activas en una campaña.');
+    }
+
+    const campaign = {
+      id: makeId(),
+      name: String(name).trim(),
+      templateId,
+      segment,
+      status: 'draft',
+      audienceCount: segmentAudienceCount(store, segment),
+      createdByName: actor?.name || 'Sistema',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      scheduledAt: scheduledAt || null,
+      queuedAt: null,
+      sentAt: null,
+      cancelledAt: null,
+      simulated: true,
+      providerStatus: 'draft',
+      statusReason: null,
+    };
+
+    store.communicationCampaigns = [campaign, ...store.communicationCampaigns];
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'communications.campaign.create',
+      module: 'Comunicaciones',
+      entityType: 'communication_campaign',
+      entityId: campaign.id,
+      reason: 'Campaña creada en modo demostración',
+      metadata: {
+        templateId,
+        segment,
+        audienceCount: campaign.audienceCount,
+        simulated: true,
+      },
+    });
+    saveStore(store);
+
+    return presentCampaign(store, campaign);
+  },
+
+  async setCampaignStatus({ campaignId, status, reason, reasonCode = null, actor }) {
+    const store = readStore();
+    const campaign = store.communicationCampaigns.find((item) => item.id === campaignId);
+    if (!campaign) throw new Error('La campaña no existe.');
+
+    const allowed = CAMPAIGN_TRANSITIONS[campaign.status] || [];
+    if (!allowed.includes(status)) {
+      throw new Error('Transición de campaña no permitida.');
+    }
+
+    const permission = campaignPermission(campaign.segment);
+    requirePermission(
+      actor,
+      permission,
+      permission === 'communications.broadcast'
+        ? 'No tienes permiso para enviar comunicaciones a audiencias amplias.'
+        : 'No tienes permiso para enviar esta comunicación.'
+    );
+    requireReason(reason);
+
+    const previousStatus = campaign.status;
+    const actionKey = campaignActionKey(campaign.status, status);
+    const now = nowIso();
+
+    campaign.status = status;
+    campaign.statusReason = String(reason).trim();
+    campaign.updatedAt = now;
+
+    // En modo demostración nunca hay entrega real: solo se registra el estado.
+    if (status === 'queued') {
+      campaign.queuedAt = now;
+      campaign.simulated = true;
+      campaign.providerStatus = 'demo_pending';
+      campaign.statusReason =
+        'En cola simulada: no existe proveedor de correo conectado en esta demostración';
+    }
+    if (status === 'sent') {
+      campaign.sentAt = now;
+      campaign.simulated = true;
+      campaign.providerStatus = 'demo_simulated';
+      campaign.statusReason =
+        'Marcada como enviada en la simulación; no se entregó ningún mensaje real';
+    }
+    if (status === 'cancelled') {
+      campaign.cancelledAt = now;
+    }
+    if (status === 'failed') {
+      campaign.providerStatus = 'failed';
+    }
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: `communications.campaign.${actionKey}`,
+      module: 'Comunicaciones',
+      entityType: 'communication_campaign',
+      entityId: campaign.id,
+      reason: campaign.statusReason,
+      metadata: {
+        previousStatus,
+        newStatus: status,
+        reasonCode,
+        simulated: true,
+        providerStatus: campaign.providerStatus,
+        audienceCount: campaign.audienceCount,
+        segment: campaign.segment,
+      },
+    });
+    saveStore(store);
+
+    return presentCampaign(store, campaign);
   },
 
   async getDeliveryEvidenceSignedUrl() {

@@ -56,7 +56,7 @@ Usuarios de prueba:
 | Usuario | Cualquier correo sin `shop` (por defecto `Julia`) |
 | Comercio | Cualquier correo que contenga `shop` |
 
-## Administración (Fases 1, 2 y 3)
+## Administración (Fases 1 a 4)
 
 El panel administrativo es una entrada separada: `admin.html` (en desarrollo,
 `http://localhost:5173/admin.html`). No cambia las rutas ni el diseño de la app
@@ -75,11 +75,16 @@ de comprador/comercio.
   `#/solicitudes`, `#/ofertas`, `#/pedidos` y `#/entregas`, con moderación,
   retirada administrativa, línea de tiempo de pedidos, disputas, seguimiento de
   entregas, incidencias y evidencias como metadatos.
+- Fase 4: confianza y atención. Incluye `#/chats`, `#/moderacion`, `#/resenas`,
+  `#/soporte` y `#/comunicaciones`, con acceso excepcional a chats auditado,
+  moderación de reportes y reseñas, tickets con SLA y campañas **simuladas**
+  (no existe proveedor de correo: nada se entrega realmente).
 - Con InsForge configurado usa autenticación real y permisos en servidor
   (RLS + funciones). Requiere aplicar las migraciones
   `migrations/20261106000000_admin_foundation.sql`,
-  `migrations/20261106010000_people_catalog.sql` y
-  `migrations/20261106020000_operations.sql`, además de dos buckets privados:
+  `migrations/20261106010000_people_catalog.sql`,
+  `migrations/20261106020000_operations.sql` y
+  `migrations/20261106030000_trust_care.sql`, además de dos buckets privados:
   documentos (`VITE_INSFORGE_DOCUMENTS_BUCKET`, por defecto
   `commerce-documents`) y evidencias de entrega
   (`VITE_INSFORGE_EVIDENCE_BUCKET`, por defecto `delivery-evidence`).
@@ -89,8 +94,9 @@ Documentación:
 - [Fase 1 · Fundación administrativa](./docs/admin/FASE_1.md)
 - [Fase 2 · Personas y catálogo](./docs/admin/FASE_2.md)
 - [Fase 3 · Operación](./docs/admin/FASE_3.md)
+- [Fase 4 · Confianza y atención](./docs/admin/FASE_4.md)
 
-Las tres fases están verificadas en modo demostración. El modo InsForge está
+Las cuatro fases están verificadas en modo demostración. El modo InsForge está
 escrito pero **no probado contra un proyecto real** todavía.
 
 ## Flujo principal
@@ -136,9 +142,10 @@ npm run build   # Build de producción
 ```
 
 Cubren creación/envío/persistencia/cierre del chat, las guardas de ruta por rol
-y la fundación administrativa (permisos, sesión, repositorio demo y reglas de
-Fase 2 para compradores, comercios, documentos y categorías, y reglas de Fase 3
-para solicitudes, ofertas, pedidos, entregas y evidencias).
+y la fundación administrativa: permisos, sesión, repositorio demo y reglas de
+Fase 2 (compradores, comercios, documentos y categorías), Fase 3 (solicitudes,
+ofertas, pedidos, entregas y evidencias) y Fase 4 (acceso auditado a chats,
+moderación, reseñas, soporte y comunicaciones simuladas).
 
 ## Limitaciones conocidas
 

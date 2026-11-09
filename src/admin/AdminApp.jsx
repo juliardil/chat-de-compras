@@ -13,6 +13,11 @@ import Requests from './pages/Requests';
 import Offers from './pages/Offers';
 import Orders from './pages/Orders';
 import Deliveries from './pages/Deliveries';
+import Chats from './pages/Chats';
+import Moderation from './pages/Moderation';
+import Reviews from './pages/Reviews';
+import Support from './pages/Support';
+import Communications from './pages/Communications';
 import Staff from './pages/Staff';
 import Audit from './pages/Audit';
 import Settings from './pages/Settings';
@@ -125,6 +130,46 @@ function AdminRoutes() {
           element={
             <RequirePermission permission="deliveries.view">
               <Deliveries />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="chats"
+          element={
+            <RequirePermission permission="chats.view_metadata">
+              <Chats />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="moderacion"
+          element={
+            <RequirePermission permission="moderation.view">
+              <Moderation />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="resenas"
+          element={
+            <RequirePermission permission="reviews.view">
+              <Reviews />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="soporte"
+          element={
+            <RequirePermission permission="support.view">
+              <Support />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="comunicaciones"
+          element={
+            <RequirePermission permission="communications.view">
+              <Communications />
             </RequirePermission>
           }
         />

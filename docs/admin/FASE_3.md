@@ -436,7 +436,7 @@ devolver un error de autorización.
 
 ```bash
 npm run lint     # ESLint sin errores
-npm test         # 96 pruebas (incluye Fases 1, 2 y 3)
+npm test         # 120 pruebas (incluye Fases 1 a 4)
 npm run build    # genera dist/index.html y dist/admin.html
 ```
 
@@ -449,7 +449,7 @@ Pruebas añadidas en Fase 3:
   entregas, incidencias, evidencias como metadatos, filtrado de métricas y
   migración del almacén a versión 3.
 - `src/admin/data/demoRepository.phase2.test.js` — la prueba de migración ahora
-  verifica la versión 3 y la presencia de los datos de Fase 3 sin perder
+  verifica la versión 4 y la presencia de los datos de Fases 3 y 4 sin perder
   miembros, invitaciones ni auditoría previa.
 - `src/admin/AdminApp.test.jsx` — prueba adicional que navega a solicitudes,
   ofertas, pedidos y entregas y confirma que ya no aparece el aviso de módulo
@@ -470,9 +470,9 @@ Verificación manual recomendada en demo:
 5. Con `admin@demo.local`, avanzar una entrega, confirmar la recepción de otra,
    registrar una incidencia y resolverla. Intentar resolverla dos veces.
 6. Abrir una evidencia y comprobar el mensaje de que en demo solo hay metadatos.
-7. Comprobar que `#/pagos`, `#/chats`, `#/moderacion`, `#/resenas`, `#/soporte`,
-   `#/comunicaciones` y `#/analitica` siguen mostrando el aviso de módulo
-   pendiente.
+7. Comprobar que `#/pagos` y `#/analitica` siguen mostrando el aviso de módulo
+   pendiente y que `#/chats`, `#/moderacion`, `#/resenas`, `#/soporte` y
+   `#/comunicaciones` ya abren sus módulos de Fase 4.
 
 ---
 
@@ -512,7 +512,7 @@ Verificación manual recomendada en demo:
 - [x] Rutas `#/solicitudes`, `#/ofertas`, `#/pedidos` y `#/entregas`
       funcionales.
 - [x] Migración SQL de Fase 3 escrita y **no ejecutada**.
-- [x] Lint, 96 pruebas y build en verde.
+- [x] Lint, 120 pruebas y build en verde.
 - [ ] Modo InsForge probado contra un proyecto real (bloqueado por credenciales).
 - [ ] Buckets privados creados y URLs firmadas verificadas.
 - [ ] Claims del JWT verificados en el proyecto real.

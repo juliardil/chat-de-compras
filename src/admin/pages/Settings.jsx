@@ -1,4 +1,4 @@
-import { CreditCard, Globe2, LockKeyhole, Mail, ServerCog, SlidersHorizontal } from 'lucide-react';
+import { CreditCard, Globe2, LockKeyhole, Mail, Megaphone, ServerCog, ShieldCheck as ShieldCheckIcon, SlidersHorizontal } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import { useAdminAuth } from '../auth/useAdminAuth';
@@ -16,8 +16,8 @@ const GENERAL_SETTINGS = [
 const FEATURE_FLAGS = [
   { key: 'payments_enabled', label: 'Pagos', value: false, note: 'No existe pasarela conectada' },
   { key: 'realtime_enabled', label: 'Tiempo real', value: false, note: 'Se activa con InsForge Realtime' },
-  { key: 'support_module_enabled', label: 'Soporte', value: false, note: 'Módulo de Fase 4' },
-  { key: 'campaigns_enabled', label: 'Campañas', value: false, note: 'Módulo de Fase 4' },
+  { key: 'support_module_enabled', label: 'Soporte', value: false, note: 'Interfaz de Fase 4 en demo; backend real pendiente de migraciones' },
+  { key: 'campaigns_enabled', label: 'Campañas', value: false, note: 'Envíos simulados; requiere proveedor de correo' },
 ];
 
 function Badge({ tone, children }) {
@@ -69,6 +69,25 @@ export default function Settings() {
       Icon: LockKeyhole,
     },
     {
+      key: 'chatAccess',
+      label: 'Acceso al contenido de chats',
+      detail:
+        mode === 'insforge'
+          ? 'Autorización aprobada, vigente y auditada por lectura (requiere migración de Fase 4)'
+          : 'Flujo simulado en el navegador; cada lectura se audita localmente',
+      tone: mode === 'insforge' ? 'warning' : 'neutral',
+      value: mode === 'insforge' ? 'Por verificar' : 'Demostración',
+      Icon: ShieldCheckIcon,
+    },
+    {
+      key: 'messaging',
+      label: 'Envío de comunicaciones',
+      detail: 'No hay proveedor de correo ni dominio verificado: los envíos son simulados',
+      tone: 'warning',
+      value: 'Simulado',
+      Icon: Megaphone,
+    },
+    {
       key: 'email',
       label: 'Correo',
       detail: 'InsForge Messaging con dominio verificado (pendiente de configuración)',
@@ -92,7 +111,7 @@ export default function Settings() {
         eyebrow="Sistema"
         title="Configuración"
         description="Parámetros operativos y estado de integraciones. En esta fase la pantalla es de solo lectura: editar requiere permisos sensibles y reautenticación."
-        actions={<Badge tone="info">Solo lectura · Fase 3</Badge>}
+        actions={<Badge tone="info">Solo lectura · Fase 4</Badge>}
       />
 
       <Alert tone="info" title="Por qué no se puede editar todavía">

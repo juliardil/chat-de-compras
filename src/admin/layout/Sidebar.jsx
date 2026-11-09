@@ -149,7 +149,7 @@ export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {
                 <span className={`h-2 w-2 rounded-full ${mode === 'insforge' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                 {mode === 'insforge' ? 'InsForge conectado' : 'Modo demostración'}
               </p>
-              <p className="mt-1 text-[11px] leading-4 text-white/45">Fase 3 · Operación</p>
+              <p className="mt-1 text-[11px] leading-4 text-white/45">Fase 4 · Confianza y atención</p>
             </div>
           ) : (
             <span

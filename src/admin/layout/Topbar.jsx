@@ -61,7 +61,7 @@ function GlobalSearch({ collapsed }) {
       {open ? (
         <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
           <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Navegación · Fase 3
+            Navegación · Fase 4
           </p>
           {results.length ? (
             <ul className="max-h-72 overflow-y-auto py-1">
@@ -86,8 +86,8 @@ function GlobalSearch({ collapsed }) {
             <p className="px-3 py-4 text-sm text-slate-500">Sin resultados en la navegación.</p>
           )}
           <p className="border-t border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
-            Esto busca secciones del panel. La búsqueda global de compradores, comercios, pedidos y
-            entregas llegará con la Fase 5.
+            Esto busca secciones del panel. La búsqueda global de compradores, comercios, pedidos,
+            entregas, chats y tickets llegará con la Fase 5.
           </p>
         </div>
       ) : null}

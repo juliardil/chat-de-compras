@@ -108,4 +108,41 @@ describe('panel administrativo (modo demostración)', () => {
     expect(screen.getByText(/entregas de demostración/i)).toBeInTheDocument();
     expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
   });
+
+  it('abre chats, moderación, reseñas, soporte y comunicaciones en lugar del aviso de módulo pendiente', async () => {
+    renderAdmin();
+    const user = await loginWithDemoAccount('superadmin@demo.local');
+
+    await screen.findByRole('heading', { level: 1, name: /panel de control/i });
+    const sidebar = screen.getByRole('complementary', { name: /menú administrativo/i });
+
+    await user.click(within(sidebar).getByRole('link', { name: /^chats/i }));
+    expect(await screen.findByRole('heading', { level: 1, name: /^chats$/i })).toBeInTheDocument();
+    expect(await screen.findByText(/chats de demostración/i)).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+
+    await user.click(within(sidebar).getByRole('link', { name: /^moderación/i }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /^moderación$/i })
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/reportes de demostración/i)).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+
+    await user.click(within(sidebar).getByRole('link', { name: /^reseñas/i }));
+    expect(await screen.findByRole('heading', { level: 1, name: /^reseñas$/i })).toBeInTheDocument();
+    expect(await screen.findByText(/reseñas de demostración/i)).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+
+    await user.click(within(sidebar).getByRole('link', { name: /^soporte/i }));
+    expect(await screen.findByRole('heading', { level: 1, name: /^soporte$/i })).toBeInTheDocument();
+    expect(await screen.findByText(/soporte de demostración/i)).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+
+    await user.click(within(sidebar).getByRole('link', { name: /^comunicaciones/i }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /^comunicaciones$/i })
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/envíos simulados, no reales/i)).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+  });
 });

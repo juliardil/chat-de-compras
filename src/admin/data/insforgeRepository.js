@@ -91,6 +91,24 @@ const EMPTY_METRICS = {
   deliveredDeliveries: 0,
   openIncidents: 0,
   totalDeliveries: 0,
+  flaggedChats: 0,
+  pendingChatAccessRequests: 0,
+  totalChats: 0,
+  openModerationReports: 0,
+  inReviewModerationReports: 0,
+  totalModerationReports: 0,
+  publishedReviews: 0,
+  hiddenReviews: 0,
+  flaggedReviews: 0,
+  totalReviews: 0,
+  openSupportTickets: 0,
+  inProgressSupportTickets: 0,
+  overdueSupportTickets: 0,
+  totalSupportTickets: 0,
+  activeTemplates: 0,
+  queuedCampaigns: 0,
+  totalTemplates: 0,
+  totalCampaigns: 0,
   recentAudit: [],
   attention: [],
 };
@@ -243,7 +261,7 @@ export function createInsforgeRepository(insforge) {
       const { data, error } = await insforge.database.rpc('admin_dashboard_metrics');
       throwIfError(
         error,
-        'No se pudieron cargar las métricas. ¿Aplicaste la migración de Fase 3?'
+        'No se pudieron cargar las métricas. ¿Aplicaste la migración de Fase 4?'
       );
 
       const row = Array.isArray(data) ? data[0] : data;
@@ -584,6 +602,252 @@ export function createInsforgeRepository(insforge) {
       }
 
       return { url: signed.signedUrl, expiresAt: signed.expiresAt || null };
+    },
+
+    // -------------------------------------------------------------------------
+    // Chats (metadatos y acceso excepcional auditado)
+    // -------------------------------------------------------------------------
+    async listChats({ search = '', status = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_chats', {
+        p_search: search.trim() || null,
+        p_status: status === 'all' ? null : status,
+      });
+      throwIfError(error, 'No se pudieron cargar los chats.');
+      return asArray(data);
+    },
+
+    async getChat({ chatId }) {
+      const { data, error } = await insforge.database.rpc('admin_get_chat', {
+        p_chat_id: chatId,
+      });
+      throwIfError(error, 'No se pudo cargar el chat.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async requestChatAccess({ chatId, reason, reasonCode = 'other' }) {
+      const { data, error } = await insforge.database.rpc('admin_request_chat_access', {
+        p_chat_id: chatId,
+        p_reason: reason,
+        p_reason_code: reasonCode,
+      });
+      throwIfError(error, 'No se pudo solicitar acceso al chat.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async decideChatAccess({
+      accessRequestId,
+      decision,
+      reason,
+      reasonCode = null,
+      expiresInHours = 24,
+    }) {
+      const { data, error } = await insforge.database.rpc('admin_decide_chat_access', {
+        p_access_request_id: accessRequestId,
+        p_decision: decision,
+        p_reason: reason,
+        p_reason_code: reasonCode,
+        p_expires_in_hours: Number(expiresInHours) || 24,
+      });
+      throwIfError(error, 'No se pudo actualizar el acceso al chat.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async readChatContent({ chatId }) {
+      const { data, error } = await insforge.database.rpc('admin_read_chat_content', {
+        p_chat_id: chatId,
+      });
+      throwIfError(
+        error,
+        'No se pudo leer el contenido. Requiere autorización aprobada y vigente.'
+      );
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) throw new Error('El servidor no devolvió contenido para este chat.');
+      return {
+        ...row,
+        messages: Array.isArray(row.messages) ? row.messages : [],
+        simulated: false,
+      };
+    },
+
+    // -------------------------------------------------------------------------
+    // Moderación
+    // -------------------------------------------------------------------------
+    async listModerationReports({ search = '', status = 'all', reportType = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_moderation_reports', {
+        p_search: search.trim() || null,
+        p_status: status === 'all' ? null : status,
+        p_report_type: reportType === 'all' ? null : reportType,
+      });
+      throwIfError(error, 'No se pudieron cargar los reportes de moderación.');
+      return asArray(data);
+    },
+
+    async getModerationReport({ reportId }) {
+      const { data, error } = await insforge.database.rpc('admin_get_moderation_report', {
+        p_report_id: reportId,
+      });
+      throwIfError(error, 'No se pudo cargar el reporte de moderación.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async updateModerationReport({ reportId, status, reason, reasonCode = null }) {
+      const { data, error } = await insforge.database.rpc('admin_update_moderation_report', {
+        p_report_id: reportId,
+        p_status: status,
+        p_reason: reason,
+        p_reason_code: reasonCode,
+      });
+      throwIfError(error, 'No se pudo actualizar el reporte de moderación.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    // -------------------------------------------------------------------------
+    // Reseñas
+    // -------------------------------------------------------------------------
+    async listReviews({ search = '', status = 'all', rating = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_reviews', {
+        p_search: search.trim() || null,
+        p_status: status === 'all' ? null : status,
+        p_rating: rating === 'all' ? null : Number(rating),
+      });
+      throwIfError(error, 'No se pudieron cargar las reseñas.');
+      return asArray(data);
+    },
+
+    async getReview({ reviewId }) {
+      const { data, error } = await insforge.database.rpc('admin_get_review', {
+        p_review_id: reviewId,
+      });
+      throwIfError(error, 'No se pudo cargar la reseña.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async setReviewStatus({ reviewId, status, reason, reasonCode = null }) {
+      const { data, error } = await insforge.database.rpc('admin_set_review_status', {
+        p_review_id: reviewId,
+        p_status: status,
+        p_reason: reason,
+        p_reason_code: reasonCode,
+      });
+      throwIfError(error, 'No se pudo moderar la reseña.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    // -------------------------------------------------------------------------
+    // Soporte
+    // -------------------------------------------------------------------------
+    async listSupportTickets({ search = '', status = 'all', priority = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_support_tickets', {
+        p_search: search.trim() || null,
+        p_status: status === 'all' ? null : status,
+        p_priority: priority === 'all' ? null : priority,
+      });
+      throwIfError(error, 'No se pudieron cargar los tickets de soporte.');
+      return asArray(data);
+    },
+
+    async getSupportTicket({ ticketId }) {
+      const { data, error } = await insforge.database.rpc('admin_get_support_ticket', {
+        p_ticket_id: ticketId,
+      });
+      throwIfError(error, 'No se pudo cargar el ticket de soporte.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async assignSupportTicket({ ticketId, reason = 'Asignación manual' }) {
+      const { data, error } = await insforge.database.rpc('admin_assign_support_ticket', {
+        p_ticket_id: ticketId,
+        p_reason: reason,
+      });
+      throwIfError(error, 'No se pudo asignar el ticket de soporte.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async updateSupportStatus({ ticketId, status, reason, reasonCode = null }) {
+      const { data, error } = await insforge.database.rpc('admin_update_support_status', {
+        p_ticket_id: ticketId,
+        p_status: status,
+        p_reason: reason,
+        p_reason_code: reasonCode,
+      });
+      throwIfError(error, 'No se pudo actualizar el ticket de soporte.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async replySupportTicket({ ticketId, body, internal = false }) {
+      const { data, error } = await insforge.database.rpc('admin_reply_support_ticket', {
+        p_ticket_id: ticketId,
+        p_body: body,
+        p_internal: Boolean(internal),
+      });
+      throwIfError(error, 'No se pudo responder el ticket de soporte.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    // -------------------------------------------------------------------------
+    // Comunicaciones (sin proveedor: los envíos quedan simulados)
+    // -------------------------------------------------------------------------
+    async listCommunicationTemplates({ search = '', status = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_communication_templates', {
+        p_search: search.trim() || null,
+        p_status: status === 'all' ? null : status,
+      });
+      throwIfError(error, 'No se pudieron cargar las plantillas de comunicación.');
+      return asArray(data);
+    },
+
+    async setCommunicationTemplateStatus({ templateId, status, reason, reasonCode = null }) {
+      const { data, error } = await insforge.database.rpc(
+        'admin_set_communication_template_status',
+        {
+          p_template_id: templateId,
+          p_status: status,
+          p_reason: reason,
+          p_reason_code: reasonCode,
+        }
+      );
+      throwIfError(error, 'No se pudo actualizar la plantilla de comunicación.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async listCommunicationCampaigns({ search = '', status = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_communication_campaigns', {
+        p_search: search.trim() || null,
+        p_status: status === 'all' ? null : status,
+      });
+      throwIfError(error, 'No se pudieron cargar las campañas de comunicación.');
+      return asArray(data);
+    },
+
+    async createCommunicationCampaign({
+      name,
+      templateId,
+      segment,
+      scheduledAt = null,
+    }) {
+      const { data, error } = await insforge.database.rpc(
+        'admin_create_communication_campaign',
+        {
+          p_name: name,
+          p_template_id: templateId,
+          p_segment: segment,
+          p_scheduled_at: scheduledAt || null,
+        }
+      );
+      throwIfError(error, 'No se pudo crear la campaña de comunicación.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async setCampaignStatus({ campaignId, status, reason, reasonCode = null }) {
+      const { data, error } = await insforge.database.rpc('admin_set_campaign_status', {
+        p_campaign_id: campaignId,
+        p_status: status,
+        p_reason: reason,
+        p_reason_code: reasonCode,
+      });
+      throwIfError(error, 'No se pudo actualizar la campaña de comunicación.');
+      return Array.isArray(data) ? data[0] : data;
     },
   };
 

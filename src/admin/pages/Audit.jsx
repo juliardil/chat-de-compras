@@ -45,6 +45,33 @@ const ACTION_LABELS = {
   'delivery.confirm': 'Recepción de entrega confirmada',
   'delivery.incident': 'Incidencia de entrega registrada',
   'delivery.incident.resolve': 'Incidencia de entrega resuelta',
+  'chat.access.request': 'Acceso a chat solicitado',
+  'chat.access.approved': 'Acceso a chat aprobado',
+  'chat.access.denied': 'Acceso a chat denegado',
+  'chat.access.revoked': 'Acceso a chat revocado',
+  'chat.content.read': 'Contenido de chat leído (auditado)',
+  'moderation.assign': 'Reporte de moderación asignado',
+  'moderation.resolve': 'Reporte de moderación resuelto',
+  'moderation.dismiss': 'Reporte de moderación descartado',
+  'review.hide': 'Reseña oculta',
+  'review.restore': 'Reseña restaurada',
+  'review.flag': 'Reseña marcada',
+  'review.publish': 'Reseña publicada',
+  'support.assign': 'Ticket de soporte asignado',
+  'support.reply': 'Ticket de soporte respondido',
+  'support.resolve': 'Ticket de soporte resuelto',
+  'support.close': 'Ticket de soporte cerrado',
+  'support.reopen': 'Ticket de soporte reabierto',
+  'support.status': 'Estado de ticket actualizado',
+  'communications.template.active': 'Plantilla de comunicación activada',
+  'communications.template.archived': 'Plantilla de comunicación archivada',
+  'communications.template.draft': 'Plantilla devuelta a borrador',
+  'communications.campaign.create': 'Campaña de comunicación creada',
+  'communications.campaign.queue': 'Campaña en cola simulada',
+  'communications.campaign.send': 'Campaña marcada como enviada (simulada)',
+  'communications.campaign.cancel': 'Campaña cancelada',
+  'communications.campaign.fail': 'Campaña marcada como fallida',
+  'communications.campaign.draft': 'Campaña devuelta a borrador',
 };
 
 export default function Audit() {
@@ -103,7 +130,7 @@ export default function Audit() {
       <PageHeader
         eyebrow="Sistema"
         title="Auditoría"
-        description="Registro de acciones administrativas y accesos, incluidas las transiciones de solicitudes, ofertas, pedidos y entregas. En producción es append-only y se escribe en el servidor; el cliente solo puede leerlo con permiso."
+        description="Registro de acciones administrativas y accesos, incluidas las transiciones de solicitudes, ofertas, pedidos, entregas, chats, moderación, reseñas, soporte y comunicaciones. En producción es append-only y se escribe en el servidor; el cliente solo puede leerlo con permiso."
         actions={
           hasPermission('audit.export') ? (
             <button
@@ -123,7 +150,7 @@ export default function Audit() {
         <Alert tone="warning" title="Auditoría de demostración">
           Estos eventos se guardan en localStorage y pueden alterarse desde el navegador. No los
           uses como evidencia. La auditoría confiable se escribe en el servidor con las migraciones
-          de Fase 1, 2 y 3.
+          de Fase 1 a 4.
         </Alert>
       ) : (
         <Alert tone="success" title="Auditoría del servidor">
