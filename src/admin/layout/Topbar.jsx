@@ -3,13 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, ShieldCheck } from 'lucide-react';
 import { useAdminAuth } from '../auth/useAdminAuth';
 import { NAVIGATION_ITEMS } from '../constants/navigation';
+import { GLOBAL_SEARCH_MIN_LENGTH } from '../constants/phase5';
+import { adminRepository } from '../data';
 import { initials } from '../utils/format';
 
 function GlobalSearch({ collapsed }) {
   const navigate = useNavigate();
-  const { hasPermission } = useAdminAuth();
+  const { session, hasPermission } = useAdminAuth();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [entityState, setEntityState] = useState({
+    searching: false,
+    results: [],
+    total: 0,
+    truncated: false,
+    searchError: null,
+  });
   const containerRef = useRef(null);
 
   const items = useMemo(
@@ -17,11 +26,14 @@ function GlobalSearch({ collapsed }) {
     [hasPermission]
   );
 
-  const results = useMemo(() => {
+  const navResults = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return items;
     return items.filter((item) => item.label.toLowerCase().includes(term));
   }, [items, query]);
+
+  const term = query.trim();
+  const searchingEntities = term.length >= GLOBAL_SEARCH_MIN_LENGTH;
 
   useEffect(() => {
     const onPointerDown = (event) => {
@@ -31,8 +43,46 @@ function GlobalSearch({ collapsed }) {
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, []);
 
-  const go = (item) => {
-    navigate(item.path);
+  useEffect(() => {
+    if (!searchingEntities) {
+      setEntityState({ searching: false, results: [], total: 0, truncated: false, searchError: null });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setEntityState((current) => ({ ...current, searching: true, searchError: null }));
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await adminRepository.globalSearch({ query: term, actor: session });
+        if (cancelled) return;
+        setEntityState({
+          searching: false,
+          results: response.results || [],
+          total: response.total || 0,
+          truncated: Boolean(response.truncated),
+          searchError: null,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        setEntityState({
+          searching: false,
+          results: [],
+          total: 0,
+          truncated: false,
+          searchError: error.message,
+        });
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [term, searchingEntities, session]);
+
+  const go = (path) => {
+    navigate(path);
     setQuery('');
     setOpen(false);
   };
@@ -51,9 +101,12 @@ function GlobalSearch({ collapsed }) {
           onFocus={() => setOpen(true)}
           onKeyDown={(event) => {
             if (event.key === 'Escape') setOpen(false);
-            if (event.key === 'Enter' && results[0]) go(results[0]);
+            if (event.key === 'Enter') {
+              if (entityState.results[0]) go(entityState.results[0].path);
+              else if (navResults[0]) go(navResults[0].path);
+            }
           }}
-          placeholder="Buscar en el panel…"
+          placeholder="Buscar secciones, pedidos, comercios…"
           aria-label="Buscar en el panel"
           className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#4B227A] focus:bg-white focus:ring-2 focus:ring-[#4B227A]/15"
         />
@@ -61,33 +114,86 @@ function GlobalSearch({ collapsed }) {
       {open ? (
         <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
           <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Navegación · Fase 4
+            Navegación · Fase 5
           </p>
-          {results.length ? (
-            <ul className="max-h-72 overflow-y-auto py-1">
-              {results.map((item) => (
+          {navResults.length ? (
+            <ul className="max-h-48 overflow-y-auto py-1">
+              {navResults.map((item) => (
                 <li key={item.key}>
                   <button
                     type="button"
-                    onClick={() => go(item)}
+                    onClick={() => go(item.path)}
                     className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                   >
                     <span>{item.label}</span>
-                    {item.phase > 1 ? (
-                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
-                        Fase {item.phase}
-                      </span>
-                    ) : null}
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                      Fase {item.phase}
+                    </span>
                   </button>
                 </li>
               ))}
             </ul>
+          ) : null}
+
+          {searchingEntities ? (
+            <>
+              <p className="border-y border-slate-100 bg-slate-50/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Resultados · metadatos
+              </p>
+              {entityState.searching ? (
+                <p className="px-3 py-3 text-sm text-slate-500">Buscando…</p>
+              ) : null}
+              {!entityState.searching && entityState.searchError ? (
+                <p className="px-3 py-3 text-sm text-red-600">{entityState.searchError}</p>
+              ) : null}
+              {!entityState.searching && !entityState.searchError && entityState.results.length ? (
+                <ul className="max-h-64 overflow-y-auto py-1">
+                  {entityState.results.map((result) => (
+                    <li key={`${result.type}-${result.id}`}>
+                      <button
+                        type="button"
+                        onClick={() => go(result.path)}
+                        className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-slate-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-slate-800">
+                            {result.title}
+                          </span>
+                          <span className="block truncate text-xs text-slate-500">
+                            {result.subtitle || '—'}
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-md bg-[#006E7A]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#006E7A]">
+                          {result.typeLabel}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {!entityState.searching &&
+              !entityState.searchError &&
+              !entityState.results.length ? (
+                <p className="px-3 py-3 text-sm text-slate-500">
+                  Sin coincidencias de metadatos para «{term}».
+                </p>
+              ) : null}
+              {entityState.truncated ? (
+                <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-400">
+                  Mostrando 20 de {entityState.total} resultados. Afina la búsqueda.
+                </p>
+              ) : null}
+            </>
           ) : (
-            <p className="px-3 py-4 text-sm text-slate-500">Sin resultados en la navegación.</p>
+            <p className="border-t border-slate-100 px-3 py-2 text-[11px] text-slate-400">
+              Escribe al menos {GLOBAL_SEARCH_MIN_LENGTH} caracteres para buscar compradores,
+              comercios, solicitudes, ofertas, pedidos, entregas, chats y tickets.
+            </p>
           )}
+
           <p className="border-t border-slate-100 bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
-            Esto busca secciones del panel. La búsqueda global de compradores, comercios, pedidos,
-            entregas, chats y tickets llegará con la Fase 5.
+            La búsqueda global devuelve solo metadatos y respeta tus permisos. Nunca incluye el
+            contenido de los chats.
           </p>
         </div>
       ) : null}

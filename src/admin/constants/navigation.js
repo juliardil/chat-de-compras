@@ -142,20 +142,6 @@ export const NAVIGATION_GROUPS = [
 export const NAVIGATION_ITEMS = NAVIGATION_GROUPS.flatMap((group) => group.items);
 
 // Módulos que todavía no se implementan. Se muestran con su fase para no
-// aparentar funcionalidad que no existe.
-export const PENDING_MODULES = {
-  '/pagos': {
-    title: 'Pagos',
-    permission: 'payments.view',
-    phase: 5,
-    description: 'Módulo preparado para una pasarela real. Hoy no existe ninguna conectada.',
-    capabilities: ['Transacciones y comisiones', 'Reembolsos y conciliación', 'Liquidaciones a comercios'],
-  },
-  '/analitica': {
-    title: 'Analítica',
-    permission: 'analytics.view',
-    phase: 5,
-    description: 'Métricas confiables, filtros por fecha y exportaciones auditadas.',
-    capabilities: ['Crecimiento y actividad', 'Rendimiento de comercios', 'Exportación con permisos'],
-  },
-};
+// aparentar funcionalidad que no existe. La Fase 5 implementó Pagos y Analítica,
+// por lo que ya no queda ningún módulo pendiente en el menú.
+export const PENDING_MODULES = {};

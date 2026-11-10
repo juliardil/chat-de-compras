@@ -4,8 +4,10 @@ import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/useToast';
 import { useAdminAuth } from '../auth/useAdminAuth';
 import { adminRepository } from '../data';
+import { downloadCsv } from '../utils/csv';
 import { formatDateTime, truncateId } from '../utils/format';
 
 const ACTION_LABELS = {
@@ -72,13 +74,19 @@ const ACTION_LABELS = {
   'communications.campaign.cancel': 'Campaña cancelada',
   'communications.campaign.fail': 'Campaña marcada como fallida',
   'communications.campaign.draft': 'Campaña devuelta a borrador',
+  'analytics.export': 'Analítica exportada',
+  'payment.reconcile': 'Pago conciliado manualmente',
+  'audit.export': 'Auditoría exportada',
 };
 
 export default function Audit() {
-  const { mode, hasPermission } = useAdminAuth();
+  const { session, mode, hasPermission } = useAdminAuth();
+  const { notify } = useToast();
   const [state, setState] = useState({ loading: true, error: null, events: [] });
   const [search, setSearch] = useState('');
   const [moduleFilter, setModuleFilter] = useState('all');
+  const [exporting, setExporting] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +104,30 @@ export default function Audit() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const result = await adminRepository.exportAudit({
+        search,
+        module: moduleFilter,
+        actor: session,
+      });
+      const downloaded = downloadCsv(result.filename, result.csv);
+      notify({
+        title: 'Auditoría exportada',
+        description: downloaded
+          ? `${result.filename} · ${result.count} evento(s)`
+          : 'El navegador no permitió descargar el archivo.',
+      });
+      setReloadToken((token) => token + 1);
+    } catch (error) {
+      notify({ tone: 'error', title: 'No se pudo exportar la auditoría', description: error.message });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const modules = useMemo(
     () => Array.from(new Set(state.events.map((event) => event.module).filter(Boolean))).sort(),
@@ -130,17 +161,18 @@ export default function Audit() {
       <PageHeader
         eyebrow="Sistema"
         title="Auditoría"
-        description="Registro de acciones administrativas y accesos, incluidas las transiciones de solicitudes, ofertas, pedidos, entregas, chats, moderación, reseñas, soporte y comunicaciones. En producción es append-only y se escribe en el servidor; el cliente solo puede leerlo con permiso."
+        description="Registro de acciones administrativas y accesos, incluidas las transiciones de solicitudes, ofertas, pedidos, entregas, chats, moderación, reseñas, soporte, comunicaciones, analítica y pagos. En producción es append-only y se escribe en el servidor; el cliente solo puede leerlo con permiso."
         actions={
           hasPermission('audit.export') ? (
             <button
               type="button"
-              disabled
-              title="La exportación auditada llega en la Fase 5"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-400"
+              onClick={handleExport}
+              disabled={exporting || state.loading || Boolean(state.error)}
+              title="Exporta los eventos visibles y registra la exportación en la auditoría"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#4B227A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3A1A5E] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              Exportar · Fase 5
+              {exporting ? 'Exportando…' : 'Exportar CSV'}
             </button>
           ) : null
         }
@@ -150,7 +182,7 @@ export default function Audit() {
         <Alert tone="warning" title="Auditoría de demostración">
           Estos eventos se guardan en localStorage y pueden alterarse desde el navegador. No los
           uses como evidencia. La auditoría confiable se escribe en el servidor con las migraciones
-          de Fase 1 a 4.
+          de Fase 1 a 5.
         </Alert>
       ) : (
         <Alert tone="success" title="Auditoría del servidor">

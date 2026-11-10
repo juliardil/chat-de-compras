@@ -145,4 +145,46 @@ describe('panel administrativo (modo demostración)', () => {
     expect(await screen.findByText(/envíos simulados, no reales/i)).toBeInTheDocument();
     expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
   });
+
+  it('abre analítica y pagos en lugar del aviso de módulo pendiente', async () => {
+    renderAdmin();
+    const user = await loginWithDemoAccount('superadmin@demo.local');
+
+    await screen.findByRole('heading', { level: 1, name: /panel de control/i });
+    const sidebar = screen.getByRole('complementary', { name: /menú administrativo/i });
+
+    await user.click(within(sidebar).getByRole('link', { name: /^analítica/i }));
+    expect(await screen.findByRole('heading', { level: 1, name: /^analítica$/i })).toBeInTheDocument();
+    expect(await screen.findByText(/analítica de demostración/i)).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+
+    await user.click(within(sidebar).getByRole('link', { name: /^pagos/i }));
+    expect(await screen.findByRole('heading', { level: 1, name: /^pagos$/i })).toBeInTheDocument();
+    expect(await screen.findByText(/sin pasarela de pagos/i)).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+  });
+
+  it('muestra analítica y pagos al analista, pero no al soporte', async () => {
+    renderAdmin();
+    const user = await loginWithDemoAccount('analista@demo.local');
+
+    await screen.findByRole('heading', { level: 1, name: /panel de control/i });
+    const sidebar = screen.getByRole('complementary', { name: /menú administrativo/i });
+    expect(within(sidebar).getByRole('link', { name: /^analítica/i })).toBeInTheDocument();
+    expect(within(sidebar).getByRole('link', { name: /^pagos/i })).toBeInTheDocument();
+    expect(within(sidebar).queryByRole('link', { name: /^personal y permisos/i })).not.toBeInTheDocument();
+
+    await user.click(within(sidebar).getByRole('link', { name: /^analítica/i }));
+    expect(await screen.findByRole('heading', { level: 1, name: /^analítica$/i })).toBeInTheDocument();
+  });
+
+  it('oculta analítica y pagos al rol de soporte', async () => {
+    renderAdmin();
+    await loginWithDemoAccount('soporte@demo.local');
+
+    await screen.findByRole('heading', { level: 1, name: /panel de control/i });
+    const sidebar = screen.getByRole('complementary', { name: /menú administrativo/i });
+    expect(within(sidebar).queryByRole('link', { name: /^analítica/i })).not.toBeInTheDocument();
+    expect(within(sidebar).queryByRole('link', { name: /^pagos/i })).not.toBeInTheDocument();
+  });
 });

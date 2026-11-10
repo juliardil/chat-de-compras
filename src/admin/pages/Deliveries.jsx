@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Check,
@@ -351,7 +352,8 @@ export default function Deliveries() {
   const { session, hasPermission, mode } = useAdminAuth();
   const { notify } = useToast();
   const [state, setState] = useState({ loading: true, error: null, deliveries: [] });
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get('q') || '');
   const [statusFilter, setStatusFilter] = useState('all');
   const [detailTarget, setDetailTarget] = useState(null);
   const [actionTarget, setActionTarget] = useState(null);

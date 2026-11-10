@@ -12,6 +12,12 @@ const dateTimeFormatter = new Intl.DateTimeFormat('es-ES', {
   minute: '2-digit',
 });
 
+const currencyFormatter = new Intl.NumberFormat('es-ES', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+});
+
 export function formatDate(value) {
   if (!value) return '—';
   const date = new Date(value);
@@ -24,6 +30,20 @@ export function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return dateTimeFormatter.format(date);
+}
+
+export function formatCurrency(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return '—';
+  return currencyFormatter.format(numeric);
+}
+
+export function formatPercent(value, digits = 1) {
+  if (value === null || value === undefined || value === '') return '—';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return '—';
+  return `${numeric.toFixed(digits)} %`;
 }
 
 export function formatRelative(value) {

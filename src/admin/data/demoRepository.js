@@ -43,14 +43,31 @@ import {
   supportActionKey,
   supportStatusPermission,
 } from '../constants/phase4';
+import {
+  ANALYTICS_EXPORT_NOTICE,
+  DEFAULT_ANALYTICS_RANGE,
+  GLOBAL_SEARCH_LIMIT,
+  GLOBAL_SEARCH_MIN_LENGTH,
+  GLOBAL_SEARCH_TYPES,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_PROVIDER_LABELS,
+  PAYMENT_STATUS_LABELS,
+  PAYOUT_STATUS_LABELS,
+  analyticsRangeDays,
+  analyticsRangeLabel,
+  paymentCountsAsCollected,
+  paymentIsReconcilable,
+} from '../constants/phase5';
 import { buildPhase2Audit, buildPhase2Seed } from './demoSeedPhase2';
 import { buildPhase3Audit, buildPhase3Seed } from './demoSeedPhase3';
 import { buildPhase4Audit, buildPhase4Seed } from './demoSeedPhase4';
+import { buildPhase5Audit, buildPhase5Seed } from './demoSeedPhase5';
 import { maskEmail, maskPhone, slugify } from '../utils/mask';
+import { buildCsv, csvDateStamp } from '../utils/csv';
 
 const STORE_KEY = 'chat_compras_admin_demo_v1';
 const SESSION_KEY = 'chat_compras_admin_demo_session_v1';
-const STORE_VERSION = 4;
+const STORE_VERSION = 5;
 
 // Credenciales exclusivas del modo demostración. No existen en producción.
 export const DEMO_PASSWORD = 'Demo1234!';
@@ -106,12 +123,14 @@ function buildSeed() {
   const phase2 = buildPhase2Seed();
   const phase3 = buildPhase3Seed();
   const phase4 = buildPhase4Seed();
+  const phase5 = buildPhase5Seed();
 
   return {
     version: STORE_VERSION,
     ...phase2,
     ...phase3,
     ...phase4,
+    ...phase5,
     members,
     invitations: [
       {
@@ -125,6 +144,7 @@ function buildSeed() {
       },
     ],
     audit: [
+      ...buildPhase5Audit(),
       ...buildPhase4Audit(),
       ...buildPhase3Audit(),
       ...buildPhase2Audit(),
@@ -177,6 +197,7 @@ function upgradeStore(stored) {
   const phase2 = buildPhase2Seed();
   const phase3 = buildPhase3Seed();
   const phase4 = buildPhase4Seed();
+  const phase5 = buildPhase5Seed();
   const upgraded = {
     ...stored,
     version: STORE_VERSION,
@@ -217,6 +238,12 @@ function upgradeStore(stored) {
     communicationCampaigns: Array.isArray(stored.communicationCampaigns)
       ? stored.communicationCampaigns
       : phase4.communicationCampaigns,
+    paymentTransactions: Array.isArray(stored.paymentTransactions)
+      ? stored.paymentTransactions
+      : phase5.paymentTransactions,
+    paymentPayouts: Array.isArray(stored.paymentPayouts)
+      ? stored.paymentPayouts
+      : phase5.paymentPayouts,
     audit: Array.isArray(stored.audit) ? stored.audit : [],
   };
 
@@ -224,6 +251,7 @@ function upgradeStore(stored) {
   // anterior, sin tocar miembros, invitaciones ni eventos ya existentes.
   if (stored.version === 1) {
     upgraded.audit = [
+      ...buildPhase5Audit(),
       ...buildPhase4Audit(),
       ...buildPhase3Audit(),
       ...buildPhase2Audit(),
@@ -231,12 +259,19 @@ function upgradeStore(stored) {
     ].slice(0, 200);
   } else if (stored.version === 2) {
     upgraded.audit = [
+      ...buildPhase5Audit(),
       ...buildPhase4Audit(),
       ...buildPhase3Audit(),
       ...upgraded.audit,
     ].slice(0, 200);
   } else if (stored.version === 3) {
-    upgraded.audit = [...buildPhase4Audit(), ...upgraded.audit].slice(0, 200);
+    upgraded.audit = [
+      ...buildPhase5Audit(),
+      ...buildPhase4Audit(),
+      ...upgraded.audit,
+    ].slice(0, 200);
+  } else if (stored.version === 4) {
+    upgraded.audit = [...buildPhase5Audit(), ...upgraded.audit].slice(0, 200);
   }
 
   return upgraded;
@@ -758,6 +793,344 @@ function applyDeliveryTransition(
   return delivery;
 }
 
+// -----------------------------------------------------------------------------
+// Presentación de analítica y pagos (Fase 5)
+// -----------------------------------------------------------------------------
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function startOfDay(date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function analyticsWindow(days) {
+  const end = new Date();
+  const start = startOfDay(new Date(end.getTime() - (days - 1) * DAY_MS));
+  return { start, end };
+}
+
+function withinWindow(value, window) {
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  return !Number.isNaN(time) && time >= window.start.getTime() && time <= window.end.getTime();
+}
+
+function roundAmount(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function dayKey(value) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function buildAnalytics(store, days) {
+  const window = analyticsWindow(days);
+  const payments = store.paymentTransactions.filter((payment) =>
+    withinWindow(payment.paidAt || payment.createdAt, window)
+  );
+  const collectedPayments = payments.filter((payment) => paymentCountsAsCollected(payment.status));
+  const orders = store.orders.filter((order) => withinWindow(order.placedAt || order.createdAt, window));
+
+  const gmv = roundAmount(collectedPayments.reduce((total, payment) => total + Number(payment.amount || 0), 0));
+  const commissionRevenue = roundAmount(
+    collectedPayments.reduce((total, payment) => total + Number(payment.commissionAmount || 0), 0)
+  );
+  const netToCommerces = roundAmount(
+    collectedPayments.reduce((total, payment) => total + Number(payment.netAmount || 0), 0)
+  );
+  const refundedAmount = roundAmount(
+    collectedPayments.reduce((total, payment) => total + Number(payment.refundedAmount || 0), 0)
+  );
+  const orderVolume = orders.reduce((total, order) => total + Number(order.totalAmount || 0), 0);
+
+  const methodTotals = collectedPayments.reduce((accumulator, payment) => {
+    const key = payment.method || 'none';
+    accumulator[key] = (accumulator[key] || 0) + Number(payment.amount || 0);
+    return accumulator;
+  }, {});
+
+  const methodMix = Object.entries(methodTotals)
+    .map(([method, amount]) => ({
+      method,
+      label: PAYMENT_METHOD_LABELS[method] || method,
+      amount: roundAmount(amount),
+      share: gmv ? roundAmount((amount / gmv) * 100) : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const commerceTotals = new Map();
+  collectedPayments.forEach((payment) => {
+    const current = commerceTotals.get(payment.commerceId) || {
+      commerceId: payment.commerceId,
+      gmv: 0,
+      commission: 0,
+      payments: 0,
+    };
+    current.gmv += Number(payment.amount || 0);
+    current.commission += Number(payment.commissionAmount || 0);
+    current.payments += 1;
+    commerceTotals.set(payment.commerceId, current);
+  });
+
+  const topCommerces = Array.from(commerceTotals.values())
+    .map((entry) => ({
+      commerceId: entry.commerceId,
+      commerceName: commerceName(store, entry.commerceId) || 'Comercio no disponible',
+      gmv: roundAmount(entry.gmv),
+      commission: roundAmount(entry.commission),
+      payments: entry.payments,
+      share: gmv ? roundAmount((entry.gmv / gmv) * 100) : 0,
+    }))
+    .sort((a, b) => b.gmv - a.gmv)
+    .slice(0, 5);
+
+  const seriesMap = new Map();
+  for (let index = 0; index < days; index += 1) {
+    const date = new Date(window.start.getTime() + index * DAY_MS);
+    seriesMap.set(dayKey(date), { date: dayKey(date), gmv: 0, orders: 0, payments: 0 });
+  }
+
+  collectedPayments.forEach((payment) => {
+    const bucket = seriesMap.get(dayKey(payment.paidAt || payment.createdAt));
+    if (!bucket) return;
+    bucket.gmv = roundAmount(bucket.gmv + Number(payment.amount || 0));
+    bucket.payments += 1;
+  });
+
+  orders.forEach((order) => {
+    const bucket = seriesMap.get(dayKey(order.placedAt || order.createdAt));
+    if (bucket) bucket.orders += 1;
+  });
+
+  return {
+    generatedAt: nowIso(),
+    rangeDays: days,
+    rangeLabel: analyticsRangeLabel(String(days)),
+    periodStart: window.start.toISOString(),
+    periodEnd: window.end.toISOString(),
+    piiIncluded: false,
+    gatewayConnected: false,
+    notice: ANALYTICS_EXPORT_NOTICE,
+    summary: {
+      gmv,
+      commissionRevenue,
+      netToCommerces,
+      refundedAmount,
+      averageOrderValue: orders.length ? roundAmount(orderVolume / orders.length) : 0,
+      orderVolume: roundAmount(orderVolume),
+      orders: orders.length,
+      payments: payments.length,
+      collectedPayments: collectedPayments.length,
+      completedOrders: orders.filter((order) => order.status === 'completed').length,
+      disputedOrders: orders.filter((order) => order.status === 'disputed').length,
+      cancelledOrders: orders.filter((order) => order.status === 'cancelled').length,
+      unreconciledPayments: store.paymentTransactions.filter(
+        (payment) => paymentIsReconcilable(payment.status) && !payment.reconciled
+      ).length,
+    },
+    series: Array.from(seriesMap.values()),
+    methodMix,
+    topCommerces,
+  };
+}
+
+function presentPayment(store, payment) {
+  const order = store.orders.find((item) => item.id === payment.orderId);
+
+  return {
+    ...payment,
+    orderNumber: order?.orderNumber || null,
+    orderStatus: order?.status || null,
+    buyerName: buyerName(store, payment.buyerId),
+    commerceName: commerceName(store, payment.commerceId),
+    statusLabel: PAYMENT_STATUS_LABELS[payment.status] || payment.status,
+    methodLabel: PAYMENT_METHOD_LABELS[payment.method] || payment.method,
+    providerLabel: PAYMENT_PROVIDER_LABELS[payment.provider] || payment.provider,
+    countsAsCollected: paymentCountsAsCollected(payment.status),
+    reconcilable: paymentIsReconcilable(payment.status),
+    gatewayConnected: false,
+  };
+}
+
+function presentPayout(store, payout) {
+  return {
+    ...payout,
+    commerceName: commerceName(store, payout.commerceId),
+    statusLabel: PAYOUT_STATUS_LABELS[payout.status] || payout.status,
+    gatewayConnected: false,
+  };
+}
+
+function summarizePayments(store) {
+  const payments = store.paymentTransactions;
+  const collected = payments.filter((payment) => paymentCountsAsCollected(payment.status));
+  const sum = (rows, key) => roundAmount(rows.reduce((total, row) => total + Number(row[key] || 0), 0));
+  const pendingPayouts = store.paymentPayouts.filter((payout) =>
+    ['pending', 'scheduled'].includes(payout.status)
+  );
+
+  return {
+    totalPayments: payments.length,
+    pendingPayments: payments.filter((payment) => payment.status === 'pending').length,
+    authorizedPayments: payments.filter((payment) => payment.status === 'authorized').length,
+    failedPayments: payments.filter((payment) => payment.status === 'failed').length,
+    refundedPayments: payments.filter((payment) =>
+      ['refunded', 'partially_refunded'].includes(payment.status)
+    ).length,
+    unreconciledPayments: payments.filter(
+      (payment) => paymentIsReconcilable(payment.status) && !payment.reconciled
+    ).length,
+    grossCollected: sum(collected, 'amount'),
+    commissionRevenue: sum(collected, 'commissionAmount'),
+    netToCommerces: sum(collected, 'netAmount'),
+    refundedAmount: sum(collected, 'refundedAmount'),
+    pendingPayouts: pendingPayouts.length,
+    pendingPayoutNet: sum(pendingPayouts, 'netAmount'),
+    paidPayouts: store.paymentPayouts.filter((payout) => payout.status === 'paid').length,
+    totalPayouts: store.paymentPayouts.length,
+    gatewayConnected: false,
+  };
+}
+
+function globalSearchResults(store, term, actor) {
+  const results = [];
+  const matches = (values) =>
+    values.filter(Boolean).some((value) => String(value).toLowerCase().includes(term));
+
+  if (actorHas(actor, 'users.view')) {
+    const viewPii = actorHas(actor, 'users.view_pii');
+    store.buyers.forEach((buyer) => {
+      if (!matches([buyer.name, buyer.email, buyer.phone])) return;
+      results.push({
+        type: 'buyer',
+        typeLabel: GLOBAL_SEARCH_TYPES.buyer,
+        id: buyer.id,
+        title: buyer.name,
+        subtitle: [viewPii ? buyer.email : maskEmail(buyer.email), buyer.status].filter(Boolean).join(' · '),
+        status: buyer.status,
+        path: `/compradores?q=${encodeURIComponent(buyer.name)}`,
+      });
+    });
+  }
+
+  if (actorHas(actor, 'commerce.view')) {
+    store.commerces.forEach((commerce) => {
+      if (!matches([commerce.tradeName, commerce.legalName, commerce.categoryName])) return;
+      results.push({
+        type: 'commerce',
+        typeLabel: GLOBAL_SEARCH_TYPES.commerce,
+        id: commerce.id,
+        title: commerce.tradeName,
+        subtitle: commerce.legalName || commerce.status,
+        status: commerce.status,
+        path: `/comercios?q=${encodeURIComponent(commerce.tradeName)}`,
+      });
+    });
+  }
+
+  if (actorHas(actor, 'requests.view')) {
+    store.requests.forEach((request) => {
+      if (!matches([request.title, buyerName(store, request.buyerId)])) return;
+      results.push({
+        type: 'request',
+        typeLabel: GLOBAL_SEARCH_TYPES.request,
+        id: request.id,
+        title: request.title,
+        subtitle: [buyerName(store, request.buyerId), request.status].filter(Boolean).join(' · '),
+        status: request.status,
+        path: `/solicitudes?q=${encodeURIComponent(request.title)}`,
+      });
+    });
+  }
+
+  if (actorHas(actor, 'offers.view')) {
+    store.offers.forEach((offer) => {
+      const request = store.requests.find((item) => item.id === offer.requestId);
+      if (!matches([request?.title, commerceName(store, offer.commerceId)])) return;
+      results.push({
+        type: 'offer',
+        typeLabel: GLOBAL_SEARCH_TYPES.offer,
+        id: offer.id,
+        title: request?.title || 'Oferta',
+        subtitle: [commerceName(store, offer.commerceId), offer.status].filter(Boolean).join(' · '),
+        status: offer.status,
+        path: `/ofertas?q=${encodeURIComponent(commerceName(store, offer.commerceId) || '')}`,
+      });
+    });
+  }
+
+  if (actorHas(actor, 'orders.view')) {
+    store.orders.forEach((order) => {
+      if (!matches([order.orderNumber, buyerName(store, order.buyerId), commerceName(store, order.commerceId)])) {
+        return;
+      }
+      results.push({
+        type: 'order',
+        typeLabel: GLOBAL_SEARCH_TYPES.order,
+        id: order.id,
+        title: order.orderNumber,
+        subtitle: [buyerName(store, order.buyerId), commerceName(store, order.commerceId)].filter(Boolean).join(' · '),
+        status: order.status,
+        path: `/pedidos?q=${encodeURIComponent(order.orderNumber)}`,
+      });
+    });
+  }
+
+  if (actorHas(actor, 'deliveries.view')) {
+    store.deliveries.forEach((delivery) => {
+      const order = store.orders.find((item) => item.id === delivery.orderId);
+      if (!matches([order?.orderNumber, delivery.trackingCode, delivery.carrier])) return;
+      results.push({
+        type: 'delivery',
+        typeLabel: GLOBAL_SEARCH_TYPES.delivery,
+        id: delivery.id,
+        title: order?.orderNumber || 'Entrega',
+        subtitle: [delivery.carrier, delivery.trackingCode, delivery.status].filter(Boolean).join(' · '),
+        status: delivery.status,
+        path: `/entregas?q=${encodeURIComponent(order?.orderNumber || delivery.trackingCode || '')}`,
+      });
+    });
+  }
+
+  if (actorHas(actor, 'chats.view_metadata')) {
+    store.chats.forEach((chat) => {
+      // Solo metadatos: nunca se indexa el cuerpo de los mensajes.
+      if (!matches([chat.subject, chat.orderId, buyerName(store, chat.buyerId), commerceName(store, chat.commerceId)])) {
+        return;
+      }
+      results.push({
+        type: 'chat',
+        typeLabel: GLOBAL_SEARCH_TYPES.chat,
+        id: chat.id,
+        title: chat.subject,
+        subtitle: [buyerName(store, chat.buyerId), commerceName(store, chat.commerceId), chat.status]
+          .filter(Boolean)
+          .join(' · '),
+        status: chat.status,
+        path: `/chats?q=${encodeURIComponent(chat.subject)}`,
+      });
+    });
+  }
+
+  if (actorHas(actor, 'support.view')) {
+    store.supportTickets.forEach((ticket) => {
+      if (!matches([ticket.ticketNumber, ticket.subject, ticket.requesterName])) return;
+      results.push({
+        type: 'ticket',
+        typeLabel: GLOBAL_SEARCH_TYPES.ticket,
+        id: ticket.id,
+        title: `${ticket.ticketNumber} · ${ticket.subject}`,
+        subtitle: [ticket.requesterName, ticket.status].filter(Boolean).join(' · '),
+        status: ticket.status,
+        path: `/soporte?q=${encodeURIComponent(ticket.ticketNumber)}`,
+      });
+    });
+  }
+
+  return results;
+}
+
 export const demoRepository = {
   mode: 'demo',
 
@@ -950,6 +1323,7 @@ export const demoRepository = {
     const canViewOffers = actorHas(actor, 'offers.view');
     const canViewOrders = actorHas(actor, 'orders.view');
     const canViewDeliveries = actorHas(actor, 'deliveries.view');
+    const canViewPayments = actorHas(actor, 'payments.view');
 
     const activeMembers = store.members.filter((member) => member.status === 'active').length;
     const suspendedMembers = store.members.filter((member) => member.status === 'suspended').length;
@@ -1043,6 +1417,8 @@ export const demoRepository = {
     const queuedCampaigns = store.communicationCampaigns.filter(
       (campaign) => campaign.status === 'queued'
     ).length;
+
+    const paymentSummary = summarizePayments(store);
 
     const attention = [
       ...(canViewStaff && pendingInvitations > 0
@@ -1197,6 +1573,22 @@ export const demoRepository = {
             path: '/comunicaciones',
           }]
         : []),
+      ...(canViewPayments && paymentSummary.unreconciledPayments > 0
+        ? [{
+            id: 'unreconciledPayments',
+            label: `${paymentSummary.unreconciledPayments} pago(s) sin conciliar`,
+            tone: 'warning',
+            path: '/pagos',
+          }]
+        : []),
+      ...(canViewPayments && paymentSummary.pendingPayouts > 0
+        ? [{
+            id: 'pendingPayouts',
+            label: `${paymentSummary.pendingPayouts} liquidación(es) simulada(s) pendiente(s)`,
+            tone: 'neutral',
+            path: '/pagos',
+          }]
+        : []),
     ];
 
     return {
@@ -1260,6 +1652,15 @@ export const demoRepository = {
       queuedCampaigns: canViewCommunications ? queuedCampaigns : 0,
       totalTemplates: canViewCommunications ? store.communicationTemplates.length : 0,
       totalCampaigns: canViewCommunications ? store.communicationCampaigns.length : 0,
+      totalPayments: canViewPayments ? paymentSummary.totalPayments : 0,
+      pendingPayments: canViewPayments ? paymentSummary.pendingPayments : 0,
+      unreconciledPayments: canViewPayments ? paymentSummary.unreconciledPayments : 0,
+      grossCollected: canViewPayments ? paymentSummary.grossCollected : 0,
+      commissionRevenue: canViewPayments ? paymentSummary.commissionRevenue : 0,
+      refundedAmount: canViewPayments ? paymentSummary.refundedAmount : 0,
+      pendingPayouts: canViewPayments ? paymentSummary.pendingPayouts : 0,
+      totalPayouts: canViewPayments ? paymentSummary.totalPayouts : 0,
+      paymentGatewayConnected: false,
       recentAudit: canViewAudit ? store.audit.slice(0, 6) : [],
       attention,
     };
@@ -2984,6 +3385,316 @@ export const demoRepository = {
     throw new Error(
       'Las evidencias de demostración son solo metadatos: no existe archivo ni bucket. Conecta InsForge y configura el almacenamiento privado para previsualizarlas.'
     );
+  },
+
+  // ---------------------------------------------------------------------------
+  // Analítica (Fase 5)
+  // ---------------------------------------------------------------------------
+  async getAnalytics({ range = DEFAULT_ANALYTICS_RANGE, actor } = {}) {
+    requirePermission(actor, 'analytics.view', 'No tienes permiso para ver la analítica.');
+    const store = readStore();
+    return buildAnalytics(store, analyticsRangeDays(range));
+  },
+
+  async exportAnalytics({ range = DEFAULT_ANALYTICS_RANGE, actor } = {}) {
+    requirePermission(actor, 'analytics.export', 'No tienes permiso para exportar analítica.');
+
+    const store = readStore();
+    const days = analyticsRangeDays(range);
+    const analytics = buildAnalytics(store, days);
+    const period = `${analytics.periodStart.slice(0, 10)} a ${analytics.periodEnd.slice(0, 10)}`;
+    const rows = [];
+
+    const summaryRows = [
+      ['GMV cobrado', analytics.summary.gmv],
+      ['Comisión estimada', analytics.summary.commissionRevenue],
+      ['Neto a comercios', analytics.summary.netToCommerces],
+      ['Reembolsos registrados', analytics.summary.refundedAmount],
+      ['Volumen de pedidos', analytics.summary.orderVolume],
+      ['Ticket promedio', analytics.summary.averageOrderValue],
+      ['Pedidos', analytics.summary.orders],
+      ['Pagos registrados', analytics.summary.payments],
+      ['Pagos cobrados', analytics.summary.collectedPayments],
+      ['Pedidos completados', analytics.summary.completedOrders],
+      ['Pedidos en disputa', analytics.summary.disputedOrders],
+      ['Pedidos cancelados', analytics.summary.cancelledOrders],
+      ['Pagos sin conciliar', analytics.summary.unreconciledPayments],
+    ];
+
+    summaryRows.forEach(([metric, value]) => {
+      rows.push({ seccion: 'Resumen', periodo: period, comercio: '', metrica: metric, valor: value });
+    });
+
+    analytics.series.forEach((day) => {
+      rows.push({ seccion: 'Serie diaria', periodo: day.date, comercio: '', metrica: 'GMV cobrado', valor: day.gmv });
+      rows.push({ seccion: 'Serie diaria', periodo: day.date, comercio: '', metrica: 'Pedidos', valor: day.orders });
+      rows.push({ seccion: 'Serie diaria', periodo: day.date, comercio: '', metrica: 'Pagos cobrados', valor: day.payments });
+    });
+
+    analytics.topCommerces.forEach((commerce) => {
+      rows.push({ seccion: 'Top comercios', periodo: period, comercio: commerce.commerceName, metrica: 'GMV cobrado', valor: commerce.gmv });
+      rows.push({ seccion: 'Top comercios', periodo: period, comercio: commerce.commerceName, metrica: 'Comisión estimada', valor: commerce.commission });
+      rows.push({ seccion: 'Top comercios', periodo: period, comercio: commerce.commerceName, metrica: 'Pagos cobrados', valor: commerce.payments });
+    });
+
+    const csv = buildCsv(
+      [
+        { key: 'seccion', label: 'seccion' },
+        { key: 'periodo', label: 'periodo' },
+        { key: 'comercio', label: 'comercio' },
+        { key: 'metrica', label: 'metrica' },
+        { key: 'valor', label: 'valor' },
+      ],
+      rows
+    );
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'analytics.export',
+      module: 'Analítica',
+      entityType: 'analytics_report',
+      entityId: makeId(),
+      reason: 'Exportación de analítica agregada',
+      metadata: {
+        rangeDays: days,
+        piiIncluded: false,
+        rows: rows.length,
+        simulated: true,
+      },
+    });
+    saveStore(store);
+
+    return {
+      filename: `analitica-${days}d-${csvDateStamp()}.csv`,
+      csv,
+      generatedAt: analytics.generatedAt,
+      rangeDays: days,
+      rangeLabel: analytics.rangeLabel,
+      notice: ANALYTICS_EXPORT_NOTICE,
+    };
+  },
+
+  // ---------------------------------------------------------------------------
+  // Pagos (libro interno, sin pasarela)
+  // ---------------------------------------------------------------------------
+  async listPayments({ search = '', status = 'all', reconciliation = 'all', actor } = {}) {
+    requirePermission(actor, 'payments.view', 'No tienes permiso para ver pagos.');
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+
+    return store.paymentTransactions
+      .map((payment) => presentPayment(store, payment))
+      .filter((payment) => (status === 'all' ? true : payment.status === status))
+      .filter((payment) => {
+        if (reconciliation === 'all') return true;
+        if (reconciliation === 'unreconciled') return payment.reconcilable && !payment.reconciled;
+        return payment.reconciled;
+      })
+      .filter((payment) => {
+        if (!term) return true;
+        return [
+          payment.orderNumber,
+          payment.buyerName,
+          payment.commerceName,
+          payment.providerReference,
+          payment.statusLabel,
+          payment.methodLabel,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+
+  async getPayment({ paymentId, actor } = {}) {
+    requirePermission(actor, 'payments.view', 'No tienes permiso para ver pagos.');
+    const store = readStore();
+    const payment = store.paymentTransactions.find((item) => item.id === paymentId);
+    if (!payment) throw new Error('El movimiento de pago no existe.');
+
+    const order = store.orders.find((item) => item.id === payment.orderId);
+    const payouts = store.paymentPayouts
+      .filter((payout) => payout.commerceId === payment.commerceId)
+      .map((payout) => presentPayout(store, payout))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return {
+      ...presentPayment(store, payment),
+      order: order
+        ? {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            status: order.status,
+            totalAmount: order.totalAmount,
+            currency: order.currency,
+            placedAt: order.placedAt,
+          }
+        : null,
+      payouts,
+    };
+  },
+
+  async getPaymentMetrics({ actor } = {}) {
+    requirePermission(actor, 'payments.view', 'No tienes permiso para ver pagos.');
+    return summarizePayments(readStore());
+  },
+
+  async listPaymentPayouts({ status = 'all', actor } = {}) {
+    requirePermission(actor, 'payments.view', 'No tienes permiso para ver pagos.');
+    const store = readStore();
+
+    return store.paymentPayouts
+      .filter((payout) => (status === 'all' ? true : payout.status === status))
+      .map((payout) => presentPayout(store, payout))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+
+  async reconcilePayment({
+    paymentId,
+    reconciled = true,
+    reason,
+    reasonCode = 'other',
+    actor,
+  } = {}) {
+    requirePermission(actor, 'payments.reconcile', 'No tienes permiso para conciliar pagos.');
+    const store = readStore();
+    const payment = store.paymentTransactions.find((item) => item.id === paymentId);
+    if (!payment) throw new Error('El movimiento de pago no existe.');
+
+    if (!paymentIsReconcilable(payment.status)) {
+      throw new Error('Solo se pueden conciliar movimientos cobrados, reembolsados o con reembolso parcial.');
+    }
+
+    requireReason(reason);
+
+    const previousReconciled = Boolean(payment.reconciled);
+    const now = nowIso();
+    payment.reconciled = Boolean(reconciled);
+    payment.reconciledAt = payment.reconciled ? now : null;
+    payment.reconciledByName = payment.reconciled ? actor?.name || 'Sistema' : null;
+    payment.updatedAt = now;
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'payment.reconcile',
+      module: 'Pagos',
+      entityType: 'payment_transaction',
+      entityId: payment.id,
+      reason: String(reason).trim(),
+      metadata: {
+        reconciled: payment.reconciled,
+        previousReconciled,
+        reasonCode,
+        simulated: true,
+      },
+    });
+    saveStore(store);
+
+    return presentPayment(store, payment);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Exportación de auditoría y búsqueda global (Fase 5)
+  // ---------------------------------------------------------------------------
+  async exportAudit({ search = '', module = 'all', actor } = {}) {
+    requirePermission(actor, 'audit.view', 'No tienes permiso para ver la auditoría.');
+    requirePermission(actor, 'audit.export', 'No tienes permiso para exportar auditoría.');
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+    const entries = store.audit
+      .filter((entry) => (module === 'all' ? true : entry.module === module))
+      .filter((entry) => {
+        if (!term) return true;
+        return [
+          entry.action,
+          entry.actorName,
+          entry.entityId,
+          entry.reason,
+          entry.module,
+          JSON.stringify(entry.metadata || {}),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      });
+
+    const csv = buildCsv(
+      [
+        { key: 'fecha', label: 'fecha' },
+        { key: 'actor', label: 'actor' },
+        { key: 'rol', label: 'rol' },
+        { key: 'accion', label: 'accion' },
+        { key: 'modulo', label: 'modulo' },
+        { key: 'entidad', label: 'entidad' },
+        { key: 'entidadId', label: 'entidad_id' },
+        { key: 'motivo', label: 'motivo' },
+        { key: 'metadata', label: 'metadata' },
+      ],
+      entries.map((entry) => ({
+        fecha: entry.createdAt,
+        actor: entry.actorName || 'Sistema',
+        rol: entry.actorRole || '',
+        accion: entry.action,
+        modulo: entry.module || '',
+        entidad: entry.entityType || '',
+        entidadId: entry.entityId || '',
+        motivo: entry.reason || '',
+        metadata: JSON.stringify(entry.metadata || {}),
+      }))
+    );
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || 'Sistema',
+      actorRole: actor?.roleKey || null,
+      action: 'audit.export',
+      module: 'Auditoría',
+      entityType: 'admin_audit_log',
+      entityId: makeId(),
+      reason: 'Exportación de auditoría',
+      metadata: {
+        count: entries.length,
+        moduleFilter: module,
+        search,
+        simulated: true,
+      },
+    });
+    saveStore(store);
+
+    return {
+      filename: `auditoria-${csvDateStamp()}.csv`,
+      csv,
+      count: entries.length,
+      generatedAt: nowIso(),
+    };
+  },
+
+  async globalSearch({ query = '', actor } = {}) {
+    const text = String(query || '').trim();
+    const term = text.toLowerCase();
+
+    if (term.length < GLOBAL_SEARCH_MIN_LENGTH) {
+      return {
+        query: text,
+        results: [],
+        total: 0,
+        truncated: false,
+        minLength: GLOBAL_SEARCH_MIN_LENGTH,
+      };
+    }
+
+    const results = globalSearchResults(readStore(), term, actor);
+    return {
+      query: text,
+      results: results.slice(0, GLOBAL_SEARCH_LIMIT),
+      total: results.length,
+      truncated: results.length > GLOBAL_SEARCH_LIMIT,
+      minLength: GLOBAL_SEARCH_MIN_LENGTH,
+    };
   },
 
   roles() {

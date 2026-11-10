@@ -301,7 +301,9 @@ Verificación manual recomendada en modo demo:
 2. Confirmar que el menú cambia según el rol.
 3. Invitar un miembro, suspenderlo y revisar el evento en Auditoría.
 4. Intentar suspender al único superadmin → debe fallar.
-5. Abrir una ruta futura (p. ej. `#/pagos`) → debe explicar que es Fase 5.
+5. Abrir una ruta de una fase posterior (p. ej. `#/pagos`) → con las fases
+   1 a 5 aplicadas carga el módulo correspondiente; antes de la Fase 5
+   mostraba el aviso de módulo pendiente.
 6. Dejar la pestaña inactiva y comprobar el aviso y la expiración.
 
 ---

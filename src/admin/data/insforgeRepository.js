@@ -3,6 +3,8 @@
 // Fase 1, 2 y 3 aplicadas. Sin proyecto conectado, el admin usa el modo demostración.
 
 import { deliveryEvidenceBucket, documentsBucket } from '../../lib/insforge';
+import { ANALYTICS_EXPORT_NOTICE, analyticsRangeDays, analyticsRangeLabel } from '../constants/phase5';
+import { buildCsv, csvDateStamp } from '../utils/csv';
 
 const MEMBER_COLUMNS =
   'id,user_id,email,display_name,status,last_login_at,created_at,role_id';
@@ -109,8 +111,66 @@ const EMPTY_METRICS = {
   queuedCampaigns: 0,
   totalTemplates: 0,
   totalCampaigns: 0,
+  totalPayments: 0,
+  pendingPayments: 0,
+  unreconciledPayments: 0,
+  grossCollected: 0,
+  commissionRevenue: 0,
+  refundedAmount: 0,
+  pendingPayouts: 0,
+  totalPayouts: 0,
+  paymentGatewayConnected: false,
   recentAudit: [],
   attention: [],
+};
+
+const buildAnalyticsCsv = (analytics) => {
+  const rows = [];
+  const start = String(analytics.periodStart || '').slice(0, 10);
+  const end = String(analytics.periodEnd || '').slice(0, 10);
+  const period = `${start} a ${end}`;
+  const summary = analytics.summary || {};
+
+  [
+    ['GMV cobrado', summary.gmv],
+    ['Comisión estimada', summary.commissionRevenue],
+    ['Neto a comercios', summary.netToCommerces],
+    ['Reembolsos registrados', summary.refundedAmount],
+    ['Volumen de pedidos', summary.orderVolume],
+    ['Ticket promedio', summary.averageOrderValue],
+    ['Pedidos', summary.orders],
+    ['Pagos registrados', summary.payments],
+    ['Pagos cobrados', summary.collectedPayments],
+    ['Pedidos completados', summary.completedOrders],
+    ['Pedidos en disputa', summary.disputedOrders],
+    ['Pedidos cancelados', summary.cancelledOrders],
+    ['Pagos sin conciliar', summary.unreconciledPayments],
+  ].forEach(([metrica, valor]) => {
+    rows.push({ seccion: 'Resumen', periodo: period, comercio: '', metrica, valor });
+  });
+
+  (analytics.series || []).forEach((day) => {
+    rows.push({ seccion: 'Serie diaria', periodo: day.date, comercio: '', metrica: 'GMV cobrado', valor: day.gmv });
+    rows.push({ seccion: 'Serie diaria', periodo: day.date, comercio: '', metrica: 'Pedidos', valor: day.orders });
+    rows.push({ seccion: 'Serie diaria', periodo: day.date, comercio: '', metrica: 'Pagos cobrados', valor: day.payments });
+  });
+
+  (analytics.topCommerces || []).forEach((commerce) => {
+    rows.push({ seccion: 'Top comercios', periodo: period, comercio: commerce.commerceName, metrica: 'GMV cobrado', valor: commerce.gmv });
+    rows.push({ seccion: 'Top comercios', periodo: period, comercio: commerce.commerceName, metrica: 'Comisión estimada', valor: commerce.commission });
+    rows.push({ seccion: 'Top comercios', periodo: period, comercio: commerce.commerceName, metrica: 'Pagos cobrados', valor: commerce.payments });
+  });
+
+  return buildCsv(
+    [
+      { key: 'seccion', label: 'seccion' },
+      { key: 'periodo', label: 'periodo' },
+      { key: 'comercio', label: 'comercio' },
+      { key: 'metrica', label: 'metrica' },
+      { key: 'valor', label: 'valor' },
+    ],
+    rows
+  );
 };
 
 export function createInsforgeRepository(insforge) {
@@ -258,20 +318,43 @@ export function createInsforgeRepository(insforge) {
     },
 
     async getMetrics() {
-      const { data, error } = await insforge.database.rpc('admin_dashboard_metrics');
+      const [dashboardResult, trustResult, phase5Result] = await Promise.all([
+        insforge.database.rpc('admin_dashboard_metrics'),
+        insforge.database.rpc('admin_trust_metrics'),
+        insforge.database.rpc('admin_phase5_metrics'),
+      ]);
+
       throwIfError(
-        error,
+        dashboardResult.error,
         'No se pudieron cargar las métricas. ¿Aplicaste la migración de Fase 4?'
       );
+      throwIfError(
+        trustResult.error,
+        'No se pudieron cargar las métricas de confianza. ¿Aplicaste la migración de Fase 4?'
+      );
+      throwIfError(
+        phase5Result.error,
+        'No se pudieron cargar las métricas de pagos. ¿Aplicaste la migración de Fase 5?'
+      );
 
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row) return { ...EMPTY_METRICS };
+      const row = Array.isArray(dashboardResult.data)
+        ? dashboardResult.data[0]
+        : dashboardResult.data;
+      const trust = Array.isArray(trustResult.data) ? trustResult.data[0] : trustResult.data;
+      const phase5 = Array.isArray(phase5Result.data) ? phase5Result.data[0] : phase5Result.data;
 
       return {
         ...EMPTY_METRICS,
-        ...row,
-        recentAudit: Array.isArray(row.recentAudit) ? row.recentAudit : [],
-        attention: Array.isArray(row.attention) ? row.attention : [],
+        ...(row || {}),
+        ...(trust || {}),
+        ...(phase5 || {}),
+        recentAudit: Array.isArray(row?.recentAudit) ? row.recentAudit : [],
+        attention: [
+          ...(Array.isArray(row?.attention) ? row.attention : []),
+          ...(Array.isArray(trust?.attention) ? trust.attention : []),
+          ...(Array.isArray(phase5?.attention) ? phase5.attention : []),
+        ],
+        paymentGatewayConnected: false,
       };
     },
 
@@ -848,6 +931,171 @@ export function createInsforgeRepository(insforge) {
       });
       throwIfError(error, 'No se pudo actualizar la campaña de comunicación.');
       return Array.isArray(data) ? data[0] : data;
+    },
+
+    // -------------------------------------------------------------------------
+    // Analítica (Fase 5)
+    // -------------------------------------------------------------------------
+    async getAnalytics({ range = '30' } = {}) {
+      const days = analyticsRangeDays(range);
+      const { data, error } = await insforge.database.rpc('admin_analytics_report', {
+        p_days: days,
+      });
+      throwIfError(
+        error,
+        'No se pudo cargar la analítica. ¿Aplicaste la migración de Fase 5?'
+      );
+
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        generatedAt: new Date().toISOString(),
+        rangeDays: days,
+        rangeLabel: analyticsRangeLabel(range),
+        periodStart: row?.periodStart || null,
+        periodEnd: row?.periodEnd || null,
+        piiIncluded: false,
+        gatewayConnected: false,
+        notice: ANALYTICS_EXPORT_NOTICE,
+        summary: row?.summary || {},
+        series: Array.isArray(row?.series) ? row.series : [],
+        methodMix: Array.isArray(row?.methodMix) ? row.methodMix : [],
+        topCommerces: Array.isArray(row?.topCommerces) ? row.topCommerces : [],
+      };
+    },
+
+    async exportAnalytics({ range = '30' } = {}) {
+      const days = analyticsRangeDays(range);
+      const { data, error } = await insforge.database.rpc('admin_export_analytics', {
+        p_days: days,
+      });
+      throwIfError(
+        error,
+        'No se pudo exportar la analítica. ¿Aplicaste la migración de Fase 5?'
+      );
+
+      const analytics = Array.isArray(data) ? data[0] : data;
+      if (!analytics) throw new Error('El servidor no devolvió datos para exportar.');
+
+      return {
+        filename: `analitica-${days}d-${csvDateStamp()}.csv`,
+        csv: buildAnalyticsCsv(analytics),
+        generatedAt: new Date().toISOString(),
+        rangeDays: days,
+        rangeLabel: analyticsRangeLabel(range),
+        notice: ANALYTICS_EXPORT_NOTICE,
+      };
+    },
+
+    // -------------------------------------------------------------------------
+    // Pagos (libro interno, sin pasarela)
+    // -------------------------------------------------------------------------
+    async listPayments({ search = '', status = 'all', reconciliation = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_payments', {
+        p_search: search.trim() || null,
+        p_status: status === 'all' ? null : status,
+        p_reconciliation: reconciliation === 'all' ? null : reconciliation,
+      });
+      throwIfError(error, 'No se pudieron cargar los pagos.');
+      return asArray(data);
+    },
+
+    async getPayment({ paymentId }) {
+      const { data, error } = await insforge.database.rpc('admin_get_payment', {
+        p_payment_id: paymentId,
+      });
+      throwIfError(error, 'No se pudo cargar el movimiento de pago.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    async getPaymentMetrics() {
+      const { data, error } = await insforge.database.rpc('admin_payment_metrics');
+      throwIfError(error, 'No se pudieron cargar las métricas de pagos.');
+      const row = Array.isArray(data) ? data[0] : data;
+      return { ...(row || {}), gatewayConnected: false };
+    },
+
+    async listPaymentPayouts({ status = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_payment_payouts', {
+        p_status: status === 'all' ? null : status,
+      });
+      throwIfError(error, 'No se pudieron cargar las liquidaciones.');
+      return asArray(data);
+    },
+
+    async reconcilePayment({
+      paymentId,
+      reconciled = true,
+      reason,
+      reasonCode = 'other',
+    } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_reconcile_payment', {
+        p_payment_id: paymentId,
+        p_reconciled: Boolean(reconciled),
+        p_reason: reason,
+        p_reason_code: reasonCode,
+      });
+      throwIfError(error, 'No se pudo conciliar el pago.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
+    // -------------------------------------------------------------------------
+    // Exportación de auditoría y búsqueda global (Fase 5)
+    // -------------------------------------------------------------------------
+    async exportAudit({ search = '', module = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_export_audit', {
+        p_search: search.trim() || null,
+        p_module: module === 'all' ? null : module,
+      });
+      throwIfError(error, 'No se pudo exportar la auditoría.');
+
+      const entries = asArray(data);
+      const csv = buildCsv(
+        [
+          { key: 'fecha', label: 'fecha' },
+          { key: 'actor', label: 'actor' },
+          { key: 'rol', label: 'rol' },
+          { key: 'accion', label: 'accion' },
+          { key: 'modulo', label: 'modulo' },
+          { key: 'entidad', label: 'entidad' },
+          { key: 'entidadId', label: 'entidad_id' },
+          { key: 'motivo', label: 'motivo' },
+          { key: 'metadata', label: 'metadata' },
+        ],
+        entries.map((entry) => ({
+          fecha: entry.createdAt,
+          actor: entry.actorName || 'Sistema',
+          rol: entry.actorRole || '',
+          accion: entry.action,
+          modulo: entry.module || '',
+          entidad: entry.entityType || '',
+          entidadId: entry.entityId || '',
+          motivo: entry.reason || '',
+          metadata: JSON.stringify(entry.metadata || {}),
+        }))
+      );
+
+      return {
+        filename: `auditoria-${csvDateStamp()}.csv`,
+        csv,
+        count: entries.length,
+        generatedAt: new Date().toISOString(),
+      };
+    },
+
+    async globalSearch({ query = '' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_global_search', {
+        p_query: String(query || '').trim(),
+      });
+      throwIfError(error, 'No se pudo realizar la búsqueda global.');
+
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        query: String(query || '').trim(),
+        results: Array.isArray(row?.results) ? row.results : [],
+        total: Number(row?.total || 0),
+        truncated: Boolean(row?.truncated),
+        minLength: 2,
+      };
     },
   };
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BadgeCheck,
   Building2,
@@ -261,7 +262,8 @@ export default function Commerce() {
   const { session, hasPermission, mode } = useAdminAuth();
   const { notify } = useToast();
   const [state, setState] = useState({ loading: true, error: null, commerces: [] });
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get('q') || '');
   const [statusFilter, setStatusFilter] = useState('all');
   const [detailState, setDetailState] = useState({ open: false, loading: false, error: null, commerce: null });
   const [statusAction, setStatusAction] = useState(null);

@@ -380,8 +380,8 @@ Verificación manual recomendada en demo:
 5. Ocultar, marcar, publicar y restaurar reseñas.
 6. Responder, resolver, cerrar y reabrir tickets; comprobar el cambio de SLA.
 7. Crear y poner en cola una campaña; verificar el aviso de simulación.
-8. Confirmar que `#/pagos` y `#/analitica` siguen mostrando el aviso de módulo
-   pendiente.
+8. Confirmar que `#/pagos` y `#/analitica` ya no muestran el aviso de módulo
+   pendiente (implementadas en la Fase 5; ver [FASE_5.md](./FASE_5.md)).
 
 ---
 

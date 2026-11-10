@@ -497,7 +497,7 @@ describe('repositorio de demostración · Fase 2', () => {
   });
 
   describe('migración del almacén', () => {
-    it('migra un almacén de Fase 1 a la versión 4 conservando miembros, invitaciones y auditoría', async () => {
+    it('migra un almacén de Fase 1 a la versión 5 conservando miembros, invitaciones y auditoría', async () => {
       const legacyStore = {
         version: 1,
         members: [
@@ -545,7 +545,7 @@ describe('repositorio de demostración · Fase 2', () => {
       expect(session.memberId).toBe('legacy-member');
 
       const stored = JSON.parse(localStorage.getItem(STORE_KEY));
-      expect(stored.version).toBe(4);
+      expect(stored.version).toBe(5);
       expect(stored.members).toHaveLength(1);
       expect(stored.invitations).toHaveLength(1);
       expect(stored.buyers).toHaveLength(6);
@@ -563,13 +563,17 @@ describe('repositorio de demostración · Fase 2', () => {
       expect(stored.supportTickets).toHaveLength(6);
       expect(stored.communicationTemplates).toHaveLength(4);
       expect(stored.communicationCampaigns).toHaveLength(4);
+      expect(stored.paymentTransactions).toHaveLength(6);
+      expect(stored.paymentPayouts).toHaveLength(3);
 
       const auditIds = stored.audit.map((entry) => entry.id);
       expect(auditIds).toContain('legacy-audit');
       expect(auditIds).toContain('demo-audit-p2-1');
       expect(auditIds).toContain('demo-audit-p3-1');
       expect(auditIds).toContain('demo-audit-p4-1');
+      expect(auditIds).toContain('demo-audit-phase5-1');
       expect(auditIds.filter((id) => id === 'legacy-audit')).toHaveLength(1);
+      expect(auditIds.indexOf('demo-audit-phase5-1')).toBeLessThan(auditIds.indexOf('demo-audit-p4-1'));
       expect(auditIds.indexOf('demo-audit-p4-1')).toBeLessThan(auditIds.indexOf('demo-audit-p3-1'));
       expect(auditIds.indexOf('demo-audit-p3-1')).toBeLessThan(auditIds.indexOf('legacy-audit'));
       expect(auditIds.indexOf('demo-audit-p2-1')).toBeLessThan(auditIds.indexOf('legacy-audit'));

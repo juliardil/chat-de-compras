@@ -43,6 +43,14 @@ const STATUS_MAP = {
   queued: { label: 'En cola (simulada)', className: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
   sent: { label: 'Enviada (simulada)', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
   published: { label: 'Publicada', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  authorized: { label: 'Autorizado', className: 'bg-sky-50 text-sky-700 ring-sky-200' },
+  paid: { label: 'Cobrado', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  partially_refunded: {
+    label: 'Reembolso parcial',
+    className: 'bg-orange-50 text-orange-700 ring-orange-200',
+  },
+  refunded: { label: 'Reembolsado', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
+  scheduled: { label: 'Programada', className: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
 };
 
 export default function StatusBadge({ status, children }) {

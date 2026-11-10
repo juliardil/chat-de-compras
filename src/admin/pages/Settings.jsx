@@ -1,4 +1,4 @@
-import { CreditCard, Globe2, LockKeyhole, Mail, Megaphone, ServerCog, ShieldCheck as ShieldCheckIcon, SlidersHorizontal } from 'lucide-react';
+import { BarChart3, CreditCard, Globe2, LockKeyhole, Mail, Megaphone, ServerCog, ShieldCheck as ShieldCheckIcon, SlidersHorizontal } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import { useAdminAuth } from '../auth/useAdminAuth';
@@ -96,11 +96,19 @@ export default function Settings() {
       Icon: Mail,
     },
     {
+      key: 'analytics',
+      label: 'Analítica',
+      detail: 'Agregados y exportaciones auditadas; sin datos personales por defecto',
+      tone: 'success',
+      value: 'Operativa',
+      Icon: BarChart3,
+    },
+    {
       key: 'payments',
       label: 'Pagos',
-      detail: 'Requiere proveedor y decisión de comisiones',
+      detail: 'Libro interno operativo; no hay pasarela, cobros ni liquidaciones reales',
       tone: 'warning',
-      value: 'No configurado',
+      value: 'Sin pasarela',
       Icon: CreditCard,
     },
   ];
@@ -111,12 +119,13 @@ export default function Settings() {
         eyebrow="Sistema"
         title="Configuración"
         description="Parámetros operativos y estado de integraciones. En esta fase la pantalla es de solo lectura: editar requiere permisos sensibles y reautenticación."
-        actions={<Badge tone="info">Solo lectura · Fase 4</Badge>}
+        actions={<Badge tone="info">Solo lectura</Badge>}
       />
 
       <Alert tone="info" title="Por qué no se puede editar todavía">
-        La escritura de configuración se habilitará en la Fase 5 con <code className="font-mono text-xs">settings.update</code>,
-        validación en servidor, diff antes de aplicar y auditoría del cambio. No se muestran
+        La escritura de configuración sigue pendiente de una fase posterior con <code className="font-mono text-xs">settings.update</code>,
+        validación en servidor, diff antes de aplicar y auditoría del cambio. La Fase 5 implementó
+        analítica y el libro interno de pagos, pero no la edición de configuración. No se muestran
         controles que no funcionen.
       </Alert>
 

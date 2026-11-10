@@ -20,6 +20,8 @@ import Support from './pages/Support';
 import Communications from './pages/Communications';
 import Staff from './pages/Staff';
 import Audit from './pages/Audit';
+import Analytics from './pages/Analytics';
+import Payments from './pages/Payments';
 import Settings from './pages/Settings';
 import Forbidden from './pages/Forbidden';
 import SessionExpired from './pages/SessionExpired';
@@ -178,6 +180,22 @@ function AdminRoutes() {
           element={
             <RequirePermission permission="audit.view">
               <Audit />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="analitica"
+          element={
+            <RequirePermission permission="analytics.view">
+              <Analytics />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="pagos"
+          element={
+            <RequirePermission permission="payments.view">
+              <Payments />
             </RequirePermission>
           }
         />

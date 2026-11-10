@@ -4,7 +4,9 @@ import {
   Activity,
   ArrowRight,
   BadgeDollarSign,
+  BarChart3,
   ClipboardList,
+  CreditCard,
   FileCheck2,
   LifeBuoy,
   MailPlus,
@@ -20,6 +22,7 @@ import {
   Truck,
   UserCog,
   Users,
+  Wallet,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import KpiCard from '../components/KpiCard';
@@ -28,7 +31,7 @@ import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import { useAdminAuth } from '../auth/useAdminAuth';
 import { adminRepository } from '../data';
-import { formatDateTime, formatRelative } from '../utils/format';
+import { formatCurrency, formatDateTime, formatRelative } from '../utils/format';
 
 const ACTION_LABELS = {
   'auth.login': 'Inicio de sesión',
@@ -94,6 +97,9 @@ const ACTION_LABELS = {
   'communications.campaign.cancel': 'Campaña cancelada',
   'communications.campaign.fail': 'Campaña marcada como fallida',
   'communications.campaign.draft': 'Campaña devuelta a borrador',
+  'analytics.export': 'Analítica exportada',
+  'payment.reconcile': 'Pago conciliado',
+  'audit.export': 'Auditoría exportada',
 };
 
 const ACTION_STYLES = {
@@ -160,6 +166,9 @@ const ACTION_STYLES = {
   'communications.campaign.cancel': 'bg-red-50 text-red-700',
   'communications.campaign.fail': 'bg-red-50 text-red-700',
   'communications.campaign.draft': 'bg-sky-50 text-sky-700',
+  'analytics.export': 'bg-violet-50 text-violet-700',
+  'payment.reconcile': 'bg-emerald-50 text-emerald-700',
+  'audit.export': 'bg-slate-100 text-slate-600',
 };
 
 function statusTone(tone) {
@@ -187,6 +196,8 @@ export default function Dashboard() {
   const canViewReviews = hasPermission('reviews.view');
   const canViewSupport = hasPermission('support.view');
   const canViewCommunications = hasPermission('communications.view');
+  const canViewPayments = hasPermission('payments.view');
+  const canViewAnalytics = hasPermission('analytics.view');
   const hasPeopleMetrics =
     canViewBuyers || canViewCommerce || canViewDocuments || canViewCatalog;
   const hasOperationsMetrics =
@@ -197,6 +208,7 @@ export default function Dashboard() {
     canViewReviews ||
     canViewSupport ||
     canViewCommunications;
+  const hasPhase5Metrics = canViewPayments || canViewAnalytics;
 
   useEffect(() => {
     let cancelled = false;
@@ -226,6 +238,8 @@ export default function Dashboard() {
           { key: 'storage', label: 'Documentos privados', detail: 'Requiere bucket privado y URLs firmadas', tone: 'warning', value: 'Por verificar' },
           { key: 'evidence', label: 'Evidencias de entrega', detail: 'Requiere bucket privado y ruta autorizada', tone: 'warning', value: 'Por verificar' },
           { key: 'chatAccess', label: 'Acceso a chats', detail: 'Autorización aprobada, vigente y auditada por lectura', tone: 'success', value: 'Servidor' },
+          { key: 'analytics', label: 'Analítica', detail: 'Agregados calculados por RPC; exportaciones auditadas', tone: 'success', value: 'Servidor' },
+          { key: 'payments', label: 'Pagos', detail: 'Libro interno sin pasarela: no cobra, reembolsa ni liquida', tone: 'warning', value: 'Sin pasarela' },
           { key: 'messaging', label: 'Envío de comunicaciones', detail: 'Requiere proveedor de correo y dominio verificado', tone: 'warning', value: 'Pendiente' },
           { key: 'mfa', label: 'MFA', detail: 'El SDK actual no expone segundo factor', tone: 'warning', value: 'Pendiente' },
           { key: 'email', label: 'Correo de invitaciones', detail: 'Requiere InsForge Messaging y dominio', tone: 'warning', value: 'Pendiente' },
@@ -237,6 +251,8 @@ export default function Dashboard() {
           { key: 'storage', label: 'Documentos privados', detail: 'La demo solo guarda metadatos, sin archivos', tone: 'warning', value: 'Sin archivos' },
           { key: 'evidence', label: 'Evidencias de entrega', detail: 'Solo metadatos de ejemplo; no hay archivos', tone: 'warning', value: 'Sin archivos' },
           { key: 'chatAccess', label: 'Acceso a chats', detail: 'Flujo simulado local con auditoría de cada lectura', tone: 'warning', value: 'Demostración' },
+          { key: 'analytics', label: 'Analítica', detail: 'Agregados de demostración; exportación auditada local', tone: 'warning', value: 'Simulada' },
+          { key: 'payments', label: 'Pagos', detail: 'Movimientos simulados; no hay pasarela ni dinero real', tone: 'warning', value: 'Simulado' },
           { key: 'messaging', label: 'Envío de comunicaciones', detail: 'No hay proveedor: los envíos son simulados', tone: 'warning', value: 'Simulado' },
           { key: 'mfa', label: 'MFA', detail: 'El SDK actual no expone segundo factor', tone: 'warning', value: 'Pendiente' },
           { key: 'email', label: 'Correo de invitaciones', detail: 'Requiere InsForge Messaging y dominio', tone: 'warning', value: 'Pendiente' },
@@ -249,7 +265,7 @@ export default function Dashboard() {
       <PageHeader
         eyebrow={`Hola, ${session?.name?.split(' ')[0] || 'equipo'}`}
         title="Panel de control"
-        description="Estado de personas, operación, confianza, atención, personal, permisos y auditoría. Analítica y pagos se incorporan en la Fase 5."
+        description="Estado de personas, operación, confianza, atención, analítica, pagos, personal, permisos y auditoría. Pagos es un libro interno sin pasarela conectada."
         actions={
           <>
             {hasPermission('staff.view') ? (
@@ -259,6 +275,15 @@ export default function Dashboard() {
               >
                 <UserCog className="h-4 w-4" aria-hidden="true" />
                 Gestionar personal
+              </Link>
+            ) : null}
+            {hasPermission('analytics.view') ? (
+              <Link
+                to="/analitica"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                Ver analítica
               </Link>
             ) : null}
             {hasPermission('audit.view') ? (
@@ -278,8 +303,9 @@ export default function Dashboard() {
         <Alert tone="warning" title="Estás en modo demostración">
           No hay backend conectado. Las cuentas, invitaciones, compradores, comercios, categorías,
           solicitudes, ofertas, pedidos, entregas, chats, reportes, reseñas, tickets, plantillas,
-          campañas y eventos de auditoría son ejemplos guardados en este navegador. Nada de lo que
-          veas aquí representa datos reales de la plataforma.
+          campañas, movimientos de pago simulados y eventos de auditoría son ejemplos guardados en
+          este navegador. Nada de lo que veas aquí representa datos reales de la plataforma ni
+          movimientos de dinero reales.
         </Alert>
       ) : null}
 
@@ -470,6 +496,45 @@ export default function Dashboard() {
             </div>
           ) : null}
 
+          {hasPhase5Metrics ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {canViewPayments ? (
+                <KpiCard
+                  label="Cobrado registrado"
+                  value={formatCurrency(metrics.grossCollected)}
+                  hint={`${metrics.totalPayments} movimiento(s) · sin pasarela conectada`}
+                  Icon={Wallet}
+                  tone="accent"
+                />
+              ) : null}
+              {canViewPayments ? (
+                <KpiCard
+                  label="Pagos sin conciliar"
+                  value={metrics.unreconciledPayments}
+                  hint={`${metrics.pendingPayouts} liquidación(es) simulada(s) pendiente(s)`}
+                  Icon={CreditCard}
+                  tone={metrics.unreconciledPayments > 0 ? 'warning' : 'default'}
+                />
+              ) : null}
+              {canViewPayments ? (
+                <KpiCard
+                  label="Comisión estimada"
+                  value={formatCurrency(metrics.commissionRevenue)}
+                  hint={`Reembolsos registrados: ${formatCurrency(metrics.refundedAmount)}`}
+                  Icon={BarChart3}
+                />
+              ) : null}
+              {canViewAnalytics ? (
+                <KpiCard
+                  label="Analítica"
+                  value="Agregada"
+                  hint="Sin datos personales · exportaciones auditadas"
+                  Icon={BarChart3}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="grid gap-6 xl:grid-cols-3">
             <section className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
@@ -514,15 +579,16 @@ export default function Dashboard() {
                   <EmptyState
                     Icon={ShieldCheck}
                     title="Sin avisos pendientes"
-                    description="No hay invitaciones, comercios, documentos, solicitudes, ofertas, pedidos, entregas, chats, reportes ni tickets que requieran tu intervención ahora mismo."
+                    description="No hay invitaciones, comercios, documentos, solicitudes, ofertas, pedidos, entregas, chats, reportes, tickets, pagos sin conciliar ni liquidaciones que requieran tu intervención ahora mismo."
                   />
                 )}
 
                 <div className="mt-6 rounded-xl bg-slate-50 px-4 py-3">
                   <p className="text-xs leading-5 text-slate-500">
-                    La Fase 5 añadirá analítica y pagos a esta cola. Solo se muestran datos
-                    registrados en el origen activo, nunca datos inventados. Las campañas de
-                    comunicación son simuladas: no existe proveedor de envío real.
+                    La Fase 5 añade analítica agregada y un libro interno de pagos. Solo se muestran
+                    datos registrados en el origen activo, nunca datos inventados. No hay pasarela
+                    conectada: no se cobra, no se reembolsa y no se liquida dinero real. Las campañas
+                    de comunicación son simuladas: no existe proveedor de envío real.
                   </p>
                 </div>
               </div>

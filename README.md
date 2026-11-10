@@ -56,7 +56,7 @@ Usuarios de prueba:
 | Usuario | Cualquier correo sin `shop` (por defecto `Julia`) |
 | Comercio | Cualquier correo que contenga `shop` |
 
-## Administración (Fases 1 a 4)
+## Administración (Fases 1 a 5)
 
 El panel administrativo es una entrada separada: `admin.html` (en desarrollo,
 `http://localhost:5173/admin.html`). No cambia las rutas ni el diseño de la app
@@ -79,13 +79,20 @@ de comprador/comercio.
   `#/soporte` y `#/comunicaciones`, con acceso excepcional a chats auditado,
   moderación de reportes y reseñas, tickets con SLA y campañas **simuladas**
   (no existe proveedor de correo: nada se entrega realmente).
+- Fase 5: analítica y pagos. Incluye `#/analitica` y `#/pagos`, con informes
+  agregados sin datos personales, libro interno de movimientos, conciliación
+  manual auditada, liquidaciones **simuladas** (no existe pasarela de pagos:
+  no se cobra, no se reembolsa y no se transfiere dinero), exportaciones
+  auditadas de analítica y auditoría, y búsqueda global de metadatos en la
+  barra superior.
 - Con InsForge configurado usa autenticación real y permisos en servidor
   (RLS + funciones). Requiere aplicar las migraciones
   `migrations/20261106000000_admin_foundation.sql`,
   `migrations/20261106010000_people_catalog.sql`,
-  `migrations/20261106020000_operations.sql` y
-  `migrations/20261106030000_trust_care.sql`, además de dos buckets privados:
-  documentos (`VITE_INSFORGE_DOCUMENTS_BUCKET`, por defecto
+  `migrations/20261106020000_operations.sql`,
+  `migrations/20261106030000_trust_care.sql` y
+  `migrations/20261106040000_analytics_payments.sql`, además de dos buckets
+  privados: documentos (`VITE_INSFORGE_DOCUMENTS_BUCKET`, por defecto
   `commerce-documents`) y evidencias de entrega
   (`VITE_INSFORGE_EVIDENCE_BUCKET`, por defecto `delivery-evidence`).
 
@@ -95,8 +102,9 @@ Documentación:
 - [Fase 2 · Personas y catálogo](./docs/admin/FASE_2.md)
 - [Fase 3 · Operación](./docs/admin/FASE_3.md)
 - [Fase 4 · Confianza y atención](./docs/admin/FASE_4.md)
+- [Fase 5 · Analítica y pagos](./docs/admin/FASE_5.md)
 
-Las cuatro fases están verificadas en modo demostración. El modo InsForge está
+Las cinco fases están verificadas en modo demostración. El modo InsForge está
 escrito pero **no probado contra un proyecto real** todavía.
 
 ## Flujo principal
@@ -144,8 +152,9 @@ npm run build   # Build de producción
 Cubren creación/envío/persistencia/cierre del chat, las guardas de ruta por rol
 y la fundación administrativa: permisos, sesión, repositorio demo y reglas de
 Fase 2 (compradores, comercios, documentos y categorías), Fase 3 (solicitudes,
-ofertas, pedidos, entregas y evidencias) y Fase 4 (acceso auditado a chats,
-moderación, reseñas, soporte y comunicaciones simuladas).
+ofertas, pedidos, entregas y evidencias), Fase 4 (acceso auditado a chats,
+moderación, reseñas, soporte y comunicaciones simuladas) y Fase 5 (analítica,
+pagos con conciliación, exportaciones auditadas y búsqueda global).
 
 ## Limitaciones conocidas
 
