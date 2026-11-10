@@ -4,9 +4,10 @@ Documentación operativa del panel de administración de Chat de Compras.
 Esta fase **no modifica los flujos existentes de comprador/comercio**: el
 administrador es una entrada separada.
 
-> Estado: implementado y verificado en modo demostración. El modo InsForge
-> está escrito pero **no se ha probado contra un proyecto real** porque aún no
-> hay credenciales ni migraciones aplicadas.
+> Estado: implementado y verificado en modo demostración. Las migraciones se
+> aplicaron al proyecto InsForge «Go.go» el 2026-11-10, pero el modo InsForge
+> **aún no se ha probado de extremo a extremo**: falta crear el primer usuario
+> administrativo (ver el bloque de arranque al final de la migración).
 
 ---
 
@@ -101,7 +102,7 @@ src/admin/
 ├── pages/                          Login, Dashboard, Staff, Audit, Settings…
 └── utils/format.js                 Fechas, iniciales y truncado
 migrations/
-└── 20261106000000_admin_foundation.sql
+└── 20261106000000_admin-foundation.sql
 ```
 
 ### Rutas del panel
@@ -198,7 +199,7 @@ controla InsForge**.
 
 ## 8. Migración de base de datos
 
-Archivo: `migrations/20261106000000_admin_foundation.sql`.
+Archivo: `migrations/20261106000000_admin-foundation.sql`.
 
 **No se ha ejecutado.** No se creó ninguna tabla remota.
 

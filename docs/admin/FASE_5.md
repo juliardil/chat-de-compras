@@ -5,10 +5,11 @@ Compras: informes agregados, libro interno de movimientos de pago,
 conciliación manual, liquidaciones simuladas, exportaciones auditadas y
 búsqueda global de metadatos.
 
-> Estado: implementado y verificado **en modo demostración**. El modo InsForge
-> está escrito, pero **no se ha probado contra un proyecto real** porque aún no
-> hay credenciales ni migraciones aplicadas. El archivo SQL de esta fase
-> (`migrations/20261106040000_analytics_payments.sql`) **no se ha ejecutado**.
+> Estado: implementado y verificado **en modo demostración**. Las migraciones
+> se aplicaron al proyecto InsForge «Go.go» el 2026-11-10, pero el modo
+> InsForge **aún no se ha probado de extremo a extremo**: falta crear el primer
+> usuario administrativo. El archivo SQL de esta fase
+> (`migrations/20261106040000_analytics-payments.sql`) no contiene datos de negocio.
 
 Esta fase no cambia las rutas ni el diseño de la aplicación de
 comprador/comercio. Sigue siendo una entrada separada en `admin.html`.
@@ -211,7 +212,7 @@ pasarela futura. La única mutación es la conciliación (campo `reconciled`).
 
 ## 4. Modelo de datos (InsForge)
 
-La migración `migrations/20261106040000_analytics_payments.sql` define:
+La migración `migrations/20261106040000_analytics-payments.sql` define:
 
 - `payment_transactions` (libro interno de movimientos, con conciliación).
 - `payment_payouts` (liquidaciones estimadas por comercio).

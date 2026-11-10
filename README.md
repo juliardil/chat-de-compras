@@ -87,11 +87,11 @@ de comprador/comercio.
   barra superior.
 - Con InsForge configurado usa autenticación real y permisos en servidor
   (RLS + funciones). Requiere aplicar las migraciones
-  `migrations/20261106000000_admin_foundation.sql`,
-  `migrations/20261106010000_people_catalog.sql`,
+  `migrations/20261106000000_admin-foundation.sql`,
+  `migrations/20261106010000_people-catalog.sql`,
   `migrations/20261106020000_operations.sql`,
-  `migrations/20261106030000_trust_care.sql` y
-  `migrations/20261106040000_analytics_payments.sql`, además de dos buckets
+  `migrations/20261106030000_trust-care.sql` y
+  `migrations/20261106040000_analytics-payments.sql`, además de dos buckets
   privados: documentos (`VITE_INSFORGE_DOCUMENTS_BUCKET`, por defecto
   `commerce-documents`) y evidencias de entrega
   (`VITE_INSFORGE_EVIDENCE_BUCKET`, por defecto `delivery-evidence`).
@@ -104,8 +104,13 @@ Documentación:
 - [Fase 4 · Confianza y atención](./docs/admin/FASE_4.md)
 - [Fase 5 · Analítica y pagos](./docs/admin/FASE_5.md)
 
-Las cinco fases están verificadas en modo demostración. El modo InsForge está
-escrito pero **no probado contra un proyecto real** todavía.
+Las cinco fases están verificadas en modo demostración. El proyecto está
+enlazado a InsForge («Go.go», `74005d49-611d-4a67-9180-bfb83f9a3b66`) y las
+migraciones se aplicaron el 2026-11-10; copia `.env.example` a `.env` con las
+credenciales del proyecto para activar el modo InsForge. El modo InsForge
+**no se ha probado de extremo a extremo** todavía: falta crear el primer
+usuario administrativo siguiendo el bloque de arranque documentado al final de
+`migrations/20261106000000_admin-foundation.sql`.
 
 ## Flujo principal
 

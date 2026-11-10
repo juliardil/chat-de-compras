@@ -3,10 +3,11 @@
 Documentación operativa de la Fase 2 del panel administrativo de Chat de Compras:
 compradores, comercios, documentos de verificación y categorías.
 
-> Estado: implementado y verificado **en modo demostración**. El modo InsForge
-> está escrito, pero **no se ha probado contra un proyecto real** porque aún no
-> hay credenciales ni migraciones aplicadas. El archivo SQL de esta fase
-> (`migrations/20261106010000_people_catalog.sql`) **no se ha ejecutado**.
+> Estado: implementado y verificado **en modo demostración**. Las migraciones
+> se aplicaron al proyecto InsForge «Go.go» el 2026-11-10, pero el modo
+> InsForge **aún no se ha probado de extremo a extremo**: falta crear el primer
+> usuario administrativo. El archivo SQL de esta fase
+> (`migrations/20261106010000_people-catalog.sql`) no contiene datos de negocio.
 
 Esta fase no cambia las rutas ni el diseño de la aplicación de
 comprador/comercio. Sigue siendo una entrada separada en `admin.html`.
@@ -195,7 +196,7 @@ Las migraciones **revocan todo acceso directo** a `buyer_profiles`,
 
 ## 5. Migración y almacenamiento
 
-Archivo: `migrations/20261106010000_people_catalog.sql`.
+Archivo: `migrations/20261106010000_people-catalog.sql`.
 
 **No se ha ejecutado.** No se creó ninguna tabla remota.
 

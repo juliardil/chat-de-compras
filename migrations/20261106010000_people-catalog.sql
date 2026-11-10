@@ -5,7 +5,7 @@
 -- IMPORTANTE:
 --   * Este archivo NO se ha ejecutado. Se aplica después de la Fase 1 con:
 --       npx @insforge/cli db migrations up --all
---   * Requiere la migración 20261106000000_admin_foundation.sql aplicada.
+--   * Requiere la migración 20261106000000_admin-foundation.sql aplicada.
 --   * No contiene secretos, datos personales ni categorías de negocio.
 --   * El acceso directo a las tablas queda revocado: todo pasa por funciones
 --     SECURITY DEFINER con comprobación de permisos y auditoría.

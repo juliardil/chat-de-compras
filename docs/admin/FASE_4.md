@@ -4,10 +4,11 @@ Documentación operativa de la Fase 4 del panel administrativo de Chat de
 Compras: chats con acceso excepcional auditado, moderación, reseñas, soporte y
 comunicaciones.
 
-> Estado: implementado y verificado **en modo demostración**. El modo InsForge
-> está escrito, pero **no se ha probado contra un proyecto real** porque aún no
-> hay credenciales ni migraciones aplicadas. El archivo SQL de esta fase
-> (`migrations/20261106030000_trust_care.sql`) **no se ha ejecutado**.
+> Estado: implementado y verificado **en modo demostración**. Las migraciones
+> se aplicaron al proyecto InsForge «Go.go» el 2026-11-10, pero el modo
+> InsForge **aún no se ha probado de extremo a extremo**: falta crear el primer
+> usuario administrativo. El archivo SQL de esta fase
+> (`migrations/20261106030000_trust-care.sql`) no contiene datos de negocio.
 
 Esta fase no cambia las rutas ni el diseño de la aplicación de
 comprador/comercio. Sigue siendo una entrada separada en `admin.html`.
@@ -277,7 +278,7 @@ Acciones auditadas: `communications.template.active`,
 
 ## 4. Modelo de datos (InsForge)
 
-La migración `migrations/20261106030000_trust_care.sql` define:
+La migración `migrations/20261106030000_trust-care.sql` define:
 
 - `chat_threads`, `chat_messages`, `chat_access_requests`.
 - `moderation_reports`.

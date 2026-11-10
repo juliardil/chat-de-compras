@@ -6,10 +6,10 @@
 -- IMPORTANTE:
 --   * Este archivo NO se ha ejecutado. Se aplica después de las Fases 1 a 4:
 --       npx @insforge/cli db migrations up --all
---   * Requiere 20261106000000_admin_foundation.sql,
---     20261106010000_people_catalog.sql,
+--   * Requiere 20261106000000_admin-foundation.sql,
+--     20261106010000_people-catalog.sql,
 --     20261106020000_operations.sql y
---     20261106030000_trust_care.sql aplicadas.
+--     20261106030000_trust-care.sql aplicadas.
 --   * No contiene datos de negocio ni secretos: solo esquema, funciones, RLS y
 --     privilegios. No hay semillas de negocio en esta migración.
 --   * NO existe pasarela de pagos conectada. Esta fase no cobra, no reembolsa
@@ -676,7 +676,7 @@ $$;
 create or replace function public.admin_reconcile_payment(
   p_payment_id uuid,
   p_reconciled boolean default true,
-  p_reason text,
+  p_reason text default null,
   p_reason_code text default 'other'
 )
 returns jsonb

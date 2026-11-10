@@ -5,8 +5,8 @@
 -- IMPORTANTE:
 --   * Este archivo NO se ha ejecutado. Se aplica después de las Fases 1, 2 y 3:
 --       npx @insforge/cli db migrations up --all
---   * Requiere 20261106000000_admin_foundation.sql,
---     20261106010000_people_catalog.sql y
+--   * Requiere 20261106000000_admin-foundation.sql,
+--     20261106010000_people-catalog.sql y
 --     20261106020000_operations.sql aplicadas.
 --   * No contiene datos de negocio ni secretos: solo esquema, funciones, RLS y
 --     privilegios. No hay semillas de negocio en esta migración.

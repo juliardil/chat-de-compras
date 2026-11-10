@@ -14,7 +14,7 @@ import {
 
 const MIGRATION_PATH = path.resolve(
   globalThis.process.cwd(),
-  'migrations/20261106000000_admin_foundation.sql'
+  'migrations/20261106000000_admin-foundation.sql'
 );
 
 const readMigration = () => readFileSync(MIGRATION_PATH, 'utf8');

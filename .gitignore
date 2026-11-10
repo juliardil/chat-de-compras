@@ -13,5 +13,8 @@ pnpm-debug.log*
 # variables de entorno
 .env
 
+# configuración local de InsForge (contiene el API key de administrador)
+.insforge/
+
 # sistema
 .DS_Store
