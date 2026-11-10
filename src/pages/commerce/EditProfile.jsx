@@ -4,19 +4,29 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Phone, Globe, Instagram, Save, FileText, ChevronDown } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { useAuth } from '../../context/auth-context';
 
-// Actualización estética Junio 2026
-
+// Edición del perfil comercial conectada al backend:
+//  * descripción, horario, teléfono, Instagram y sitio web se guardan en
+//    auth.users.profile.business (InsForge) o en la sesión local (demo),
+//    fusionando con el resto de los datos del negocio (nombre comercial,
+//    categoría, etc.) para no perderlos;
+//  * al recargar, la sesión se rehidrata y el formulario muestra lo guardado.
 export default function EditProfile() {
   const navigate = useNavigate();
+  const { user, updateProfile, mode } = useAuth();
+  const business = user?.business || {};
+
   const [isCustomSchedule, setIsCustomSchedule] = useState(false);
   const [formData, setFormData] = useState({
-    description: 'Repuestos originales y alternativos para tu vehículo. Asesoría técnica, garantía y envíos a todo el país.',
-    schedule: 'Lunes a Sábado: 9:00 AM - 7:00 PM',
-    phone: '+1 809 555 0142',
-    instagram: '@repuestosdelsur',
-    website: 'www.repuestosdelsur.com'
+    description: business.description || '',
+    schedule: business.schedule || '',
+    phone: business.phone || '',
+    instagram: business.instagram || '',
+    website: business.website || ''
   });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
 
   const scheduleOptions = [
     'Lunes a Viernes: 9:00 AM - 6:00 PM',
@@ -25,6 +35,13 @@ export default function EditProfile() {
     'Todos los días: 24 Horas',
     'Personalizado'
   ];
+
+  // Si el horario guardado no coincide con ninguna opción predefinida,
+  // se trata como personalizado.
+  const isKnownSchedule = (value) => scheduleOptions.includes(value);
+  const scheduleValue = isCustomSchedule || (formData.schedule && !isKnownSchedule(formData.schedule))
+    ? 'Personalizado'
+    : formData.schedule;
 
   const handleScheduleChange = (e) => {
     const value = e.target.value;
@@ -44,9 +61,27 @@ export default function EditProfile() {
     });
   };
 
-  const handleSave = () => {
-    // Aquí iría la lógica de guardado
-    navigate('/profile');
+  const handleSave = async () => {
+    setError(null);
+    setBusy(true);
+
+    try {
+      await updateProfile({
+        business: {
+          ...business,
+          description: formData.description.trim(),
+          schedule: formData.schedule.trim(),
+          phone: formData.phone.trim(),
+          instagram: formData.instagram.trim(),
+          website: formData.website.trim(),
+        },
+      });
+      navigate('/profile', { state: { profileUpdated: true } });
+    } catch (err) {
+      setError(err?.message || 'No se pudo guardar la información del negocio.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -69,6 +104,7 @@ export default function EditProfile() {
             name="description"
             value={formData.description}
             onChange={handleChange}
+            maxLength={200}
             className="w-full h-32 p-3 bg-white/70 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 text-sm text-gray-800 resize-none"
             placeholder="Describe tu negocio..."
           />
@@ -86,7 +122,7 @@ export default function EditProfile() {
             <div className="relative">
               <select
                 onChange={handleScheduleChange}
-                value={isCustomSchedule ? 'Personalizado' : formData.schedule}
+                value={scheduleValue}
                 className="w-full bg-white/70 border border-white/30 rounded-lg pl-4 pr-10 py-3 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 cursor-pointer text-gray-800"
               >
                 {scheduleOptions.map((opt, i) => (
@@ -96,7 +132,7 @@ export default function EditProfile() {
               <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
-            {isCustomSchedule && (
+            {(isCustomSchedule || (formData.schedule && !isKnownSchedule(formData.schedule))) && (
               <Input
                 name="schedule"
                 value={formData.schedule}
@@ -160,13 +196,24 @@ export default function EditProfile() {
           </div>
         </div>
 
+        {error ? (
+          <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            {error}
+          </p>
+        ) : null}
+
+        {mode === 'demo' ? (
+          <p className="text-xs text-gray-500 px-1">
+            Modo demostración: los cambios se guardan solo en este navegador.
+          </p>
+        ) : null}
+
         <div className="pt-4">
-          <Button fullWidth onClick={handleSave} className="flex items-center justify-center gap-2">
-            <Save className="w-5 h-5" /> GUARDAR CAMBIOS
+          <Button fullWidth onClick={handleSave} disabled={busy} className="flex items-center justify-center gap-2">
+            {busy ? 'GUARDANDO…' : <><Save className="w-5 h-5" /> GUARDAR CAMBIOS</>}
           </Button>
         </div>
       </div>
     </div>
   );
 }
-

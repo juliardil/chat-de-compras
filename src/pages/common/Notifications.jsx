@@ -1,9 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Tag, MessageSquare, Truck, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Bell, Tag, MessageSquare, Truck, CheckCircle, Info } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
 
+// Notificaciones de EJEMPLO. El módulo de notificaciones de la app aún no está
+// conectado a InsForge (las comunicaciones del backend son de uso interno del
+// panel admin), así que esta lista es de demostración y está marcada como tal.
 export default function Notifications() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const notifications = [
     { id: 1, type: 'promo', title: 'Promociones de hoy', text: '¡Flash Sale! 30% de descuento en frenos y lubricantes hasta medianoche.', time: 'Hace 5 min', read: false },
@@ -33,6 +38,14 @@ export default function Notifications() {
           <h1 className="text-xl font-bold text-dark">Notificaciones</h1>
         </div>
       </header>
+
+      <div className="bg-[#00EED0]/10 border-b border-[#00EED0]/30 px-4 py-3 flex gap-3" role="note">
+        <Info className="w-5 h-5 text-[#006E7A] shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="text-xs text-gray-700">
+          Estas notificaciones son de ejemplo: el módulo todavía no está conectado al backend y
+          no reflejan actividad real de tu cuenta{user?.email ? ` (${user.email})` : ''}.
+        </p>
+      </div>
 
       <div className="flex flex-col pb-20">
         {notifications.map((notif) => (

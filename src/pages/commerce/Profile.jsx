@@ -1,18 +1,34 @@
 
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
-import { Star, Award, LogOut, Edit2 } from 'lucide-react';
+import { Star, Award, LogOut, Edit2, CheckCircle, Clock, Phone, Instagram, Globe, MapPin } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import avatarComercio from '../../assets/avatar-comercio.svg';
 
-// Actualización estética Junio 2026
+// Perfil del comercio. El nombre, la descripción y los datos de contacto
+// provienen de la sesión real (auth.users.profile.business con InsForge;
+// sesión local en modo demo). El rating, las ventas y la membresía solo
+// existen en la demostración: los módulos de pedidos y planes de la app aún
+// no están conectados al backend.
+const CATEGORY_LABELS = {
+  repuestos: 'Repuestos Originales / Genéricos',
+  taller: 'Taller / Servicios',
+};
+
+const VEHICLE_LABELS = {
+  car: 'Automotriz',
+  bike: 'Motos',
+};
 
 export default function Profile() {
-  const { logout } = useAuth();
+  const { user, logout, mode } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const business = user?.business || {};
+  const justUpdated = Boolean(location.state?.profileUpdated);
   const [profileImage, setProfileImage] = useState(avatarComercio);
   const [showMembershipNotice, setShowMembershipNotice] = useState(false);
   const fileInputRef = useRef(null);
@@ -28,6 +44,26 @@ export default function Profile() {
       setProfileImage(url);
     }
   };
+
+  const commerceName = business.tradeName || user?.name || 'Mi Comercio';
+
+  const niches = [
+    ...(business.mainCategory ? [CATEGORY_LABELS[business.mainCategory] || business.mainCategory] : []),
+    ...(Array.isArray(business.vehicleTypes)
+      ? business.vehicleTypes.map((type) => VEHICLE_LABELS[type] || type)
+      : []),
+  ];
+
+  const contactRows = [
+    { icon: Clock, label: 'Horario', value: business.schedule },
+    { icon: Phone, label: 'Teléfono / WhatsApp', value: business.phone },
+    { icon: Instagram, label: 'Instagram', value: business.instagram },
+    { icon: Globe, label: 'Sitio web', value: business.website },
+    { icon: MapPin, label: 'Dirección', value: business.address },
+  ].filter((row) => Boolean(row.value));
+
+  const hasBusinessInfo =
+    Boolean(business.description) || niches.length > 0 || contactRows.length > 0;
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-20">
@@ -63,27 +99,36 @@ export default function Profile() {
             />
           </div>
           
-          <h1 className="text-2xl font-bold text-gray-800 mb-1">Repuestos del Sur</h1>
-          <p className="text-gray-600 text-sm mb-4">Miembro desde 2024</p>
+          <h1 className="text-2xl font-bold text-gray-800 mb-1 text-center">{commerceName}</h1>
+          <p className="text-gray-600 text-sm mb-2">{user?.email || '—'}</p>
 
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col items-center">
-              <div className="flex items-center gap-1 font-bold text-gray-800 text-lg">
-                4.8 <Star className="w-4 h-4 text-[#006E7A] fill-current" />
+          {justUpdated ? (
+            <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs font-semibold text-green-700">
+              <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
+              Información actualizada
+            </p>
+          ) : null}
+
+          {mode === 'demo' ? (
+            <div className="flex items-center gap-6 mt-2">
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-1 font-bold text-gray-800 text-lg">
+                  4.8 <Star className="w-4 h-4 text-[#006E7A] fill-current" />
+                </div>
+                <span className="text-xs text-gray-600">Rating</span>
               </div>
-              <span className="text-xs text-gray-600">Rating</span>
+              <div className="w-[1px] h-8 bg-white/40" />
+              <div className="flex flex-col items-center">
+                <div className="font-bold text-gray-800 text-lg">156</div>
+                <span className="text-xs text-gray-600">Ventas</span>
+              </div>
+              <div className="w-[1px] h-8 bg-white/40" />
+              <div className="flex flex-col items-center">
+                <div className="font-bold text-[#006E7A] text-lg">PRO</div>
+                <span className="text-xs text-gray-600">Nivel</span>
+              </div>
             </div>
-            <div className="w-[1px] h-8 bg-white/40" />
-            <div className="flex flex-col items-center">
-              <div className="font-bold text-gray-800 text-lg">156</div>
-              <span className="text-xs text-gray-600">Ventas</span>
-            </div>
-            <div className="w-[1px] h-8 bg-white/40" />
-            <div className="flex flex-col items-center">
-              <div className="font-bold text-[#006E7A] text-lg">PRO</div>
-              <span className="text-xs text-gray-600">Nivel</span>
-            </div>
-          </div>
+          ) : null}
         </div>
       </div>
 
@@ -91,22 +136,57 @@ export default function Profile() {
         <div>
           <h2 className="font-bold text-gray-800 mb-4">Información del Negocio</h2>
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/30 p-4 space-y-4">
-            <div>
-              <label className="text-xs text-gray-600 font-bold uppercase tracking-wider">Descripción</label>
-              <p className="text-sm text-gray-700 mt-1">
-                Repuestos originales y alternativos para tu vehículo. Asesoría técnica, garantía y envíos a todo el país.
+            {!hasBusinessInfo ? (
+              <p className="text-sm text-gray-600 italic">
+                Aún no has completado la información de tu negocio. Usa «Editar Perfil
+                Comercial» para añadir descripción, horario y datos de contacto.
               </p>
-            </div>
-            
-            <div className="h-[1px] bg-white/40" />
+            ) : null}
 
-            <div>
-              <label className="text-xs text-gray-600 font-bold uppercase tracking-wider">Nichos Activos</label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <span className="px-3 py-1 bg-[#0197AF]/10 text-[#006E7A] rounded-lg text-xs font-bold border border-[#0197AF]/20">Automotriz</span>
-                <span className="px-3 py-1 bg-white/50 text-gray-600 rounded-lg text-xs font-bold border border-white/30">Repuestos</span>
+            {business.description ? (
+              <div>
+                <label className="text-xs text-gray-600 font-bold uppercase tracking-wider">Descripción</label>
+                <p className="text-sm text-gray-700 mt-1">{business.description}</p>
               </div>
-            </div>
+            ) : null}
+
+            {niches.length > 0 ? (
+              <>
+                <div className="h-[1px] bg-white/40" />
+                <div>
+                  <label className="text-xs text-gray-600 font-bold uppercase tracking-wider">Nichos Activos</label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {niches.map((niche) => (
+                      <span
+                        key={niche}
+                        className="px-3 py-1 bg-[#0197AF]/10 text-[#006E7A] rounded-lg text-xs font-bold border border-[#0197AF]/20"
+                      >
+                        {niche}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {contactRows.length > 0 ? (
+              <>
+                <div className="h-[1px] bg-white/40" />
+                <div className="space-y-3">
+                  {contactRows.map((row) => (
+                    <div key={row.label} className="flex items-center gap-3">
+                      <div className="bg-[#0197AF]/10 border border-[#0197AF]/20 rounded-lg p-2">
+                        <row.icon className="w-4 h-4 text-[#006E7A]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-600 font-bold uppercase tracking-wider">{row.label}</p>
+                        <p className="text-sm text-gray-700">{row.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
 
             <div className="h-[1px] bg-white/40" />
 
@@ -118,8 +198,16 @@ export default function Profile() {
                     <Award className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-800 text-sm">Plan Premium</p>
-                    <p className="text-xs text-gray-600">Renueva el 01/05/2027</p>
+                    <p className="font-bold text-gray-800 text-sm">
+                      {mode === 'demo' ? 'Plan Premium' : 'Sin plan activo'}
+                    </p>
+                    {mode === 'demo' ? (
+                      <p className="text-xs text-gray-600">Renueva el 01/05/2027</p>
+                    ) : (
+                      <p className="text-xs text-gray-600">
+                        Los planes y suscripciones aún no están disponibles.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Button
@@ -165,4 +253,3 @@ export default function Profile() {
     </div>
   );
 }
-

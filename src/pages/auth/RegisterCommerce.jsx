@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
-import { Store, FileText, Mail, Lock, ArrowLeft, CheckCircle2, Car, Bike } from 'lucide-react';
+import { Store, FileText, Mail, Lock, ArrowLeft, CheckCircle2, Car, Bike, ShieldCheck } from 'lucide-react';
 
 export default function RegisterCommerce() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register, confirmRegistration, resendVerificationCode, mode } = useAuth();
   const [formData, setFormData] = useState({
     tradeName: '',
     legalName: '',
@@ -21,11 +21,76 @@ export default function RegisterCommerce() {
     services: [],
     yearsExperience: ''
   });
+  const [step, setStep] = useState('form'); // 'form' | 'verify'
+  const [otp, setOtp] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [resent, setResent] = useState(false);
 
-  const handleSubmit = (e) => {
+  // Datos del negocio que se guardan en el perfil de la cuenta
+  // (auth.users.profile.business) al completar el registro.
+  const businessPayload = () => ({
+    tradeName: formData.tradeName.trim(),
+    legalName: formData.legalName.trim(),
+    phone: formData.phone.trim(),
+    address: formData.address.trim(),
+    mainCategory: formData.mainCategory,
+    inventorySystems: formData.inventorySystems,
+    vehicleTypes: formData.vehicleTypes,
+    yearsExperience: formData.yearsExperience,
+  });
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulación: los datos no se envían a ningún servidor todavía.
-    login('commerce');
+    setError(null);
+    setResent(false);
+    setBusy(true);
+
+    try {
+      const result = await register({
+        email: formData.email.trim(),
+        password: formData.password,
+        name: formData.tradeName.trim(),
+        role: 'commerce',
+        business: businessPayload(),
+      });
+      // Con InsForge, el alta exige verificar el correo con un código.
+      if (result?.verificationRequired) setStep('verify');
+    } catch (err) {
+      setError(err?.message || 'No se pudo registrar el comercio.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+
+    try {
+      await confirmRegistration({
+        email: formData.email.trim(),
+        otp: otp.trim(),
+        role: 'commerce',
+        business: businessPayload(),
+      });
+    } catch (err) {
+      setError(err?.message || 'El código no es válido o expiró.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResent(false);
+    setError(null);
+    try {
+      await resendVerificationCode(formData.email.trim());
+      setResent(true);
+    } catch (err) {
+      setError(err?.message || 'No se pudo reenviar el código.');
+    }
   };
 
   const handleVehicleTypeChange = (type) => {
@@ -58,6 +123,47 @@ export default function RegisterCommerce() {
       </header>
 
       <div className="flex-1 overflow-y-auto no-scrollbar pb-6">
+        {step === 'verify' ? (
+          <form onSubmit={handleVerify} className="flex flex-col gap-5">
+            <div className="bg-[#00EED0]/10 border border-[#00EED0]/30 rounded-xl p-4 flex gap-3">
+              <ShieldCheck className="w-5 h-5 text-[#006E7A] shrink-0 mt-0.5" />
+              <p className="text-sm text-gray-700">
+                Enviamos un código de 6 dígitos a{' '}
+                <span className="font-medium">{formData.email}</span>. Ingrésalo para activar tu
+                comercio.
+              </p>
+            </div>
+
+            <Input
+              label="Código de verificación"
+              placeholder="123456"
+              inputMode="numeric"
+              maxLength={6}
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+              required
+            />
+
+            {error ? (
+              <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                {error}
+              </p>
+            ) : null}
+
+            <Button type="submit" fullWidth disabled={busy || otp.length < 6}>
+              {busy ? 'VERIFICANDO…' : 'VERIFICAR Y ENTRAR'}
+            </Button>
+
+            <button
+              type="button"
+              onClick={handleResend}
+              className="text-sm text-[#006E7A] font-semibold underline underline-offset-2"
+            >
+              Reenviar código
+            </button>
+            {resent ? <p className="text-xs text-[#006E7A]">Código reenviado. Revisa tu correo.</p> : null}
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <Car className="w-5 h-5 text-[#006E7A]" />
@@ -280,19 +386,33 @@ export default function RegisterCommerce() {
             </ul>
           </div>
 
+          {error ? (
+            <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+              {error}
+            </p>
+          ) : null}
+
+          {mode === 'demo' ? (
+            <p className="text-xs text-gray-500">
+              Modo demostración: la cuenta se crea en este navegador, sin backend.
+            </p>
+          ) : null}
+
           <Button 
             type="submit" 
             fullWidth 
             className="mt-4"
             disabled={
+              busy ||
               formData.vehicleTypes.length === 0 || 
               !formData.mainCategory || 
               (formData.mainCategory === 'repuestos' && formData.inventorySystems.length === 0)
             }
           >
-            REGISTRAR COMERCIO
+            {busy ? 'REGISTRANDO…' : 'REGISTRAR COMERCIO'}
           </Button>
         </form>
+        )}
       </div>
     </div>
   );

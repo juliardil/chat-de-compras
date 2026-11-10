@@ -1,6 +1,5 @@
-
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   User, 
   MapPin, 
@@ -9,18 +8,23 @@ import {
   ShieldCheck, 
   LogOut, 
   ChevronRight, 
-  Camera
+  Camera,
+  CheckCircle
 } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import { useAuth } from '../../context/auth-context';
 
-// Actualización estética Junio 2026
-
+// Perfil del comprador. El nombre y el correo vienen de la sesión real
+// (InsForge cuando está configurado; demo local en caso contrario). Las
+// estadísticas de compras solo existen en la demo: el módulo de pedidos de la
+// app aún no está conectado al backend.
 export default function UserProfile() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const location = useLocation();
+  const { user, logout, mode } = useAuth();
   const [profileImage, setProfileImage] = useState(null);
   const fileInputRef = useRef(null);
+  const justUpdated = Boolean(location.state?.profileUpdated);
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -100,19 +104,28 @@ export default function UserProfile() {
               onChange={handleImageChange}
             />
           </div>
-          <h2 className="mt-4 text-xl font-bold text-gray-800">Usuario Demo</h2>
-          <p className="text-gray-600 text-sm">usuario@ejemplo.com</p>
-          
-          <div className="flex gap-4 mt-6 w-full">
-            <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
-              <span className="text-lg font-bold text-gray-800">12</span>
-              <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Compras</span>
+          <h2 className="mt-4 text-xl font-bold text-gray-800">{user?.name || 'Usuario'}</h2>
+          <p className="text-gray-600 text-sm">{user?.email || '—'}</p>
+
+          {justUpdated ? (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs font-semibold text-green-700">
+              <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
+              Información actualizada
+            </p>
+          ) : null}
+
+          {mode === 'demo' ? (
+            <div className="flex gap-4 mt-6 w-full">
+              <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
+                <span className="text-lg font-bold text-gray-800">12</span>
+                <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Compras</span>
+              </div>
+              <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
+                <span className="text-lg font-bold text-gray-800">4</span>
+                <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Pendientes</span>
+              </div>
             </div>
-            <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
-              <span className="text-lg font-bold text-gray-800">4</span>
-              <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Pendientes</span>
-            </div>
-          </div>
+          ) : null}
         </div>
       </div>
 
@@ -155,4 +168,3 @@ export default function UserProfile() {
     </div>
   );
 }
-

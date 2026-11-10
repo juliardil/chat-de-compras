@@ -44,17 +44,29 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 const homeForRole = (role) => (role === 'commerce' ? '/dashboard' : '/categories');
 
-function HomeRedirect() {
-  const { user } = useAuth();
+// En modo InsForge la sesión se rehidrata de forma asíncrona al recargar:
+// este splash evita redirigir a /welcome antes de conocer al usuario.
+function AuthSplash() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#E7E7E7]" aria-busy="true" aria-label="Cargando sesión">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#4B227A]/20 border-t-[#4B227A]" />
+    </div>
+  );
+}
 
+function HomeRedirect() {
+  const { user, loading } = useAuth();
+
+  if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
   return <Navigate to={homeForRole(user.role)} replace />;
 }
 
 // Protege una ruta comprobando que haya sesión y, opcionalmente, el rol.
 function RequireRole({ role, children }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
+  if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
   if (role && user.role !== role) {
     return <Navigate to={homeForRole(user.role)} replace />;
@@ -94,7 +106,7 @@ function AppRoutes() {
         <Route path="/sales-history" element={<RequireRole role="commerce"><SalesHistory /></RequireRole>} />
         <Route path="/profile" element={<RequireRole role="commerce"><Profile /></RequireRole>} />
         <Route path="/edit-profile" element={<RequireRole role="commerce"><EditProfile /></RequireRole>} />
-        <Route path="/change-password" element={<RequireRole role="commerce"><ChangePassword /></RequireRole>} />
+        <Route path="/change-password" element={<RequireRole><ChangePassword /></RequireRole>} />
         <Route path="/niche-config" element={<RequireRole role="commerce"><NicheConfig /></RequireRole>} />
 
         {/* Common (requieren sesión, cualquier rol) */}

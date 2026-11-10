@@ -1,20 +1,25 @@
-
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Mail, Phone, Calendar, Camera } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Calendar, Camera, CheckCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { useAuth } from '../../context/auth-context';
 
-// Actualización estética Junio 2026
-
+// Edición del perfil personal conectada al backend:
+//  * el correo viene de la cuenta (auth.users.email) y no se modifica aquí;
+//  * nombre, teléfono y fecha de nacimiento se guardan en auth.users.profile
+//    mediante updateProfile (InsForge) o en la sesión local (demo);
+//  * al recargar, la sesión se rehidrata y el formulario muestra lo guardado.
 export default function EditUserProfile() {
   const navigate = useNavigate();
+  const { user, updateProfile, mode } = useAuth();
   const [formData, setFormData] = useState({
-    fullName: 'Usuario Demo',
-    email: 'usuario@ejemplo.com',
-    phone: '809-555-0123',
-    birthDate: '1995-05-15'
+    fullName: user?.name || '',
+    phone: user?.phone || '',
+    birthDate: user?.birthDate || ''
   });
   const [photo, setPhoto] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
   const handlePhotoChange = (e) => {
@@ -24,11 +29,23 @@ export default function EditUserProfile() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Aquí iría la lógica para guardar los cambios
-    alert('Información personal actualizada correctamente');
-    navigate('/profile-user');
+    setError(null);
+    setBusy(true);
+
+    try {
+      await updateProfile({
+        name: formData.fullName.trim(),
+        phone: formData.phone.trim(),
+        birth_date: formData.birthDate,
+      });
+      navigate('/profile-user', { state: { profileUpdated: true } });
+    } catch (err) {
+      setError(err?.message || 'No se pudo guardar la información.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -80,6 +97,7 @@ export default function EditUserProfile() {
                   className="w-full bg-white/70 border-none rounded-2xl p-4 pl-12 text-sm focus:ring-2 focus:ring-[#00EED0]/30 transition-all text-gray-800"
                   value={formData.fullName}
                   onChange={e => setFormData({...formData, fullName: e.target.value})}
+                  required
                 />
               </div>
             </div>
@@ -91,7 +109,7 @@ export default function EditUserProfile() {
                 <input 
                   type="email" 
                   className="w-full bg-white/70 border-none rounded-2xl p-4 pl-12 text-sm focus:ring-2 focus:ring-[#00EED0]/30 transition-all text-gray-600"
-                  value={formData.email}
+                  value={user?.email || '—'}
                   disabled
                 />
               </div>
@@ -125,12 +143,25 @@ export default function EditUserProfile() {
             </div>
           </div>
 
-          <Button type="submit" fullWidth className="rounded-2xl py-4 shadow-lg shadow-[#00EED0]/30">
-            Guardar Cambios
+          {error ? (
+            <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+              {error}
+            </p>
+          ) : null}
+
+          {mode === 'demo' ? (
+            <p className="text-xs text-gray-500 px-1">
+              Modo demostración: los cambios se guardan solo en este navegador.
+            </p>
+          ) : null}
+
+          <Button type="submit" fullWidth className="rounded-2xl py-4 shadow-lg shadow-[#00EED0]/30" disabled={busy}>
+            <span className="inline-flex items-center gap-2">
+              {busy ? 'GUARDANDO…' : <><CheckCircle className="w-4 h-4" /> GUARDAR CAMBIOS</>}
+            </span>
           </Button>
         </form>
       </div>
     </div>
   );
 }
-

@@ -12,24 +12,19 @@ import {
   Heart
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { useAuth } from '../../context/auth-context';
 
-// Actualización estética Junio 2026
-
+// Direcciones del comprador conectadas al backend: se guardan en
+// auth.users.profile.addresses (JSONB) mediante updateProfile, o en la sesión
+// local cuando la app corre en modo demostración.
 export default function Addresses() {
   const navigate = useNavigate();
-  const [addresses, setAddresses] = useState([
-    {
-      id: 1,
-      type: 'Casa',
-      address: 'Calle Principal #123, Apto 4B',
-      city: 'Santo Domingo',
-      phone: '809-555-0123',
-      contactName: 'Mamá (María)',
-      isDefault: true
-    }
-  ]);
+  const { user, updateProfile, mode } = useAuth();
+  const addresses = user?.addresses || [];
 
   const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     type: 'Casa',
     address: '',
@@ -38,20 +33,36 @@ export default function Addresses() {
     contactName: ''
   });
 
-  const handleAddAddress = (e) => {
+  const persist = async (next) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await updateProfile({ addresses: next });
+      return true;
+    } catch (err) {
+      setError(err?.message || 'No se pudieron guardar las direcciones.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAddAddress = async (e) => {
     e.preventDefault();
     const newAddress = {
       ...formData,
       id: Date.now(),
       isDefault: addresses.length === 0
     };
-    setAddresses([...addresses, newAddress]);
-    setShowForm(false);
-    setFormData({ type: 'Casa', address: '', city: '', phone: '', contactName: '' });
+
+    if (await persist([...addresses, newAddress])) {
+      setShowForm(false);
+      setFormData({ type: 'Casa', address: '', city: '', phone: '', contactName: '' });
+    }
   };
 
-  const removeAddress = (id) => {
-    setAddresses(addresses.filter(addr => addr.id !== id));
+  const removeAddress = async (id) => {
+    await persist(addresses.filter(addr => addr.id !== id));
   };
 
   return (
@@ -64,9 +75,21 @@ export default function Addresses() {
       </header>
 
       <div className="p-4">
+        {error ? (
+          <p role="alert" className="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+            {error}
+          </p>
+        ) : null}
+
         {!showForm ? (
           <>
             <div className="flex flex-col gap-4 mb-6">
+              {addresses.length === 0 ? (
+                <p className="text-sm text-gray-600 text-center py-8 italic">
+                  Aún no tienes direcciones guardadas.
+                </p>
+              ) : null}
+
               {addresses.map((addr) => (
                 <div key={addr.id} className="bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-white/30 relative overflow-hidden group">
                   {addr.isDefault && (
@@ -104,7 +127,8 @@ export default function Addresses() {
                       type="button"
                       aria-label={`Eliminar dirección ${addr.type}`}
                       onClick={() => removeAddress(addr.id)}
-                      className="text-[#4B227A] hover:text-[#4B227A]/80 p-2 hover:bg-[#4B227A]/10 rounded-xl transition-colors"
+                      disabled={busy}
+                      className="text-[#4B227A] hover:text-[#4B227A]/80 p-2 hover:bg-[#4B227A]/10 rounded-xl transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>
@@ -196,20 +220,28 @@ export default function Addresses() {
               </div>
             </div>
 
+            {mode === 'demo' ? (
+              <p className="text-xs text-gray-500 mt-4">
+                Modo demostración: las direcciones se guardan solo en este navegador.
+              </p>
+            ) : null}
+
             <div className="flex gap-3 mt-8">
               <Button 
                 type="button" 
                 variant="outline" 
                 className="flex-1 rounded-2xl py-4 border-[#0197AF]/30 text-[#006E7A]"
                 onClick={() => setShowForm(false)}
+                disabled={busy}
               >
                 Cancelar
               </Button>
               <Button 
                 type="submit" 
                 className="flex-2 rounded-2xl py-4"
+                disabled={busy}
               >
-                Guardar Dirección
+                {busy ? 'GUARDANDO…' : 'Guardar Dirección'}
               </Button>
             </div>
           </form>
@@ -218,4 +250,3 @@ export default function Addresses() {
     </div>
   );
 }
-
