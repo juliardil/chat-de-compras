@@ -5,9 +5,9 @@ Compras: solicitudes de compra, ofertas, pedidos, disputas, entregas,
 incidencias y evidencias.
 
 > Estado: implementado y verificado **en modo demostración**. Las migraciones
-> se aplicaron al proyecto InsForge «Go.go» el 2026-11-10, pero el modo
-> InsForge **aún no se ha probado de extremo a extremo**: falta crear el primer
-> usuario administrativo. El archivo SQL de esta fase
+> se aplicaron al proyecto InsForge «Go.go» el 2026-11-10 y el primer
+> superadministrador ya fue creado; queda probar el inicio de sesión. El
+> archivo SQL de esta fase
 > (`migrations/20261106020000_operations.sql`) no contiene datos de negocio.
 
 Esta fase no cambia las rutas ni el diseño de la aplicación de

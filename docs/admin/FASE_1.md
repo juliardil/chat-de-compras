@@ -5,9 +5,9 @@ Esta fase **no modifica los flujos existentes de comprador/comercio**: el
 administrador es una entrada separada.
 
 > Estado: implementado y verificado en modo demostración. Las migraciones se
-> aplicaron al proyecto InsForge «Go.go» el 2026-11-10, pero el modo InsForge
-> **aún no se ha probado de extremo a extremo**: falta crear el primer usuario
-> administrativo (ver el bloque de arranque al final de la migración).
+> aplicaron al proyecto InsForge «Go.go» el 2026-11-10 y el primer
+> superadministrador ya fue creado con el bloque de arranque del final de la
+> migración. Falta probar el inicio de sesión de extremo a extremo.
 
 ---
 

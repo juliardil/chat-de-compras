@@ -4,9 +4,9 @@ Documentación operativa de la Fase 2 del panel administrativo de Chat de Compra
 compradores, comercios, documentos de verificación y categorías.
 
 > Estado: implementado y verificado **en modo demostración**. Las migraciones
-> se aplicaron al proyecto InsForge «Go.go» el 2026-11-10, pero el modo
-> InsForge **aún no se ha probado de extremo a extremo**: falta crear el primer
-> usuario administrativo. El archivo SQL de esta fase
+> se aplicaron al proyecto InsForge «Go.go» el 2026-11-10 y el primer
+> superadministrador ya fue creado; queda probar el inicio de sesión. El
+> archivo SQL de esta fase
 > (`migrations/20261106010000_people-catalog.sql`) no contiene datos de negocio.
 
 Esta fase no cambia las rutas ni el diseño de la aplicación de

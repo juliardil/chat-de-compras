@@ -107,10 +107,10 @@ Documentación:
 Las cinco fases están verificadas en modo demostración. El proyecto está
 enlazado a InsForge («Go.go», `74005d49-611d-4a67-9180-bfb83f9a3b66`) y las
 migraciones se aplicaron el 2026-11-10; copia `.env.example` a `.env` con las
-credenciales del proyecto para activar el modo InsForge. El modo InsForge
-**no se ha probado de extremo a extremo** todavía: falta crear el primer
-usuario administrativo siguiendo el bloque de arranque documentado al final de
-`migrations/20261106000000_admin-foundation.sql`.
+credenciales del proyecto para activar el modo InsForge. El primer
+superadministrador fue creado el 2026-11-10 con el bloque de arranque
+documentado al final de `migrations/20261106000000_admin-foundation.sql`;
+falta probar el inicio de sesión de extremo a extremo.
 
 ## Flujo principal
 
