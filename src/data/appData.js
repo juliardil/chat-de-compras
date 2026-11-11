@@ -10,12 +10,9 @@
 //   * Las escrituras también se intentan de verdad; si el backend las rechaza,
 //     el error se propaga con el mismo formato amigable.
 //
-// Contexto del backend: las tablas de negocio existen (purchase_requests,
-// purchase_offers, purchase_orders, chat_threads, chat_messages,
-// commerce_reviews, commerce_categories), pero hoy solo las tablas admin_*
-// tienen permisos para `authenticated`. Cuando se añadan las políticas RLS
-// correspondientes, estas mismas consultas empezarán a devolver datos reales
-// sin cambiar la interfaz.
+// Contexto del backend: las tablas de negocio tienen políticas RLS por usuario
+// (migración 20261111172450_app-rls.sql). La app resuelve el perfil real antes
+// de consultar y las escrituras se rechazan si intentan tocar datos ajenos.
 // =============================================================================
 
 import { insforge, isInsforgeConfigured } from '../lib/insforge';
@@ -26,25 +23,25 @@ export const NOTICES = {
   demo:
     'Modo demostración: no hay backend InsForge configurado, por eso este módulo se muestra vacío. No se usan datos de ejemplo.',
   permissions:
-    'El backend rechazó la consulta por permisos: tu sesión es válida, pero todavía no existen políticas RLS que permitan a compradores y comercios leer estos datos.',
+    'El backend rechazó la consulta por permisos. Verifica tu sesión y que tu perfil de comprador o comercio esté activo.',
   requests:
-    'El listado se llenará cuando se habiliten los permisos de lectura sobre purchase_requests para tu cuenta.',
+    'No se pudieron cargar tus solicitudes. Verifica tu sesión y tu perfil de comprador.',
   offers:
-    'Las ofertas de los comercios se guardan en purchase_offers; ese acceso todavía no está habilitado para tu cuenta.',
+    'No se pudieron cargar las ofertas. Verifica tu sesión y tu perfil.',
   orders:
-    'Los pedidos se guardan en purchase_orders; ese acceso todavía no está habilitado para tu cuenta.',
+    'No se pudieron cargar los pedidos. Verifica tu sesión y tu perfil.',
   chats:
-    'Las conversaciones se guardan en chat_threads y chat_messages; ese acceso todavía no está habilitado para tu cuenta.',
+    'No se pudieron cargar las conversaciones. Verifica tu sesión y tu perfil.',
   notifications:
     'Todavía no existe un módulo de notificaciones en el backend. No se muestran datos de ejemplo.',
   reviews:
-    'Las calificaciones se guardan en commerce_reviews; ese acceso todavía no está habilitado para tu cuenta.',
+    'No se pudieron cargar las calificaciones. Verifica tu sesión y tu perfil.',
   commerceMetrics:
-    'Las métricas del comercio requieren agregados sobre purchase_orders que todavía no están disponibles para tu cuenta.',
+    'No se pudieron cargar las métricas del comercio. Verifica tu sesión y que tu comercio esté aprobado.',
   categories:
-    'Las categorías se guardan en commerce_categories; ese acceso todavía no está habilitado para tu cuenta.',
+    'No se pudieron cargar las categorías.',
   write:
-    'La operación de escritura todavía no está habilitada en el backend para tu cuenta.',
+    'No se pudo guardar la operación. Verifica tu sesión y tus permisos.',
 };
 
 const PERMISSION_PATTERN =
@@ -69,7 +66,7 @@ export function describeError(error, fallback = 'No se pudo completar la operaci
   const status = errorStatus(error);
 
   if (status === 401 || status === 403 || PERMISSION_PATTERN.test(message)) {
-    return 'El backend rechazó la operación por permisos. Tu sesión es válida, pero aún no hay políticas RLS que permitan acceder a estos datos.';
+    return 'El backend rechazó la operación por permisos. Verifica tu sesión y que tu perfil esté activo.';
   }
 
   if (NETWORK_PATTERN.test(message)) {
@@ -182,6 +179,26 @@ export const ORDER_STATUS_LABELS = {
   completed: 'Completado',
   cancelled: 'Cancelado',
   disputed: 'En disputa',
+};
+
+// -----------------------------------------------------------------------------
+// Perfil de comprador / comercio
+// -----------------------------------------------------------------------------
+// Crea el perfil de negocio la primera vez y lo mantiene sincronizado con
+// auth.users.profile. El backend decide si la cuenta es comprador o comercio y
+// fija el estado inicial: la app nunca puede aprobar un comercio.
+export const ensureProfile = async () => {
+  if (!isInsforgeConfigured) {
+    return { ok: false, data: null, error: null, skipped: true };
+  }
+
+  try {
+    const { data, error } = await insforge.database.rpc('app_ensure_profile');
+    if (error) return { ok: false, data: null, error: describeError(error), skipped: false };
+    return { ok: true, data: data || null, error: null, skipped: false };
+  } catch (error) {
+    return { ok: false, data: null, error: describeError(error), skipped: false };
+  }
 };
 
 // -----------------------------------------------------------------------------

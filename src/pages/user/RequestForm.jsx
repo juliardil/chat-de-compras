@@ -213,9 +213,9 @@ export default function RequestForm() {
 
       <div className="px-4 pt-4">
         <DataNotice>
-          La publicación de solicitudes todavía no está habilitada en el backend
-          (purchase_requests). Si el envío falla, verás el motivo en la pantalla de
-          respuestas; no se mostrará una confirmación falsa.
+          La solicitud se guarda en InsForge y queda vinculada a tu perfil de
+          comprador. Si el envío falla, verás el motivo en la pantalla de
+          respuestas; no se muestra una confirmación falsa.
         </DataNotice>
       </div>
 

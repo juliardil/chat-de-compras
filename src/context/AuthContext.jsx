@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './auth-context';
 import { insforge, isInsforgeConfigured } from '../lib/insforge';
+import { ensureProfile } from '../data/appData';
 
 // =============================================================================
 // Autenticación de la app (compradores y comercios).
@@ -111,7 +112,10 @@ export const AuthProvider = ({ children }) => {
       try {
         const { data, error } = await insforge.auth.getCurrentUser();
         if (cancelled) return;
-        setUser(error ? null : mapInsForgeUser(data?.user));
+        const nextUser = error ? null : mapInsForgeUser(data?.user);
+        setUser(nextUser);
+        // Provisiona el perfil de comprador/comercio si aún no existe.
+        if (nextUser) void ensureProfile();
       } catch {
         if (!cancelled) setUser(null);
       } finally {
@@ -163,6 +167,7 @@ export const AuthProvider = ({ children }) => {
 
       const nextUser = mapInsForgeUser(data.user);
       setUser(nextUser);
+      await ensureProfile();
       navigate(homeFor(nextUser), { replace: true });
       return nextUser;
     },
@@ -192,6 +197,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       const { authUser, profile } = await saveInsforgeProfile({ role, business });
+      await ensureProfile();
       const nextUser = mapInsForgeUser({ ...authUser, profile });
       setUser(nextUser);
       navigate(homeFor(nextUser), { replace: true });
@@ -212,6 +218,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       const { authUser, profile } = await saveInsforgeProfile({ role, business });
+      await ensureProfile();
       const nextUser = mapInsForgeUser({ ...authUser, profile });
       setUser(nextUser);
       navigate(homeFor(nextUser), { replace: true });
@@ -248,6 +255,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     const { authUser, profile } = await saveInsforgeProfile(patch);
+    await ensureProfile();
     const nextUser = mapInsForgeUser({ ...authUser, profile });
     setUser(nextUser);
     return nextUser;

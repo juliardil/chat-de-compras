@@ -176,7 +176,7 @@ export default function Dashboard() {
 
     if (!extra?.commerceId) {
       setOfferError(
-        'No se pudo identificar tu perfil de comercio en el backend, así que la oferta no se puede guardar todavía.'
+        'No se pudo identificar tu perfil de comercio. Vuelve a iniciar sesión o completa los datos de tu comercio.'
       );
       return;
     }
