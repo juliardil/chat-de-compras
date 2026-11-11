@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import {
@@ -9,40 +8,87 @@ import {
   Receipt,
   Star,
   Trophy,
-  CreditCard,
-  Wallet,
-  MoreVertical
+  MoreVertical,
+  BarChart3,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import frenosImg from '../../assets/repuesto-frenos.svg';
-import bateriaImg from '../../assets/repuesto-bateria.svg';
-import filtroImg from '../../assets/repuesto-filtro.svg';
-import amortiguadorImg from '../../assets/repuesto-amortiguador.svg';
-import avatarCliente1 from '../../assets/avatar-cliente-1.svg';
-import avatarCliente2 from '../../assets/avatar-cliente-2.svg';
-import avatarCliente3 from '../../assets/avatar-cliente-3.svg';
-import avatarCliente4 from '../../assets/avatar-cliente-4.svg';
 import SafeImage from '../../components/ui/SafeImage';
+import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
+import { useAuth } from '../../context/auth-context';
+import { useModuleData } from '../../data/useModuleData';
+import {
+  fetchCommerceIdForUser,
+  fetchCommerceSales,
+  formatCurrency,
+  ORDER_STATUS_LABELS,
+  NOTICES,
+} from '../../data/appData';
 
 // Actualización estética Junio 2026
 
+const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const DAY_COLORS = [
+  'bg-[#4B227A]/30',
+  'bg-[#4B227A]/50',
+  'bg-[#0197AF]/50',
+  'bg-[#0197AF]/70',
+  'bg-[#00EED0]/60',
+  'bg-gradient-to-t from-[#4B227A]/80 to-[#00EED0]/80',
+  'bg-[#4B227A]/40',
+];
+
+const startOfWeek = (date) => {
+  const base = new Date(date);
+  const day = base.getDay();
+  base.setDate(base.getDate() + (day === 0 ? -6 : 1 - day));
+  base.setHours(0, 0, 0, 0);
+  return base;
+};
+
+const saleDate = (sale) => sale.completed_at || sale.delivered_at || sale.placed_at || sale.created_at;
+
+const formatDateTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export default function SalesHistory() {
-  const [period, setPeriod] = useState('week');
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  const { items, loading, error, notice, extra, reload } = useModuleData(async () => {
+    const commerce = await fetchCommerceIdForUser(user?.id);
+    if (!commerce.item) {
+      return {
+        items: [],
+        error: commerce.error,
+        notice: commerce.notice || NOTICES.commerceMetrics,
+        extra: null,
+      };
+    }
+
+    const sales = await fetchCommerceSales(commerce.item.id);
+    return {
+      items: sales.items,
+      error: sales.error,
+      notice: sales.notice,
+      extra: { access: !sales.error },
+    };
+  }, [user?.id]);
+
+  const hasAccess = Boolean(extra?.access);
+  const sales = items;
+
   const monthNames = [
-    'Enero',
-    'Febrero',
-    'Marzo',
-    'Abril',
-    'Mayo',
-    'Junio',
-    'Julio',
-    'Agosto',
-    'Septiembre',
-    'Octubre',
-    'Noviembre',
-    'Diciembre'
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
   ];
 
   const getWeekRangeLabel = (date) => {
@@ -82,71 +128,83 @@ export default function SalesHistory() {
     setCurrentDate(nextWeek);
   };
 
+  // Ventas de la semana visible, calculadas con purchase_orders reales.
+  const monday = startOfWeek(currentDate);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  const completedSales = sales.filter((sale) => ['completed', 'delivered'].includes(sale.status));
+  const weekSales = completedSales.filter((sale) => {
+    const date = new Date(saleDate(sale));
+    return !Number.isNaN(date.getTime()) && date >= monday && date <= sunday;
+  });
+
+  const totalRevenue = weekSales.reduce((total, sale) => total + Number(sale.total_amount || 0), 0);
+  const averageTicket = weekSales.length > 0 ? totalRevenue / weekSales.length : null;
+
+  const dayTotals = DAY_LABELS.map(() => 0);
+  weekSales.forEach((sale) => {
+    const date = new Date(saleDate(sale));
+    const index = date.getDay() === 0 ? 6 : date.getDay() - 1;
+    dayTotals[index] += Number(sale.total_amount || 0);
+  });
+
+  const maxDay = Math.max(...dayTotals, 0);
+  const days = dayTotals.map((value, index) => ({
+    name: DAY_LABELS[index],
+    value,
+    height: maxDay > 0 ? Math.max(4, Math.round((value / maxDay) * 95)) : 0,
+    color: DAY_COLORS[index],
+    best: maxDay > 0 && value === maxDay,
+    star: maxDay > 0 && value === maxDay,
+  }));
+  const bestDayIndex = dayTotals.indexOf(maxDay);
+  const hasWeekData = weekSales.length > 0;
+
   const kpis = [
-    { label: 'Ingresos Totales', value: '$2,595.00', change: '+24% vs. semana anterior', icon: DollarSign, color: 'text-[#006E7A]' },
-    { label: 'Ventas Cerradas', value: '21', change: '+8 esta semana', icon: ShoppingBag, color: 'text-[#006E7A]' },
-    { label: 'Ticket Promedio', value: '$123.57', change: 'Promedio por venta', icon: Receipt, color: 'text-[#4B227A]' },
-    { label: 'Mejor Día', value: '$990', change: 'Sábado', icon: Trophy, color: 'text-gray-700' },
+    {
+      label: 'Ingresos Totales',
+      value: hasAccess ? formatCurrency(totalRevenue) : '—',
+      change: hasWeekData ? `${weekSales.length} ventas esta semana` : 'Sin ventas en la semana',
+      icon: DollarSign,
+      color: 'text-[#006E7A]',
+    },
+    {
+      label: 'Ventas Cerradas',
+      value: hasAccess ? String(weekSales.length) : '—',
+      change: 'Pedidos completados',
+      icon: ShoppingBag,
+      color: 'text-[#006E7A]',
+    },
+    {
+      label: 'Ticket Promedio',
+      value: hasAccess && averageTicket !== null ? formatCurrency(averageTicket) : '—',
+      change: 'Promedio por venta',
+      icon: Receipt,
+      color: 'text-[#4B227A]',
+    },
+    {
+      label: 'Mejor Día',
+      value: hasAccess && maxDay > 0 ? formatCurrency(maxDay) : '—',
+      change: hasAccess && maxDay > 0 ? DAY_LABELS[bestDayIndex] : 'Sin datos',
+      icon: Trophy,
+      color: 'text-gray-700',
+    },
   ];
 
-
-
-  const days = [
-    { name: 'Lun', value: 350, height: 35, color: 'bg-[#4B227A]/30' },
-    { name: 'Mar', value: 420, height: 42, color: 'bg-[#4B227A]/50' },
-    { name: 'Mié', value: 380, height: 38, color: 'bg-[#0197AF]/50' },
-    { name: 'Jue', value: 890, height: 85, color: 'bg-[#0197AF]/70', best: true },
-    { name: 'Vie', value: 950, height: 90, color: 'bg-[#00EED0]/60', best: true },
-    { name: 'Sáb', value: 990, height: 95, color: 'bg-gradient-to-t from-[#4B227A]/80 to-[#00EED0]/80', best: true, star: true },
-    { name: 'Dom', value: 600, height: 60, color: 'bg-[#4B227A]/40' },
-  ];
-
-  const recentTransactions = [
-    { 
-      id: 1, 
-      product: 'Pastillas de freno delanteras', 
-      user: 'Juan P.', 
-      userImage: avatarCliente1,
-      date: '02 Nov, 14:30',
-      amount: '$120.00',
-      method: 'Transferencia',
-      status: 'Completada',
-      image: frenosImg
-    },
-    { 
-      id: 2, 
-      product: 'Batería 12V 60Ah', 
-      user: 'María L.', 
-      userImage: avatarCliente2,
-      date: '01 Nov, 11:45',
-      amount: '$145.00',
-      method: 'Tarjeta •••• 3456',
-      status: 'Completada',
-      image: bateriaImg
-    },
-    { 
-      id: 3, 
-      product: 'Filtro de aceite', 
-      user: 'Carlos R.', 
-      userImage: avatarCliente3,
-      date: '31 Oct, 09:20',
-      amount: '$18.00',
-      method: 'Efectivo',
-      status: 'Completada',
-      image: filtroImg
-    },
-    { 
-      id: 4, 
-      product: 'Amortiguadores delanteros', 
-      user: 'Lucía M.', 
-      userImage: avatarCliente4,
-      date: '30 Oct, 16:10',
-      amount: '$260.00',
-      method: 'Transferencia',
-      status: 'Completada',
-      image: amortiguadorImg
-    }
-  ];
+  const recentTransactions = sales.slice(0, 20).map((sale) => {
+    const snapshot = sale.snapshot && typeof sale.snapshot === 'object' ? sale.snapshot : {};
+    const saleItems = Array.isArray(sale.items) ? sale.items : [];
+    return {
+      id: sale.id,
+      product: snapshot.product || saleItems[0]?.name || sale.order_number || 'Pedido',
+      date: formatDateTime(saleDate(sale)),
+      amount: formatCurrency(sale.total_amount, sale.currency),
+      status: ORDER_STATUS_LABELS[sale.status] || sale.status || 'Sin estado',
+      image: snapshot.image || null,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-24 font-sans overflow-x-hidden">
@@ -156,16 +214,19 @@ export default function SalesHistory() {
           <h1 className="text-2xl font-bold text-gray-800">Estadísticas</h1>
           <p className="text-sm text-gray-600">Resumen de la semana</p>
         </div>
-
       </div>
 
-
+      {!loading && (error || notice) ? (
+        <div className="px-4 pt-4">
+          <DataNotice tone={error ? 'error' : 'info'}>{error || notice}</DataNotice>
+        </div>
+      ) : null}
 
       {/* Chart Main Card */}
-      <div className="px-4 mb-8">
+      <div className="px-4 mt-4 mb-8">
         <div className="bg-white/80 backdrop-blur-md rounded-[32px] p-6 shadow-xl shadow-[#4B227A]/10 border border-white/30 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#00EED0]/10 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
-          
+
           {/* Chart Header */}
           <div className="flex items-center justify-between mb-10 relative z-10">
             <div className="flex items-center gap-3">
@@ -191,45 +252,31 @@ export default function SalesHistory() {
             </div>
             <div className="flex bg-white/70 p-1 rounded-2xl backdrop-blur-sm border border-white/30">
               <button
-                onClick={() => setPeriod('week')}
-                className={`px-4 py-2 rounded-xl text-[10px] tracking-widest uppercase transition-all ${
-                  period === 'week'
-                    ? 'bg-[#00EED0] text-gray-900 font-black shadow-[0_0_10px_rgba(0,238,208,0.4)]'
-                    : 'text-gray-600 font-bold'
-                }`}
+                onClick={handlePreviousWeek}
+                className="px-4 py-2 rounded-xl text-[10px] tracking-widest uppercase transition-all text-gray-600 font-bold"
               >
                 Semana
-              </button>
-              <button
-                onClick={() => setPeriod('month')}
-                className={`px-4 py-2 rounded-xl text-[10px] tracking-widest uppercase transition-all ${
-                  period === 'month'
-                    ? 'bg-[#00EED0] text-gray-900 font-black shadow-[0_0_10px_rgba(0,238,208,0.4)]'
-                    : 'text-gray-600 font-bold'
-                }`}
-              >
-                Mes
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col gap-8 relative z-10">
-            {/* Main Bar Chart */}
+          {loading ? <LoadingModule label="Cargando ventas…" /> : null}
+
+          {!loading && hasWeekData ? (
             <div className="h-56 flex items-end justify-between gap-3 relative">
-              {/* Trend Lines */}
               <div className="absolute inset-0 flex flex-col justify-between py-4 pointer-events-none opacity-[0.03]">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="border-t-2 border-gray-900 w-full"></div>
                 ))}
               </div>
-              
+
               {days.map((day, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-4 group">
                   <div className="w-full relative">
-                    <motion.div 
+                    <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: `${day.height}%`, opacity: 1 }}
-                      transition={{ delay: i * 0.05, duration: 0.5, ease: "easeOut" }}
+                      transition={{ delay: i * 0.05, duration: 0.5, ease: 'easeOut' }}
                       className={`w-full rounded-2xl ${day.color} shadow-sm relative overflow-hidden min-h-[4px] group-hover:brightness-110 transition-all cursor-pointer`}
                     >
                       <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/10"></div>
@@ -239,10 +286,9 @@ export default function SalesHistory() {
                         </div>
                       )}
                     </motion.div>
-                    
-                    {/* Tooltip on hover */}
+
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#4B227A] text-white text-[10px] font-black py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-20">
-                      ${day.value}
+                      {formatCurrency(day.value)}
                     </div>
                   </div>
                   <span className={`text-[10px] font-black tracking-tighter uppercase ${day.star ? 'text-[#006E7A]' : 'text-gray-600'}`}>
@@ -251,7 +297,15 @@ export default function SalesHistory() {
                 </div>
               ))}
             </div>
-          </div>
+          ) : null}
+
+          {!loading && !hasWeekData ? (
+            <EmptyModule
+              icon={BarChart3}
+              title="Sin ventas esta semana"
+              description="No hay pedidos completados en la semana seleccionada."
+            />
+          ) : null}
         </div>
       </div>
 
@@ -260,7 +314,7 @@ export default function SalesHistory() {
         {kpis.map((kpi, i) => (
           <div key={i} className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-white/30 flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <div className={`p-1.5 rounded-lg ${kpi.color.replace('text','bg').replace('[#', '[/').replace(']', ']')}`} style={{ backgroundColor: kpi.color.replace('text-', '') + '20' }}>
+              <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${kpi.color.replace('text-', '')}20` }}>
                 <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
               </div>
               <span className="text-xs font-bold text-gray-600">{kpi.label}</span>
@@ -276,7 +330,7 @@ export default function SalesHistory() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-xl font-black text-gray-800 tracking-tight">Transacciones</h2>
-            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mt-1">Últimos 7 días</p>
+            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mt-1">Últimos pedidos</p>
           </div>
           <button aria-label="Opciones de transacciones" className="p-2 bg-white/80 rounded-xl shadow-sm border border-white/30 text-gray-600 hover:text-[#4B227A] transition-all">
             <MoreVertical className="w-5 h-5" />
@@ -287,23 +341,19 @@ export default function SalesHistory() {
           {recentTransactions.map((tx) => (
             <div key={tx.id} className="bg-white/80 backdrop-blur-md rounded-[28px] p-4 shadow-sm border border-white/30 flex items-center justify-between transition-all hover:shadow-md hover:translate-y-[-2px] active:scale-[0.98] group">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/70 border border-white/30 shrink-0 relative">
-                  <img src={tx.image} alt={tx.product} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/70 border border-white/30 shrink-0 relative flex items-center justify-center">
+                  {tx.image ? (
+                    <SafeImage src={tx.image} alt={tx.product} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  ) : (
+                    <ShoppingBag className="w-6 h-6 text-[#4B227A]/50" aria-hidden="true" />
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <h4 className="font-black text-gray-800 text-[13px] tracking-tight leading-none">{tx.product}</h4>
                   <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <SafeImage src={tx.userImage} className="w-6 h-6 rounded-full border-2 border-white shadow-sm" alt={`Foto de ${tx.user}`} />
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#00EED0] rounded-full border-2 border-white"></div>
-                    </div>
-                    <span className="text-[11px] font-bold text-gray-600">{tx.user}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
                     <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest bg-white/70 px-2 py-0.5 rounded-md border border-white/30">{tx.date}</span>
                     <div className="flex items-center gap-1 bg-[#00EED0]/20 px-2 py-0.5 rounded-md border border-[#00EED0]/30">
-                      <div className="w-1 h-1 rounded-full bg-[#00EED0] animate-pulse"></div>
+                      <div className="w-1 h-1 rounded-full bg-[#00EED0]"></div>
                       <span className="text-[9px] font-black text-[#4B227A] uppercase tracking-widest">{tx.status}</span>
                     </div>
                   </div>
@@ -311,20 +361,27 @@ export default function SalesHistory() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <span className="font-black text-gray-800 text-lg tracking-tighter">{tx.amount}</span>
-                <div className="flex items-center gap-1.5 text-gray-600 bg-white/70 px-2.5 py-1 rounded-xl border border-white/30">
-                  {tx.method.includes('Transferencia') ? <Wallet className="w-3 h-3 text-[#4B227A]" /> : 
-                   tx.method.includes('Tarjeta') ? <CreditCard className="w-3 h-3 text-[#006E7A]" /> : 
-                   <DollarSign className="w-3 h-3 text-[#006E7A]" />}
-                  <span className="text-[9px] font-black uppercase tracking-tighter">{tx.method.split(' ')[0]}</span>
-                </div>
               </div>
             </div>
           ))}
         </div>
-        
-        {/* View All Button */}
-        <button className="w-full mt-8 py-4 bg-[#00EED0] text-gray-900 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-[#00EED0]/30 hover:bg-[#00EED0]/90 transition-all active:scale-[0.98]">
-          Ver todo el historial
+
+        {!loading && recentTransactions.length === 0 ? (
+          <EmptyModule
+            icon={Receipt}
+            title="Sin transacciones"
+            description="Los pedidos del comercio aparecerán aquí."
+            notice={error || notice || NOTICES.commerceMetrics}
+            tone={error ? 'error' : 'info'}
+          />
+        ) : null}
+
+        <button
+          onClick={reload}
+          disabled={loading}
+          className="w-full mt-8 py-4 bg-[#00EED0] text-gray-900 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-[#00EED0]/30 hover:bg-[#00EED0]/90 transition-all active:scale-[0.98] disabled:opacity-60"
+        >
+          {loading ? 'Actualizando…' : 'Actualizar historial'}
         </button>
       </div>
 
@@ -332,4 +389,3 @@ export default function SalesHistory() {
     </div>
   );
 }
-

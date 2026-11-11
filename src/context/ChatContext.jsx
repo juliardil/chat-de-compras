@@ -20,14 +20,11 @@ const createMessage = (text, sender) => ({
   time: nowLabel()
 });
 
-const INITIAL_MESSAGES = [
-  { id: 'seed-1', text: 'Hola, vi tu solicitud. Tengo las pastillas de freno para Corolla 2018 listas para entrega.', sender: 'seller', time: '10:05 AM' },
-  { id: 'seed-2', text: '¡Genial! ¿Aceptas transferencia?', sender: 'buyer', time: '10:06 AM' },
-  { id: 'seed-3', text: 'Sí, claro. Y te incluyo el filtro de aceite de regalo 🎁', sender: 'seller', time: '10:07 AM' }
-];
-
+// Un chat nuevo empieza vacío: no se siembran mensajes de ejemplo. Los
+// mensajes que se ven son los que escriben las personas usuarias y quedan en
+// localStorage (este dispositivo) hasta que se conecte chat_messages.
 const EMPTY_CHAT = {
-  messages: INITIAL_MESSAGES,
+  messages: [],
   timeLeft: CHAT_DURATION,
   sellerStep: 'initial',
   warningSent: false,
@@ -35,7 +32,7 @@ const EMPTY_CHAT = {
 };
 
 const createChat = () => ({
-  messages: INITIAL_MESSAGES.map((message) => ({ ...message })),
+  messages: [],
   timeLeft: CHAT_DURATION,
   sellerStep: 'initial',
   warningSent: false,
@@ -181,8 +178,9 @@ export const ChatProvider = ({ children }) => {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Enviar mensaje en la conversación activa (comprador o vendedor)
-  const sendMessage = (senderRole, autoReplyRole = null) => {
+  // Enviar mensaje en la conversación activa (comprador o vendedor).
+  // No hay respuestas automáticas: el otro lado debe escribir de verdad.
+  const sendMessage = (senderRole) => {
     const text = inputText.trim();
     if (!text || !activeChatId) return;
 
@@ -198,26 +196,6 @@ export const ChatProvider = ({ children }) => {
       };
     });
     setInputText('');
-
-    // Respuesta automática simulada del otro lado de la conversación
-    if (autoReplyRole) {
-      const chatIdAtSend = activeChatId;
-      setTimeout(() => {
-        setChats((prev) => {
-          const current = prev[chatIdAtSend];
-          if (!current || current.timeLeft <= 0) return prev;
-
-          const reply = senderRole === 'buyer'
-            ? 'Perfecto, confirmemos el acuerdo.'
-            : 'Perfecto, gracias por la información.';
-
-          return {
-            ...prev,
-            [chatIdAtSend]: { ...current, messages: [...current.messages, createMessage(reply, autoReplyRole)] }
-          };
-        });
-      }, 2000);
-    }
   };
 
   // Acciones del vendedor: marcar venta y luego envío
@@ -279,16 +257,10 @@ export const ChatProvider = ({ children }) => {
     reader.readAsDataURL(file);
   };
 
-  // Historial mock del comprador (para la vista del comercio)
-  const buyerHistory = {
-    rating: 4.7,
-    totalPurchases: 42,
-    reviews: [
-      { id: 1, seller: 'Repuestos del Sur', comment: 'Comprador excelente, pago rápido y sin complicaciones.', stars: 5, date: 'Hace 3 días' },
-      { id: 2, seller: 'AutoPartes Gómez', comment: 'Muy puntual y comunicativo. 100% recomendado.', stars: 5, date: 'Hace 1 semana' },
-      { id: 3, seller: 'Taller Central', comment: 'Todo bien, aunque tardó un poco en confirmar.', stars: 4, date: 'Hace 2 semanas' }
-    ]
-  };
+  // El historial del comprador requiere compras/reseñas reales (purchase_orders
+  // y commerce_reviews), que hoy no están expuestas a la app. Se entrega null
+  // para que la vista muestre un estado vacío en lugar de datos inventados.
+  const buyerHistory = null;
 
   return (
     <ChatContext.Provider value={{

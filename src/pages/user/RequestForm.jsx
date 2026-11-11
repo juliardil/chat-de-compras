@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { DataNotice } from '../../components/ui/ModuleState';
+import { useAuth } from '../../context/auth-context';
+import { createPurchaseRequest, fetchBuyerProfileId } from '../../data/appData';
 import { ArrowLeft, Camera, X, Plus, Trash2, ChevronDown, Car } from 'lucide-react';
 
 // Actualización Junio 2026 - Formulario Exclusivo Automotriz
@@ -33,6 +36,8 @@ const REQUIRED_FIELDS = ['category', 'item', 'vehicleType'];
 export default function RequestForm() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
 
   const [products, setProducts] = useState([
     { 
@@ -117,7 +122,7 @@ export default function RequestForm() {
     ));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const nextErrors = {};
@@ -150,7 +155,45 @@ export default function RequestForm() {
       return;
     }
 
-    navigate('/responses', { state: { products } });
+    setSubmitting(true);
+
+    // Se intenta publicar de verdad. Las imágenes locales (blob:) no se envían
+    // porque requieren subida a Storage, que aún no está configurada.
+    // buyer_id referencia buyer_profiles.id, así que primero se resuelve el
+    // perfil real de la sesión (nunca se inventa un identificador).
+    const buyer = await fetchBuyerProfileId(user?.id);
+    if (!buyer.item) {
+      setSubmitting(false);
+      navigate('/responses', {
+        state: {
+          products,
+          publishError:
+            buyer.error ||
+            buyer.notice ||
+            'Tu cuenta todavía no tiene un perfil de comprador en el backend.',
+        },
+      });
+      return;
+    }
+
+    const result = await createPurchaseRequest({
+      buyer_id: buyer.item.id,
+      title: products[0]?.item || 'Solicitud de compra',
+      description: products[0]?.notes || products[0]?.item || '',
+      items: products.map(({ images: _images, ...rest }) => rest),
+      currency: 'MXN',
+      status: 'open',
+    });
+
+    setSubmitting(false);
+
+    navigate('/responses', {
+      state: {
+        products,
+        requestId: result.ok ? result.data?.[0]?.id || null : null,
+        publishError: result.ok ? null : result.error,
+      },
+    });
   };
 
   return (
@@ -167,6 +210,14 @@ export default function RequestForm() {
           <p className="text-xs text-gray-600">Describe tu repuesto o accesorio</p>
         </div>
       </header>
+
+      <div className="px-4 pt-4">
+        <DataNotice>
+          La publicación de solicitudes todavía no está habilitada en el backend
+          (purchase_requests). Si el envío falla, verás el motivo en la pantalla de
+          respuestas; no se mostrará una confirmación falsa.
+        </DataNotice>
+      </div>
 
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -275,8 +326,8 @@ export default function RequestForm() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-white/30 max-w-md mx-auto z-20">
-        <Button fullWidth onClick={handleSubmit} className="shadow-lg shadow-[#00EED0]/30">
-          👉 ENVIAR SOLICITUD AUTOMOTRIZ ({products.length})
+        <Button fullWidth onClick={handleSubmit} disabled={submitting} className="shadow-lg shadow-[#00EED0]/30">
+          {submitting ? 'ENVIANDO…' : `👉 ENVIAR SOLICITUD AUTOMOTRIZ (${products.length})`}
         </Button>
       </div>
     </div>

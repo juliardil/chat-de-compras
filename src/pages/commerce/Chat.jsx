@@ -4,6 +4,8 @@ import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, PackageCheck, History, Star, MessageCircle, X } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
+import { NOTICES } from '../../data/appData';
 import { useChat } from '../../context/chat-context';
 
 // Actualización estética Junio 2026
@@ -35,7 +37,7 @@ export default function Chat() {
 
   const handleSend = (e) => {
     e.preventDefault();
-    sendMessage('seller', 'buyer'); // Enviar como vendedor, recibir respuesta de comprador
+    sendMessage('seller');
   };
 
   return (
@@ -47,10 +49,10 @@ export default function Chat() {
             <ArrowLeft className="w-6 h-6 text-gray-800" />
           </button>
           <div>
-            <h1 className="font-bold text-gray-800">Juan P.</h1>
+            <h1 className="font-bold text-gray-800">Conversación</h1>
             <p className="text-xs text-[#006E7A] flex items-center gap-1">
               <span className="w-2 h-2 bg-[#00EED0] rounded-full"></span>
-              En línea
+              Mensajes guardados en este dispositivo
             </p>
           </div>
         </div>
@@ -73,7 +75,7 @@ export default function Chat() {
       <div className="bg-gradient-to-r from-[#0197AF]/15 to-[#4B227A]/15 border-b border-white/30 px-4 py-3 flex justify-between items-center sticky top-[60px] z-10 backdrop-blur-md">
         <div className="text-sm">
           <p className="text-gray-600 text-xs uppercase font-bold tracking-wider">Acuerdo propuesto</p>
-          <p className="font-bold text-gray-800">$120 • Transferencia</p>
+          <p className="font-bold text-gray-800">Sin oferta registrada</p>
         </div>
         <div className="text-right">
           <span className="text-xs text-[#006E7A] font-medium">Pendiente</span>
@@ -88,7 +90,20 @@ export default function Chat() {
           </span>
         </div>
 
+        <div className="mb-4">
+          <DataNotice>
+            Los mensajes se guardan solo en este dispositivo. El chat en tiempo real
+            (chat_threads / chat_messages) todavía no está conectado al backend.
+          </DataNotice>
+        </div>
+
         <div className="flex flex-col gap-4">
+          {messages.length === 0 ? (
+            <EmptyModule
+              title="Sin mensajes"
+              description="Todavía no hay mensajes en esta conversación. Escribe el primero abajo."
+            />
+          ) : null}
           {messages.map((msg) => (
             <div 
               key={msg.id} 
@@ -190,41 +205,52 @@ export default function Chat() {
                 <History className="w-10 h-10 text-[#006E7A]" />
               </div>
               <h2 className="text-xl font-bold text-gray-800">Historial de Compras</h2>
-              <p className="text-sm text-gray-600">Reputación de Juan P.</p>
+              <p className="text-sm text-gray-600">Reputación del comprador</p>
             </div>
 
-            <div className="flex gap-3 mb-6">
-              <div className="flex-1 bg-gradient-to-br from-[#0197AF]/20 to-[#4B227A]/20 p-4 rounded-2xl flex flex-col items-center border border-[#0197AF]/30">
-                <div className="flex items-center gap-1 text-[#4B227A] font-bold text-lg mb-1">
-                  {buyerHistory.rating} <Star className="w-4 h-4 fill-current" />
-                </div>
-                <span className="text-[10px] text-[#006E7A] font-bold uppercase tracking-wider">Calificación</span>
-              </div>
-              <div className="flex-1 bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 p-4 rounded-2xl flex flex-col items-center border border-[#00EED0]/30">
-                <span className="text-[#4B227A] font-bold text-lg mb-1">{buyerHistory.totalPurchases}</span>
-                <span className="text-[10px] text-[#006E7A] font-bold uppercase tracking-wider">Compras</span>
-              </div>
-            </div>
-
-            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-              <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wider flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" /> Comentarios
-              </h3>
-              {buyerHistory.reviews.map((rev) => (
-                <div key={rev.id} className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white/30">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-bold text-gray-800">{rev.seller}</span>
-                    <div className="flex gap-0.5">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-3 h-3 ${i < rev.stars ? 'text-[#006E7A] fill-current' : 'text-gray-300'}`} />
-                      ))}
+            {!buyerHistory ? (
+              <EmptyModule
+                icon={History}
+                title="Sin historial disponible"
+                description="La reputación se calcula con compras y reseñas reales del comprador."
+                notice={NOTICES.reviews}
+              />
+            ) : (
+              <>
+                <div className="flex gap-3 mb-6">
+                  <div className="flex-1 bg-gradient-to-br from-[#0197AF]/20 to-[#4B227A]/20 p-4 rounded-2xl flex flex-col items-center border border-[#0197AF]/30">
+                    <div className="flex items-center gap-1 text-[#4B227A] font-bold text-lg mb-1">
+                      {buyerHistory.rating} <Star className="w-4 h-4 fill-current" />
                     </div>
+                    <span className="text-[10px] text-[#006E7A] font-bold uppercase tracking-wider">Calificación</span>
                   </div>
-                  <p className="text-xs text-gray-600 leading-relaxed mb-2 italic">"{rev.comment}"</p>
-                  <span className="text-[10px] text-gray-600 block text-right">{rev.date}</span>
+                  <div className="flex-1 bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 p-4 rounded-2xl flex flex-col items-center border border-[#00EED0]/30">
+                    <span className="text-[#4B227A] font-bold text-lg mb-1">{buyerHistory.totalPurchases}</span>
+                    <span className="text-[10px] text-[#006E7A] font-bold uppercase tracking-wider">Compras</span>
+                  </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wider flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" /> Comentarios
+                  </h3>
+                  {buyerHistory.reviews.map((rev) => (
+                    <div key={rev.id} className="bg-white/70 backdrop-blur-md p-4 rounded-2xl border border-white/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold text-gray-800">{rev.seller}</span>
+                        <div className="flex gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={`w-3 h-3 ${i < rev.stars ? 'text-[#006E7A] fill-current' : 'text-gray-300'}`} />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 leading-relaxed mb-2 italic">"{rev.comment}"</p>
+                      <span className="text-[10px] text-gray-600 block text-right">{rev.date}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             <Button fullWidth className="mt-6 rounded-2xl bg-[#00EED0] hover:bg-[#00EED0]/90 text-black shadow-[0_0_20px_rgba(0,238,208,0.4)]" onClick={() => setShowHistory(false)}>
               Cerrar

@@ -15,13 +15,13 @@ import UserBottomNav from '../../components/layout/UserBottomNav';
 import { useAuth } from '../../context/auth-context';
 
 // Perfil del comprador. El nombre y el correo vienen de la sesión real
-// (InsForge cuando está configurado; demo local en caso contrario). Las
-// estadísticas de compras solo existen en la demo: el módulo de pedidos de la
-// app aún no está conectado al backend.
+// (InsForge cuando está configurado; sesión local en modo demostración). No se
+// muestran estadísticas de compras porque el módulo de pedidos todavía no está
+// expuesto a la app principal.
 export default function UserProfile() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, mode } = useAuth();
+  const { user, logout } = useAuth();
   const [profileImage, setProfileImage] = useState(null);
   const fileInputRef = useRef(null);
   const justUpdated = Boolean(location.state?.profileUpdated);
@@ -112,19 +112,6 @@ export default function UserProfile() {
               <CheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
               Información actualizada
             </p>
-          ) : null}
-
-          {mode === 'demo' ? (
-            <div className="flex gap-4 mt-6 w-full">
-              <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
-                <span className="text-lg font-bold text-gray-800">12</span>
-                <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Compras</span>
-              </div>
-              <div className="flex-1 bg-white/70 backdrop-blur-sm p-3 rounded-2xl flex flex-col items-center border border-white/30">
-                <span className="text-lg font-bold text-gray-800">4</span>
-                <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Pendientes</span>
-              </div>
-            </div>
           ) : null}
         </div>
       </div>

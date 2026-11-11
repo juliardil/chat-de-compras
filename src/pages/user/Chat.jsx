@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, XCircle, MapPin, User, Phone, X, Camera } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
 import { useChat } from '../../context/chat-context';
 
 // Actualización estética Junio 2026
@@ -40,7 +41,7 @@ export default function Chat() {
 
   const handleSend = (e) => {
     e.preventDefault();
-    sendMessage('buyer', 'seller'); // Enviar como comprador, recibir respuesta de vendedor
+    sendMessage('buyer');
   };
 
   return (
@@ -52,10 +53,10 @@ export default function Chat() {
             <ArrowLeft className="w-6 h-6 text-gray-800" />
           </button>
           <div>
-            <h1 className="font-bold text-gray-800">Repuestos del Sur</h1>
+            <h1 className="font-bold text-gray-800">Conversación</h1>
             <p className="text-xs text-[#006E7A] flex items-center gap-1">
               <span className="w-2 h-2 bg-[#00EED0] rounded-full"></span>
-              En línea
+              Mensajes guardados en este dispositivo
             </p>
           </div>
         </div>
@@ -69,7 +70,7 @@ export default function Chat() {
       <div className="bg-gradient-to-r from-[#0197AF]/15 to-[#4B227A]/15 border-b border-white/30 px-4 py-3 flex justify-between items-center sticky top-[60px] z-10 backdrop-blur-md">
         <div className="text-sm">
           <p className="text-gray-600 text-xs uppercase font-bold tracking-wider">Acuerdo propuesto</p>
-          <p className="font-bold text-gray-800">$120 • Transferencia</p>
+          <p className="font-bold text-gray-800">Sin oferta registrada</p>
         </div>
         <div className="text-right">
             <span className="text-xs text-[#006E7A] font-medium">Pendiente</span>
@@ -84,7 +85,20 @@ export default function Chat() {
           </span>
         </div>
 
+        <div className="mb-4">
+          <DataNotice>
+            Los mensajes se guardan solo en este dispositivo. El chat en tiempo real
+            (chat_threads / chat_messages) todavía no está conectado al backend.
+          </DataNotice>
+        </div>
+
         <div className="flex flex-col gap-4">
+          {messages.length === 0 ? (
+            <EmptyModule
+              title="Sin mensajes"
+              description="Todavía no hay mensajes en esta conversación. Escribe el primero abajo."
+            />
+          ) : null}
           {messages.map((msg) => (
             <div 
               key={msg.id} 
@@ -170,6 +184,13 @@ export default function Chat() {
               >
                 <X className="w-6 h-6 text-gray-600" />
               </button>
+            </div>
+
+            <div className="mb-4">
+              <DataNotice>
+                Estos datos se usan solo en este dispositivo. El pedido todavía no se
+                registra en el backend.
+              </DataNotice>
             </div>
 
             <form onSubmit={handleShippingSubmit} className="space-y-4">

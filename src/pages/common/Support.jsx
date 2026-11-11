@@ -14,7 +14,7 @@ export default function Support() {
     },
     {
       question: '¿Es seguro comprar en Chat de Compras?',
-      answer: 'Las conversaciones quedan registradas y los comercios muestran calificaciones. Aun así, verifica los datos del vendedor antes de pagar.'
+      answer: 'Los comercios muestran calificaciones y puedes conversar con ellos antes de comprar. Por ahora las conversaciones se guardan en tu dispositivo; verifica los datos del vendedor antes de pagar.'
     },
     {
       question: '¿Cómo funcionan las calificaciones?',
@@ -43,7 +43,7 @@ export default function Support() {
         <div className="bg-primary rounded-2xl p-6 text-white mb-8 shadow-lg shadow-blue-200">
           <h2 className="text-xl font-bold mb-2">¿Necesitas ayuda?</h2>
           <p className="text-blue-100 text-sm mb-4">
-            Nuestro equipo de soporte está disponible 24/7 para resolver tus dudas.
+            Escríbenos desde el chat de ayuda y revisaremos tu caso lo antes posible.
           </p>
           <Button
             variant="secondary"

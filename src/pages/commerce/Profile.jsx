@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
-import { Star, Award, LogOut, Edit2, CheckCircle, Clock, Phone, Instagram, Globe, MapPin } from 'lucide-react';
+import { Award, LogOut, Edit2, CheckCircle, Clock, Phone, Instagram, Globe, MapPin } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
@@ -10,9 +10,8 @@ import avatarComercio from '../../assets/avatar-comercio.svg';
 
 // Perfil del comercio. El nombre, la descripción y los datos de contacto
 // provienen de la sesión real (auth.users.profile.business con InsForge;
-// sesión local en modo demo). El rating, las ventas y la membresía solo
-// existen en la demostración: los módulos de pedidos y planes de la app aún
-// no están conectados al backend.
+// sesión local en modo demo). El rating, las ventas y la membresía requieren
+// módulos que aún no están conectados al backend, así que no se inventan.
 const CATEGORY_LABELS = {
   repuestos: 'Repuestos Originales / Genéricos',
   taller: 'Taller / Servicios',
@@ -24,7 +23,7 @@ const VEHICLE_LABELS = {
 };
 
 export default function Profile() {
-  const { user, logout, mode } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const business = user?.business || {};
@@ -108,27 +107,6 @@ export default function Profile() {
               Información actualizada
             </p>
           ) : null}
-
-          {mode === 'demo' ? (
-            <div className="flex items-center gap-6 mt-2">
-              <div className="flex flex-col items-center">
-                <div className="flex items-center gap-1 font-bold text-gray-800 text-lg">
-                  4.8 <Star className="w-4 h-4 text-[#006E7A] fill-current" />
-                </div>
-                <span className="text-xs text-gray-600">Rating</span>
-              </div>
-              <div className="w-[1px] h-8 bg-white/40" />
-              <div className="flex flex-col items-center">
-                <div className="font-bold text-gray-800 text-lg">156</div>
-                <span className="text-xs text-gray-600">Ventas</span>
-              </div>
-              <div className="w-[1px] h-8 bg-white/40" />
-              <div className="flex flex-col items-center">
-                <div className="font-bold text-[#006E7A] text-lg">PRO</div>
-                <span className="text-xs text-gray-600">Nivel</span>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -198,16 +176,10 @@ export default function Profile() {
                     <Award className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-800 text-sm">
-                      {mode === 'demo' ? 'Plan Premium' : 'Sin plan activo'}
+                    <p className="font-bold text-gray-800 text-sm">Sin plan activo</p>
+                    <p className="text-xs text-gray-600">
+                      Los planes y suscripciones aún no están disponibles.
                     </p>
-                    {mode === 'demo' ? (
-                      <p className="text-xs text-gray-600">Renueva el 01/05/2027</p>
-                    ) : (
-                      <p className="text-xs text-gray-600">
-                        Los planes y suscripciones aún no están disponibles.
-                      </p>
-                    )}
                   </div>
                 </div>
                 <Button

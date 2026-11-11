@@ -58,11 +58,12 @@ describe('ChatContext', () => {
     vi.useRealTimers();
   });
 
-  it('crea la conversación con los mensajes iniciales', async () => {
+  it('crea la conversación vacía, sin mensajes de ejemplo', async () => {
     renderChat();
 
-    expect(await screen.findByText(/pastillas de freno para Corolla/i)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(await screen.findByTestId('time')).toHaveTextContent('300');
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+    expect(screen.queryByText(/pastillas de freno para Corolla/i)).not.toBeInTheDocument();
   });
 
   it('envía un mensaje y limpia el campo', async () => {

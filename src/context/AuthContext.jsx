@@ -21,8 +21,9 @@ import { insforge, isInsforgeConfigured } from '../lib/insforge';
 const SESSION_KEY = 'chat_compras_session';
 const LOGGED_OUT_KEY = 'chat_compras_logged_out';
 
-// Usuario de demostración que se usa la primera vez que se abre la app.
-const DEFAULT_USER = { role: 'user', name: 'Julia' };
+// Usuario de demostración que se usa la primera vez que se abre la app. No se
+// inventa un nombre: la interfaz muestra "Usuario" si no hay uno guardado.
+const DEFAULT_USER = { role: 'user', name: '' };
 
 const readStoredSession = () => {
   try {
@@ -145,7 +146,7 @@ export const AuthProvider = ({ children }) => {
         // Demo: sesión local según el rol (comportamiento original).
         const demoUser = {
           role: role === 'commerce' ? 'commerce' : 'user',
-          name: role === 'commerce' ? 'Comercio Demo' : 'Julia',
+          name: role === 'commerce' ? 'Comercio' : 'Usuario',
         };
         writeStoredSession(demoUser);
         setUser(demoUser);
@@ -173,7 +174,7 @@ export const AuthProvider = ({ children }) => {
       if (!isInsforgeConfigured) {
         const demoUser = {
           role,
-          name: role === 'commerce' ? 'Comercio Demo' : name || 'Julia',
+          name: role === 'commerce' ? 'Comercio' : name || 'Usuario',
         };
         writeStoredSession(demoUser);
         setUser(demoUser);
