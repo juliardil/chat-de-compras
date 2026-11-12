@@ -5,7 +5,10 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Rutas absolutas: las URLs profundas (/product/:id, /chat/:id) deben cargar
+  // sus assets desde la raíz del sitio, también al recargar o abrir un enlace
+  // directo en producción.
+  base: '/',
   build: {
     outDir: 'dist',
     rollupOptions: {
