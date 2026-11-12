@@ -18,3 +18,5 @@ pnpm-debug.log*
 
 # sistema
 .DS_Store
+
+.vercel
