@@ -78,6 +78,23 @@ export default function Dashboard() {
       };
     }
 
+    // RLS solo muestra solicitudes abiertas a comercios aprobados: si el
+    // perfil sigue pendiente, la lista llegaría vacía sin explicar el motivo.
+    if (commerce.item.status && commerce.item.status !== 'approved') {
+      return {
+        items: [],
+        error: null,
+        notice: NOTICES.commercePending,
+        extra: {
+          commerceId: commerce.item.id,
+          commerceName: commerce.item.trade_name,
+          sales: [],
+          access: false,
+          commerceStatus: commerce.item.status,
+        },
+      };
+    }
+
     const [requests, sales] = await Promise.all([
       fetchOpenRequests(commerce.item.id),
       fetchCommerceSales(commerce.item.id),

@@ -74,6 +74,15 @@ export default function SalesHistory() {
       };
     }
 
+    if (commerce.item.status && commerce.item.status !== 'approved') {
+      return {
+        items: [],
+        error: null,
+        notice: NOTICES.commercePending,
+        extra: { access: false, commerceStatus: commerce.item.status },
+      };
+    }
+
     const sales = await fetchCommerceSales(commerce.item.id);
     return {
       items: sales.items,

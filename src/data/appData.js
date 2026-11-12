@@ -38,6 +38,8 @@ export const NOTICES = {
     'No se pudieron cargar las calificaciones. Verifica tu sesión y tu perfil.',
   commerceMetrics:
     'No se pudieron cargar las métricas del comercio. Verifica tu sesión y que tu comercio esté aprobado.',
+  commercePending:
+    'Tu comercio está pendiente de aprobación. Mientras no se apruebe no verás solicitudes abiertas ni podrás enviar ofertas.',
   categories:
     'No se pudieron cargar las categorías.',
   write:
@@ -420,7 +422,7 @@ export const fetchCommerceIdForUser = async (userId) => {
   if (!userId) return emptyResult(NOTICES.chats, 'No hay una sesión activa para consultar estos datos.');
 
   const result = await runQuery(
-    (db) => db.from('commerce_profiles').select('id,trade_name').eq('owner_user_id', userId).limit(1),
+    (db) => db.from('commerce_profiles').select('id,trade_name,status').eq('owner_user_id', userId).limit(1),
     NOTICES.chats
   );
 
