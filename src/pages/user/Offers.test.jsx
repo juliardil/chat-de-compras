@@ -95,6 +95,38 @@ describe('sección Ofertas del comprador', () => {
     expect(within(filter).queryByText('Comercio A')).not.toBeInTheDocument();
   });
 
+  it('muestra el precio cotizado y los productos no disponibles en cada oferta', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          ...offer('offer-a', 'req-1', 'Comercio A', 300),
+          items: [
+            {
+              name: 'Pastillas',
+              quantity: 2,
+              available: true,
+              unitPrice: 100,
+              totalPrice: 200,
+            },
+            { name: 'Discos', quantity: 1, available: false },
+          ],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByText(/Pastillas × 2 · \$200/)).toBeInTheDocument();
+    expect(screen.getByText(/Discos × 1 \(no disponible\)/)).toBeInTheDocument();
+  });
+
   it('abre la conversación existente asociada a la oferta y al comercio', async () => {
     fetchBuyerOffers.mockResolvedValue({
       items: [offer('offer-a', 'req-1', 'Comercio A', 900)],

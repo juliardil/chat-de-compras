@@ -105,19 +105,54 @@ function RequestDetail({ request }) {
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ítems solicitados</p>
         <ul className="mt-2 space-y-1.5">
-          {(request.items || []).map((item, index) => (
-            <li
-              key={`${item.description}-${index}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
-            >
-              <span className="min-w-0 truncate">
-                {item.description} · {item.quantity} × {item.unitPrice} {request.currency}
-              </span>
-              <span className="shrink-0 font-semibold">
-                {item.totalPrice} {request.currency}
-              </span>
-            </li>
-          ))}
+          {(request.items || []).map((item, index) => {
+            const name = item.product || item.item || item.description || item.name || 'Producto';
+            const quantity = Number(item.quantity ?? item.cantidad ?? 1) || 1;
+            const years = [item.yearFrom ?? item.year_from, item.yearTo ?? item.year_to]
+              .filter(Boolean)
+              .join(' – ');
+            const details = [
+              item.category,
+              item.vehicleType || item.vehicle_type,
+              [item.vehicleBrand || item.vehicle_brand, item.vehicleModel || item.vehicle_model]
+                .filter(Boolean)
+                .join(' '),
+              years ? `Años ${years}` : '',
+              item.reference || item.part_number
+                ? `Ref. ${item.reference || item.part_number}`
+                : '',
+              item.condition,
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            const hasPrice = item.unitPrice != null || item.totalPrice != null;
+
+            return (
+              <li
+                key={`${name}-${index}`}
+                className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 break-words font-medium">{name}</span>
+                  <span className="shrink-0 text-xs font-semibold text-slate-500">
+                    {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+                  </span>
+                </div>
+                {details ? (
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{details}</p>
+                ) : null}
+                {item.notes ? (
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{item.notes}</p>
+                ) : null}
+                {hasPrice ? (
+                  <p className="mt-1 text-xs font-semibold text-slate-600">
+                    Precio unitario: {item.unitPrice ?? '—'} {request.currency} · Total:{' '}
+                    {item.totalPrice ?? '—'} {request.currency}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </div>
 

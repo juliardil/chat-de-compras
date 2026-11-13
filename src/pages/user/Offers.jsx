@@ -167,7 +167,11 @@ export default function Offers() {
                         >
                           {item.status === 'available' ? null : <AlertTriangle className="w-3 h-3" />}
                           {item.name} × {item.quantity}
-                          {item.status === 'available' ? '' : ' (no disponible)'}
+                          {item.status === 'available'
+                            ? item.priceLabel
+                              ? ` · ${item.priceLabel}`
+                              : ''
+                            : ' (no disponible)'}
                         </li>
                       ))}
                     </ul>

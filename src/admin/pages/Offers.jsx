@@ -97,19 +97,40 @@ function OfferDetail({ offer }) {
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ítems ofertados</p>
         <ul className="mt-2 space-y-1.5">
-          {(offer.items || []).map((item, index) => (
-            <li
-              key={`${item.description}-${index}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
-            >
-              <span className="min-w-0 truncate">
-                {item.description} · {item.quantity} × {item.unitPrice} {offer.currency}
-              </span>
-              <span className="shrink-0 font-semibold">
-                {item.totalPrice} {offer.currency}
-              </span>
-            </li>
-          ))}
+          {(offer.items || []).map((item, index) => {
+            const available = item.available !== false;
+            const name = item.description || item.name || item.title || item.product || 'Producto';
+            const quantity = Number(item.quantity ?? item.cantidad ?? 1) || 1;
+
+            return (
+              <li
+                key={`${name}-${index}`}
+                className="rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 break-words">
+                    {name} · {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+                    {available ? ` × ${item.unitPrice ?? 0}` : ''}
+                  </span>
+                  <span
+                    className={`shrink-0 font-semibold ${
+                      available ? '' : 'text-slate-500'
+                    }`}
+                  >
+                    {available ? `${item.totalPrice ?? 0} ${offer.currency}` : 'No disponible'}
+                  </span>
+                </div>
+                {available && item.unitPrice != null ? (
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Precio unitario: {item.unitPrice} {offer.currency}
+                  </p>
+                ) : null}
+                {item.notes ? (
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{item.notes}</p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </div>
 

@@ -67,7 +67,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [offeringId, setOfferingId] = useState(null);
   const [selectedOpp, setSelectedOpp] = useState(null);
-  const [price, setPrice] = useState('');
+  const [offerItems, setOfferItems] = useState([]);
   const [closingMessage, setClosingMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [offerError, setOfferError] = useState('');
@@ -189,21 +189,54 @@ export default function Dashboard() {
   }, [isMenuOpen]);
 
   const handleStartOffer = (id) => {
+    const opportunity = opportunities.find((opp) => opp.id === id);
+    const source =
+      opportunity && opportunity.items.length > 0
+        ? opportunity.items
+        : [
+            {
+              key: 'general',
+              product: opportunity?.product || 'Solicitud',
+              quantity: opportunity?.quantityTotal || 1,
+            },
+          ];
+
     setOfferingId(id);
-    setPrice('');
+    setOfferItems(
+      source.map((item, index) => ({
+        key: item.key ?? `offer-item-${index}`,
+        name: item.product,
+        quantity: item.quantity,
+        // Por comodidad se parte de «Lo tengo»; el comercio puede marcar
+        // «No lo tengo» en los productos que no maneje.
+        available: true,
+        price: '',
+        notes: '',
+      }))
+    );
     setClosingMessage('');
     setOfferError('');
     setOfferSuccess(false);
   };
 
+  const updateOfferItem = (key, patch) => {
+    setOfferItems((current) =>
+      current.map((item) => (item.key === key ? { ...item, ...patch } : item))
+    );
+  };
+
+  const quotedItems = offerItems.filter((item) => item.available);
+  const quotedUnits = quotedItems.reduce((total, item) => total + item.quantity, 0);
+  const quotedTotal = quotedItems.reduce(
+    (total, item) =>
+      total + (Number(item.price) > 0 ? Number(item.price) * item.quantity : 0),
+    0
+  );
+  const missingCount = offerItems.length - quotedItems.length;
+
   const handleSendOffer = async () => {
     const opportunity = opportunities.find((opp) => opp.id === offeringId);
     if (!opportunity) return;
-
-    if (!price || !(Number(price) > 0)) {
-      setOfferError('Escribe un precio por unidad mayor a cero para enviar la oferta.');
-      return;
-    }
 
     if (!extra?.commerceId) {
       setOfferError(
@@ -212,8 +245,42 @@ export default function Dashboard() {
       return;
     }
 
-    const unitPrice = Number(price);
-    const units = opportunity.quantityTotal || 1;
+    if (quotedItems.length === 0) {
+      setOfferError(
+        'Marca al menos un producto como «Lo tengo» para enviar la oferta.'
+      );
+      return;
+    }
+
+    const missingPrice = quotedItems.find((item) => !(Number(item.price) > 0));
+    if (missingPrice) {
+      setOfferError(`Escribe el precio unitario de «${missingPrice.name}» para enviar la oferta.`);
+      return;
+    }
+
+    // Se envía el desglose completo: los productos cotizados con su precio y
+    // cantidad, y los no disponibles marcados explícitamente para que el
+    // comprador sepa qué queda fuera.
+    const items = offerItems.map((item) => {
+      const unitPrice = item.available ? Number(item.price) : 0;
+      return {
+        name: item.name,
+        description: item.name,
+        quantity: item.quantity,
+        available: item.available,
+        unitPrice,
+        totalPrice: item.available
+          ? Number((unitPrice * item.quantity).toFixed(2))
+          : 0,
+        notes: item.notes.trim() || null,
+      };
+    });
+
+    const totalAmount = items.reduce((total, item) => total + item.totalPrice, 0);
+    if (!(totalAmount > 0)) {
+      setOfferError('La oferta debe incluir al menos un producto con precio mayor a cero.');
+      return;
+    }
 
     setSending(true);
     setOfferError('');
@@ -221,20 +288,11 @@ export default function Dashboard() {
     const result = await createOffer({
       request_id: opportunity.id,
       commerce_id: extra.commerceId,
-      // El precio se captura por unidad y se multiplica por la cantidad real
-      // solicitada; antes la oferta se enviaba sin cantidad y el total no la
-      // reflejaba.
-      total_amount: Number((unitPrice * units).toFixed(2)),
+      total_amount: Number(totalAmount.toFixed(2)),
       currency: 'MXN',
       conditions: closingMessage.trim() || null,
       status: 'active',
-      items: opportunity.items.map((item) => ({
-        name: item.product,
-        description: item.product,
-        quantity: item.quantity,
-        unitPrice,
-        totalPrice: Number((unitPrice * item.quantity).toFixed(2)),
-      })),
+      items,
     });
 
     setSending(false);
@@ -404,24 +462,130 @@ export default function Dashboard() {
                       </div>
                     ) : (
                       <>
-                        <div className="rounded-xl bg-white/60 border border-white/40 p-3">
+                        <div className="flex items-center justify-between gap-2">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                            Solicitud
+                            Disponibilidad de tus productos
                           </p>
-                          <p className="text-sm font-semibold text-gray-800">{opp.product}</p>
-                          <p className="text-xs text-gray-600">
-                            {opp.quantityTotal} {opp.quantityTotal === 1 ? 'unidad' : 'unidades'} en total
-                          </p>
-                          {opp.items.length > 0 ? (
-                            <ul className="mt-1 space-y-0.5">
-                              {opp.items.map((item) => (
-                                <li key={item.key} className="text-xs text-gray-700">
-                                  • {item.product} × {item.quantity}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
+                          <span className="text-[10px] font-bold text-[#006E7A]">
+                            {quotedItems.length}/{offerItems.length} cotizados
+                          </span>
                         </div>
+
+                        {offerItems.map((item) => (
+                          <div
+                            key={item.key}
+                            className="rounded-xl bg-white/60 border border-white/40 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-gray-800 break-words">
+                                  {item.name}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  Cantidad solicitada: {item.quantity}
+                                </p>
+                              </div>
+                              <div
+                                role="group"
+                                aria-label={`Disponibilidad de ${item.name}`}
+                                className="flex shrink-0 gap-1"
+                              >
+                                <button
+                                  type="button"
+                                  aria-pressed={item.available}
+                                  onClick={() => updateOfferItem(item.key, { available: true })}
+                                  className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                                    item.available
+                                      ? 'bg-[#00EED0]/25 text-[#4B227A] border-[#00EED0]/50'
+                                      : 'bg-white/70 text-gray-600 border-white/40 hover:bg-white'
+                                  }`}
+                                >
+                                  Lo tengo
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-pressed={!item.available}
+                                  onClick={() => updateOfferItem(item.key, { available: false })}
+                                  className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                                    !item.available
+                                      ? 'bg-[#4B227A]/20 text-[#4B227A] border-[#4B227A]/40'
+                                      : 'bg-white/70 text-gray-600 border-white/40 hover:bg-white'
+                                  }`}
+                                >
+                                  No lo tengo
+                                </button>
+                              </div>
+                            </div>
+
+                            {item.available ? (
+                              <div className="mt-3 space-y-2">
+                                <div>
+                                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                                    Precio unitario
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">
+                                      $
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min="0.01"
+                                      step="0.01"
+                                      aria-label={`Precio unitario de ${item.name}`}
+                                      className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl pl-7 pr-4 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-bold text-sm"
+                                      placeholder="Precio por unidad"
+                                      value={item.price}
+                                      onChange={(e) =>
+                                        updateOfferItem(item.key, { price: e.target.value })
+                                      }
+                                    />
+                                  </div>
+                                  {Number(item.price) > 0 ? (
+                                    <p className="mt-1 text-xs text-gray-600 text-right">
+                                      Subtotal: {item.quantity}{' '}
+                                      {item.quantity === 1 ? 'unidad' : 'unidades'} ·{' '}
+                                      <strong className="text-[#006E7A]">
+                                        {formatCurrency(Number(item.price) * item.quantity, 'MXN')}
+                                      </strong>
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <input
+                                  type="text"
+                                  aria-label={`Notas para ${item.name}`}
+                                  className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/20 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF]"
+                                  placeholder="Notas de este producto (opcional)"
+                                  value={item.notes}
+                                  onChange={(e) =>
+                                    updateOfferItem(item.key, { notes: e.target.value })
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-xs font-medium text-[#4B227A]">
+                                Este producto no se incluirá en la cotización.
+                              </p>
+                            )}
+                          </div>
+                        ))}
+
+                        <div className="flex items-center justify-between gap-2 rounded-xl bg-[#00EED0]/15 border border-[#00EED0]/30 px-3 py-2">
+                          <span className="text-xs font-semibold text-gray-700">
+                            {quotedItems.length} de {offerItems.length} productos · {quotedUnits}{' '}
+                            {quotedUnits === 1 ? 'unidad' : 'unidades'}
+                          </span>
+                          <strong className="text-[#006E7A]">
+                            {formatCurrency(quotedTotal, 'MXN')}
+                          </strong>
+                        </div>
+                        {missingCount > 0 ? (
+                          <p className="text-xs text-gray-500">
+                            {missingCount}{' '}
+                            {missingCount === 1 ? 'producto marcado' : 'productos marcados'} como
+                            «No lo tengo».
+                          </p>
+                        ) : null}
+
                         <div className="relative">
                           <textarea
                             className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-medium"
@@ -431,40 +595,13 @@ export default function Dashboard() {
                             onChange={(e) => setClosingMessage(e.target.value)}
                           />
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
-                            Precio por unidad
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">$</span>
-                            <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
-                              className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl pl-7 pr-4 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-bold text-sm"
-                              placeholder="Precio por unidad"
-                              value={price}
-                              onChange={(e) => setPrice(e.target.value)}
-                              autoFocus
-                            />
-                          </div>
-                          {Number(price) > 0 ? (
-                            <p className="mt-1 text-xs text-gray-600 text-right">
-                              Total por {opp.quantityTotal}{' '}
-                              {opp.quantityTotal === 1 ? 'unidad' : 'unidades'}:{' '}
-                              <strong className="text-[#006E7A]">
-                                {formatCurrency(Number(price) * (opp.quantityTotal || 1), 'MXN')}
-                              </strong>
-                            </p>
-                          ) : null}
-                        </div>
                         {offerError ? (
                           <DataNotice tone="error">{offerError}</DataNotice>
                         ) : null}
                         <Button
                           fullWidth
                           onClick={handleSendOffer}
-                          disabled={!price || sending}
+                          disabled={sending}
                           className="bg-[#00EED0] hover:bg-[#00EED0]/90 text-black shadow-[0_0_20px_rgba(0,238,208,0.4)] py-2.5 text-sm"
                         >
                           {sending ? 'Enviando…' : 'Enviar oferta'} <Send className="w-4 h-4 ml-1" />

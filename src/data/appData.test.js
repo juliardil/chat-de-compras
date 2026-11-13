@@ -168,7 +168,14 @@ describe('capa de datos de la app', () => {
       delivery_days: 2,
       conditions: 'Pago contra entrega',
       items: [
-        { name: 'Pastillas', quantity: 2, available: true },
+        {
+          name: 'Pastillas',
+          quantity: 2,
+          available: true,
+          unitPrice: 150,
+          totalPrice: 300,
+          notes: 'Delanteras',
+        },
         { name: 'Discos', cantidad: '1', available: false },
       ],
     });
@@ -176,11 +183,25 @@ describe('capa de datos de la app', () => {
     expect(offer.store).toBe('Taller Real');
     expect(offer.found).toBe(1);
     expect(offer.total).toBe(2);
-    expect(offer.quantityTotal).toBe(3);
-    expect(offer.items).toEqual([
-      { name: 'Pastillas', quantity: 2, status: 'available' },
-      { name: 'Discos', quantity: 1, status: 'missing' },
-    ]);
+    expect(offer.quantityTotal).toBe(2);
+    expect(offer.items[0]).toMatchObject({
+      name: 'Pastillas',
+      quantity: 2,
+      status: 'available',
+      unitPrice: 150,
+      totalPrice: 300,
+      notes: 'Delanteras',
+    });
+    expect(offer.items[0].priceLabel).toContain('300');
+    expect(offer.items[1]).toMatchObject({
+      name: 'Discos',
+      quantity: 1,
+      status: 'missing',
+      unitPrice: 0,
+      totalPrice: 0,
+      priceLabel: '',
+      notes: '',
+    });
 
     const order = mapOrder({
       id: 'order-12345678',

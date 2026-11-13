@@ -373,7 +373,8 @@ export const fetchBuyerOffers = async (userId) => {
 
 export const mapOffer = (row) => {
   const items = Array.isArray(row.items) ? row.items : [];
-  const available = items.filter((item) => item && item.available !== false).length;
+  const isAvailable = (item) => item?.available !== false;
+  const availableItems = items.filter((item) => item && isAvailable(item));
 
   return {
     id: row.id,
@@ -383,17 +384,32 @@ export const mapOffer = (row) => {
     deliveryDays: row.delivery_days ?? null,
     conditions: row.conditions || '',
     status: row.status,
-    found: available,
+    found: availableItems.length,
     total: items.length,
-    quantityTotal: items.reduce(
-      (total, item) => total + toPositiveInteger(item?.quantity ?? item?.cantidad, 1),
+    // Solo las unidades que el comercio sí cotizó.
+    quantityTotal: availableItems.reduce(
+      (total, item) => total + toPositiveInteger(item.quantity ?? item.cantidad, 1),
       0
     ),
-    items: items.map((item) => ({
-      name: item.name || item.title || item.description || 'Producto',
-      quantity: toPositiveInteger(item.quantity ?? item.cantidad, 1),
-      status: item.available === false ? 'missing' : 'available',
-    })),
+    items: items.map((item) => {
+      const available = isAvailable(item);
+      const quantity = toPositiveInteger(item?.quantity ?? item?.cantidad, 1);
+      const unitPrice = Number(item?.unitPrice ?? item?.unit_price);
+      const totalPrice = Number(item?.totalPrice ?? item?.total_price);
+
+      return {
+        name: item?.name || item?.title || item?.description || 'Producto',
+        quantity,
+        status: available ? 'available' : 'missing',
+        unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+        totalPrice: available && Number.isFinite(totalPrice) ? totalPrice : 0,
+        priceLabel:
+          available && Number.isFinite(totalPrice) && totalPrice > 0
+            ? formatCurrency(totalPrice, row.currency)
+            : '',
+        notes: item?.notes || '',
+      };
+    }),
   };
 };
 

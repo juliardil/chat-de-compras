@@ -115,15 +115,37 @@ export default function Responses() {
                 </div>
                 {offer.quantityTotal > 0 ? (
                   <p className="text-xs text-gray-600 mb-2">
-                    {offer.quantityTotal} {offer.quantityTotal === 1 ? 'unidad' : 'unidades'} en total
+                    {offer.quantityTotal} {offer.quantityTotal === 1 ? 'unidad cotizada' : 'unidades cotizadas'}
                   </p>
                 ) : null}
               </div>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4 line-clamp-2 bg-white/70 p-2 rounded-lg border border-white/30">
+            <p className="text-sm text-gray-600 mb-3 line-clamp-2 bg-white/70 p-2 rounded-lg border border-white/30">
               {offer.conditions || 'Sin condiciones adicionales.'}
             </p>
+
+            {offer.items.length > 0 ? (
+              <ul className="mb-4 space-y-1.5">
+                {offer.items.map((item, index) => (
+                  <li
+                    key={`${offer.id}-offer-item-${index}`}
+                    className="flex items-center justify-between gap-2 rounded-lg bg-white/70 border border-white/30 px-3 py-1.5 text-xs"
+                  >
+                    <span className="min-w-0 break-words text-gray-800">
+                      {item.name} × {item.quantity}
+                    </span>
+                    {item.status === 'available' ? (
+                      <span className="shrink-0 font-bold text-[#006E7A]">
+                        {item.priceLabel || 'Cotizado'}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 font-bold text-[#4B227A]">No disponible</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             <Button
               fullWidth
@@ -166,14 +188,28 @@ export default function Responses() {
 
             <div className="space-y-3">
               {selectedAvailability.items.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/70 border border-white/30">
-                  <span className="text-sm font-medium text-gray-800">{item.name} × {item.quantity}</span>
+                <div key={idx} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-white/70 border border-white/30">
+                  <div className="min-w-0">
+                    <span className="block text-sm font-medium text-gray-800 break-words">
+                      {item.name} × {item.quantity}
+                    </span>
+                    {item.status === 'available' && item.priceLabel ? (
+                      <span className="block text-xs font-bold text-[#006E7A] mt-0.5">
+                        {item.priceLabel}
+                      </span>
+                    ) : null}
+                    {item.notes ? (
+                      <span className="block text-xs text-gray-600 mt-0.5 break-words">
+                        {item.notes}
+                      </span>
+                    ) : null}
+                  </div>
                   {item.status === 'available' ? (
-                    <span className="flex items-center gap-1 text-xs font-bold text-[#4B227A] bg-[#00EED0]/20 px-2 py-1 rounded-lg border border-[#00EED0]/30">
+                    <span className="shrink-0 flex items-center gap-1 text-xs font-bold text-[#4B227A] bg-[#00EED0]/20 px-2 py-1 rounded-lg border border-[#00EED0]/30">
                       <Check className="w-3 h-3" /> Disponible
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-xs font-bold text-gray-800 bg-[#4B227A]/20 px-2 py-1 rounded-lg border border-[#4B227A]/30">
+                    <span className="shrink-0 flex items-center gap-1 text-xs font-bold text-gray-800 bg-[#4B227A]/20 px-2 py-1 rounded-lg border border-[#4B227A]/30">
                       <XIcon className="w-3 h-3" /> No disponible
                     </span>
                   )}
