@@ -5,6 +5,7 @@ import {
   fetchBuyerRequests,
   fetchNotifications,
   createPurchaseRequest,
+  mapChatMessage,
   mapChatThread,
   mapOffer,
   mapOpportunity,
@@ -181,6 +182,7 @@ describe('capa de datos de la app', () => {
     });
 
     expect(offer.store).toBe('Taller Real');
+    expect(offer.commerceId).toBeNull();
     expect(offer.found).toBe(1);
     expect(offer.total).toBe(2);
     expect(offer.quantityTotal).toBe(2);
@@ -237,5 +239,32 @@ describe('capa de datos de la app', () => {
     expect(thread.subject).toBe('Consulta de precio');
     expect(thread.status).toBe('active');
     expect(thread.unread).toBe(0);
+  });
+
+  it('traduce los mensajes del backend a burbujas de comprador y comercio', () => {
+    const createdAt = new Date().toISOString();
+
+    expect(
+      mapChatMessage({
+        id: 'm1',
+        sender_type: 'buyer',
+        sender_name: 'Juliana',
+        body: '¿Está disponible?',
+        created_at: createdAt,
+      })
+    ).toMatchObject({ text: '¿Está disponible?', sender: 'buyer', senderName: 'Juliana' });
+
+    expect(
+      mapChatMessage({
+        id: 'm2',
+        sender_type: 'commerce',
+        body: 'Sí, lo tengo',
+        created_at: createdAt,
+      })
+    ).toMatchObject({ text: 'Sí, lo tengo', sender: 'seller' });
+
+    expect(
+      mapChatMessage({ id: 'm3', sender_type: 'system', body: 'Aviso', created_at: createdAt })
+    ).toMatchObject({ text: 'Aviso', sender: 'system' });
   });
 });

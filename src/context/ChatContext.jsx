@@ -1,9 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatContext } from './chat-context';
+import { useAuth } from './auth-context';
+import { isInsforgeConfigured } from '../lib/insforge';
+import {
+  fetchChatMessages,
+  mapChatMessage,
+  sendChatMessage as sendChatMessageToBackend,
+} from '../data/appData';
 
 const STORAGE_KEY = 'chat_compras_chats_v1';
-const CHAT_DURATION = 300; // 5 minutos
+const CHAT_DURATION = 300; // 5 minutos (solo modo demostración)
 const WARNING_AT = 120; // aviso a los 2 minutos restantes
+const POLL_INTERVAL = 3000;
 
 const createId = () => (
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -80,12 +88,21 @@ const loadChats = () => {
 
 export const ChatProvider = ({ children }) => {
   const messagesEndRef = useRef(null);
+  const refreshingRef = useRef(false);
+  const { user } = useAuth() || {};
+  const userId = user?.id || null;
+  const userRole = user?.role === 'commerce' ? 'commerce' : 'user';
+  const displayName = user?.name || (userRole === 'commerce' ? 'Comercio' : 'Comprador');
+  // En modo InsForge los mensajes viven en chat_messages y se consultan de
+  // forma periódica; en demostración se conserva el comportamiento local.
+  const connected = isInsforgeConfigured && Boolean(userId);
   const [chats, setChats] = useState(loadChats);
   const [activeChatId, setActiveChatId] = useState(null);
   const [inputText, setInputText] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
   const [showShippingForm, setShowShippingForm] = useState(false);
+  const [chatError, setChatError] = useState('');
 
   // Datos de envío del comprador (no se persisten para no guardar imágenes en localStorage)
   const [shippingData, setShippingData] = useState({
@@ -102,14 +119,39 @@ export const ChatProvider = ({ children }) => {
   const activeChat = (activeChatId && chats[activeChatId]) || EMPTY_CHAT;
   const { messages, timeLeft, sellerStep, closed } = activeChat;
 
-  // Persistir las conversaciones para que sobrevivan a una recarga
+  // Persistir las conversaciones para que sobrevivan a una recarga. En modo
+  // InsForge la fuente de verdad es el backend, así que no se cachea.
   useEffect(() => {
+    if (connected) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
     } catch {
       // Si el almacenamiento está lleno o no disponible, el chat sigue en memoria.
     }
-  }, [chats]);
+  }, [chats, connected]);
+
+  // Descarga los mensajes reales de la conversación activa.
+  const refreshChat = useCallback(async (chatId) => {
+    if (!connected || !chatId || refreshingRef.current) return;
+    refreshingRef.current = true;
+
+    try {
+      const result = await fetchChatMessages(chatId);
+      if (result.error) {
+        setChatError(result.error);
+        return;
+      }
+
+      setChatError('');
+      const nextMessages = result.items.map(mapChatMessage);
+      setChats((prev) => {
+        const current = prev[chatId] || createChat();
+        return { ...prev, [chatId]: { ...current, messages: nextMessages } };
+      });
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [connected]);
 
   // Abrir (o crear) el chat indicado por la ruta y limpiar modales al cambiar de conversación
   const openChat = useCallback((chatId) => {
@@ -119,6 +161,7 @@ export const ChatProvider = ({ children }) => {
     setShowDeliveryOptions(false);
     setShowShippingForm(false);
     setInputText('');
+    setChatError('');
     setChats((prev) => (prev[key] ? prev : { ...prev, [key]: createChat() }));
   }, []);
 
@@ -131,9 +174,10 @@ export const ChatProvider = ({ children }) => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Un único temporizador global que descuenta solo la conversación activa
+  // Un único temporizador global que descuenta solo la conversación activa.
+  // Con backend conectado no se cierra el chat: la conversación es real.
   useEffect(() => {
-    if (!activeChatId) return undefined;
+    if (connected || !activeChatId) return undefined;
 
     const timer = setInterval(() => {
       setChats((prev) => {
@@ -169,7 +213,21 @@ export const ChatProvider = ({ children }) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeChatId]);
+  }, [activeChatId, connected]);
+
+  // Sondeo de mensajes nuevos. Ambos lados ven lo que escribe el otro aunque
+  // estén en dispositivos distintos.
+  useEffect(() => {
+    if (!connected || !activeChatId) return undefined;
+
+    const tick = () => {
+      void refreshChat(activeChatId);
+    };
+
+    tick();
+    const interval = setInterval(tick, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [activeChatId, connected, refreshChat]);
 
   // Formatear tiempo del contador
   const formatTime = (seconds) => {
@@ -179,13 +237,40 @@ export const ChatProvider = ({ children }) => {
   };
 
   // Enviar mensaje en la conversación activa (comprador o vendedor).
-  // No hay respuestas automáticas: el otro lado debe escribir de verdad.
-  const sendMessage = (senderRole) => {
+  // Con backend se guarda en chat_messages; en demostración queda en el
+  // dispositivo. No hay respuestas automáticas: el otro lado escribe de verdad.
+  const sendMessage = async (senderRole) => {
     const text = inputText.trim();
     if (!text || !activeChatId) return;
 
     const chat = chats[activeChatId];
-    if (!chat || chat.timeLeft <= 0) return;
+    if (!chat) return;
+
+    if (connected) {
+      const senderType =
+        senderRole === 'seller' ? 'commerce' : senderRole === 'system' ? 'system' : 'buyer';
+
+      setChatError('');
+      setInputText('');
+
+      const result = await sendChatMessageToBackend({
+        chat_id: activeChatId,
+        sender_type: senderType,
+        sender_name: displayName,
+        body: text,
+      });
+
+      if (!result.ok) {
+        setChatError(result.error || 'No se pudo enviar el mensaje.');
+        setInputText(text);
+        return;
+      }
+
+      await refreshChat(activeChatId);
+      return;
+    }
+
+    if (chat.timeLeft <= 0) return;
 
     setChats((prev) => {
       const current = prev[activeChatId];
@@ -211,6 +296,19 @@ export const ChatProvider = ({ children }) => {
       }
 
       if (chat.sellerStep === 'confirmed') {
+        const note = 'El vendedor ha marcado el producto como enviado. 🚚';
+
+        if (connected) {
+          void sendChatMessageToBackend({
+            chat_id: activeChatId,
+            sender_type: 'system',
+            sender_name: 'Sistema',
+            body: note,
+          }).then((result) => {
+            if (result.ok) void refreshChat(activeChatId);
+          });
+        }
+
         return {
           ...prev,
           [activeChatId]: {
@@ -218,7 +316,7 @@ export const ChatProvider = ({ children }) => {
             sellerStep: 'shipped',
             messages: [
               ...chat.messages,
-              createMessage('El vendedor ha marcado el producto como enviado. 🚚', 'system')
+              createMessage(note, 'system')
             ]
           }
         };
@@ -271,6 +369,8 @@ export const ChatProvider = ({ children }) => {
       timeLeft,
       sellerStep,
       closed,
+      connected,
+      chatError,
       // Entrada y modales
       inputText,
       setInputText,

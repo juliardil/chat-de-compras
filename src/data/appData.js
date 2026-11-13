@@ -148,6 +148,13 @@ export function formatRelativeDate(value) {
   return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+export function formatClockTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
 export function formatCurrency(amount, currency = 'MXN') {
   if (amount === null || amount === undefined || amount === '') return '—';
   const numeric = Number(amount);
@@ -379,6 +386,7 @@ export const mapOffer = (row) => {
   return {
     id: row.id,
     requestId: row.request_id,
+    commerceId: row.commerce_id || null,
     store: row.commerce_name || 'Comercio',
     price: formatCurrency(row.total_amount, row.currency),
     deliveryDays: row.delivery_days ?? null,
@@ -517,11 +525,22 @@ const fetchChatThreadsBy = (column, id) =>
 export const mapChatThread = (row) => ({
   id: row.id,
   subject: row.subject || 'Conversación',
-  status: row.status || 'open',
+  status: row.status || 'active',
   lastMessageAt: row.last_message_at || row.created_at,
   time: formatRelativeDate(row.last_message_at || row.created_at),
   unread: Number(row.unread_count) || 0,
 });
+
+export const fetchChatThread = async (chatId) => {
+  if (!chatId) return emptyResult(NOTICES.chats, 'No se indicó una conversación.');
+
+  const result = await runQuery(
+    (db) => db.from('chat_threads').select('*').eq('id', chatId).limit(1),
+    NOTICES.chats
+  );
+
+  return { ...result, item: result.items[0] || null };
+};
 
 export const fetchChatMessages = async (chatId) => {
   if (!chatId) return emptyResult(NOTICES.chats, 'No se indicó una conversación.');
@@ -535,6 +554,120 @@ export const fetchChatMessages = async (chatId) => {
         .order('created_at', { ascending: true }),
     NOTICES.chats
   );
+};
+
+// Convierte una fila de chat_messages al formato de burbuja que usan las
+// pantallas: «buyer» a la derecha del comprador, «seller» a la derecha del
+// comercio y «system» centrado.
+export const mapChatMessage = (row) => {
+  const senderType = row?.sender_type;
+  const sender =
+    senderType === 'commerce' ? 'seller' : senderType === 'buyer' ? 'buyer' : 'system';
+
+  return {
+    id: row?.id,
+    text: row?.body || '',
+    sender,
+    senderType: senderType || 'system',
+    senderName: row?.sender_name || '',
+    createdAt: row?.created_at || null,
+    time: formatClockTime(row?.created_at),
+  };
+};
+
+// Reutiliza la conversación entre un comprador y un comercio; si no existe la
+// crea. El backend aplica RLS: solo el comprador o el comercio dueños pueden
+// leerla y escribir en ella.
+export const ensureChatThread = async ({ buyerId, commerceId, subject, orderId = null }) => {
+  if (!isInsforgeConfigured) {
+    return { item: null, error: null, notice: NOTICES.demo };
+  }
+  if (!buyerId || !commerceId) {
+    return emptyResult(
+      NOTICES.chats,
+      'No se pudo identificar al comprador o al comercio de esta conversación.'
+    );
+  }
+
+  const existing = await runQuery(
+    (db) =>
+      db
+        .from('chat_threads')
+        .select('*')
+        .eq('buyer_id', buyerId)
+        .eq('commerce_id', commerceId)
+        .order('created_at', { ascending: false })
+        .limit(1),
+    NOTICES.chats
+  );
+
+  if (existing.error) return { item: null, error: existing.error, notice: existing.notice };
+  if (existing.items[0]) return { item: existing.items[0], error: null, notice: null };
+
+  const created = await runWrite(
+    (db) =>
+      db.from('chat_threads').insert([
+        {
+          buyer_id: buyerId,
+          commerce_id: commerceId,
+          order_id: orderId,
+          subject: subject || 'Conversación',
+          status: 'active',
+        },
+      ]),
+    'No se pudo iniciar la conversación.'
+  );
+
+  if (!created.ok) return { item: null, error: created.error, notice: null };
+  if (created.data[0]) return { item: created.data[0], error: null, notice: null };
+
+  // Algunos backends no devuelven la fila insertada; se vuelve a consultar.
+  return fetchChatThreadFromPair(buyerId, commerceId);
+};
+
+const fetchChatThreadFromPair = async (buyerId, commerceId) => {
+  const result = await runQuery(
+    (db) =>
+      db
+        .from('chat_threads')
+        .select('*')
+        .eq('buyer_id', buyerId)
+        .eq('commerce_id', commerceId)
+        .order('created_at', { ascending: false })
+        .limit(1),
+    NOTICES.chats
+  );
+
+  return { item: result.items[0] || null, error: result.error, notice: result.notice };
+};
+
+// Abre (o crea) la conversación del comprador con el comercio de una oferta.
+export const openChatForOffer = async ({ userId, offer, subject }) => {
+  const guard = requireUserId(userId, NOTICES.chats);
+  if (guard) return { ...guard, item: null };
+
+  if (!offer?.commerceId) {
+    return {
+      item: null,
+      error: 'La oferta no tiene un comercio asociado.',
+      notice: NOTICES.chats,
+    };
+  }
+
+  const buyer = await fetchBuyerProfileId(userId);
+  if (!buyer.item) {
+    return {
+      item: null,
+      error: buyer.error,
+      notice: buyer.notice || NOTICES.chats,
+    };
+  }
+
+  return ensureChatThread({
+    buyerId: buyer.item.id,
+    commerceId: offer.commerceId,
+    subject: subject || offer.store || 'Conversación',
+  });
 };
 
 // -----------------------------------------------------------------------------
@@ -642,5 +775,23 @@ export const createOffer = async (payload) =>
 export const createReview = async (payload) =>
   runWrite((db) => db.from('commerce_reviews').insert([payload]), 'No se pudo guardar la calificación.');
 
-export const sendChatMessage = async (payload) =>
-  runWrite((db) => db.from('chat_messages').insert([payload]), 'No se pudo enviar el mensaje.');
+export const sendChatMessage = async (payload) => {
+  const result = await runWrite(
+    (db) => db.from('chat_messages').insert([payload]),
+    'No se pudo enviar el mensaje.'
+  );
+
+  if (!result.ok) return result;
+
+  // Mantiene ordenada la lista de conversaciones por el último mensaje.
+  await runWrite(
+    (db) =>
+      db
+        .from('chat_threads')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', payload.chat_id),
+    'No se pudo actualizar la conversación.'
+  );
+
+  return result;
+};

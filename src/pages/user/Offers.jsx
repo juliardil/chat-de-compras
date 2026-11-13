@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Package, Store, Clock, Tags, AlertTriangle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import UserBottomNav from '../../components/layout/UserBottomNav';
-import { EmptyModule, LoadingModule } from '../../components/ui/ModuleState';
+import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import {
@@ -11,6 +11,7 @@ import {
   fetchBuyerRequests,
   mapOffer,
   mapRequest,
+  openChatForOffer,
   NOTICES,
 } from '../../data/appData';
 
@@ -23,6 +24,8 @@ import {
 export default function Offers() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [openingOfferId, setOpeningOfferId] = useState(null);
+  const [chatError, setChatError] = useState('');
 
   const { items, extra, loading, error, notice } = useModuleData(async () => {
     const [offersResult, requestsResult] = await Promise.all([
@@ -68,6 +71,28 @@ export default function Offers() {
     groups[index].offers.push(offer);
   });
 
+  // Abre (o crea) el hilo real entre este comprador y el comercio de la oferta.
+  const handleOpenChat = async (offer) => {
+    if (openingOfferId) return;
+    setChatError('');
+    setOpeningOfferId(offer.id);
+
+    const result = await openChatForOffer({
+      userId: user?.id,
+      offer,
+      subject: offer.store,
+    });
+
+    setOpeningOfferId(null);
+
+    if (!result.item) {
+      setChatError(result.error || result.notice || NOTICES.chats);
+      return;
+    }
+
+    navigate(`/chat/${result.item.id}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-24">
       <header className="bg-white/80 backdrop-blur-md px-6 py-4 border-b border-white/30 sticky top-0 z-10">
@@ -83,6 +108,7 @@ export default function Offers() {
       </header>
 
       <div className="p-4 flex flex-col gap-4">
+        {chatError ? <DataNotice tone="error">{chatError}</DataNotice> : null}
         {loading ? <LoadingModule label="Cargando ofertas…" /> : null}
 
         {!loading && groups.map((group) => (
@@ -177,15 +203,15 @@ export default function Offers() {
                     </ul>
                   ) : null}
 
-                  {/* Misma clave de conversación que usa el detalle de la
-                      oferta existente: no se crea un chat nuevo. */}
+                  {/* Abre o reutiliza el hilo real comprador ↔ comercio. */}
                   <Button
                     fullWidth
-                    onClick={() => navigate(`/chat/${offer.requestId || offer.id}`)}
+                    onClick={() => handleOpenChat(offer)}
+                    disabled={openingOfferId === offer.id}
                     className="mt-3 py-2.5 text-sm"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    Mensajes
+                    {openingOfferId === offer.id ? 'Abriendo chat…' : 'Mensajes'}
                   </Button>
                 </article>
               ))}

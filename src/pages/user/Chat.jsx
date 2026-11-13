@@ -32,7 +32,9 @@ export default function Chat() {
     handleProductArrivedYes,
     handleProductArrivedNo,
     handleShippingSubmit,
-    handleFileChange
+    handleFileChange,
+    connected,
+    chatError
   } = useChat();
 
   useEffect(() => {
@@ -56,14 +58,21 @@ export default function Chat() {
             <h1 className="font-bold text-gray-800">Conversación</h1>
             <p className="text-xs text-[#006E7A] flex items-center gap-1">
               <span className="w-2 h-2 bg-[#00EED0] rounded-full"></span>
-              Mensajes guardados en este dispositivo
+              {connected ? 'Conversación en tiempo real' : 'Mensajes guardados en este dispositivo'}
             </p>
           </div>
         </div>
-        <div className="bg-[#4B227A]/20 text-[#4B227A] px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border border-[#4B227A]/30">
-          <Clock className="w-3 h-3" />
-          {formatTime(timeLeft)}
-        </div>
+        {connected ? (
+          <div className="bg-[#00EED0]/20 text-[#006E7A] px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border border-[#00EED0]/40">
+            <span className="w-2 h-2 bg-[#00EED0] rounded-full" />
+            En vivo
+          </div>
+        ) : (
+          <div className="bg-[#4B227A]/20 text-[#4B227A] px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border border-[#4B227A]/30">
+            <Clock className="w-3 h-3" />
+            {formatTime(timeLeft)}
+          </div>
+        )}
       </header>
 
       {/* Agreement Card Fixed con glassmorphism - Actualización estética Junio 2026 */}
@@ -86,10 +95,15 @@ export default function Chat() {
         </div>
 
         <div className="mb-4">
-          <DataNotice>
-            Los mensajes se guardan solo en este dispositivo. El chat en tiempo real
-            (chat_threads / chat_messages) todavía no está conectado al backend.
-          </DataNotice>
+          {chatError ? (
+            <DataNotice tone="error">{chatError}</DataNotice>
+          ) : (
+            <DataNotice>
+              {connected
+                ? 'Los mensajes se envían al comercio y se reciben en tiempo real.'
+                : 'Los mensajes se guardan solo en este dispositivo porque no hay backend configurado.'}
+            </DataNotice>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">

@@ -12,10 +12,11 @@ vi.mock('../../data/appData', async (importOriginal) => {
     ...actual,
     fetchBuyerOffers: vi.fn(),
     fetchBuyerRequests: vi.fn(),
+    openChatForOffer: vi.fn(),
   };
 });
 
-import { fetchBuyerOffers, fetchBuyerRequests } from '../../data/appData';
+import { fetchBuyerOffers, fetchBuyerRequests, openChatForOffer } from '../../data/appData';
 
 const offer = (id, requestId, store, amount) => ({
   id,
@@ -61,6 +62,7 @@ describe('sección Ofertas del comprador', () => {
   beforeEach(() => {
     fetchBuyerOffers.mockReset();
     fetchBuyerRequests.mockReset();
+    openChatForOffer.mockReset();
   });
 
   it('agrupa las ofertas por producto y conserva el comercio de cada oferta', async () => {
@@ -128,6 +130,11 @@ describe('sección Ofertas del comprador', () => {
   });
 
   it('abre la conversación existente asociada a la oferta y al comercio', async () => {
+    openChatForOffer.mockResolvedValue({
+      item: { id: 'thread-1' },
+      error: null,
+      notice: null,
+    });
     fetchBuyerOffers.mockResolvedValue({
       items: [offer('offer-a', 'req-1', 'Comercio A', 900)],
       error: null,
@@ -143,8 +150,42 @@ describe('sección Ofertas del comprador', () => {
     const buttons = await screen.findAllByRole('button', { name: /mensajes/i });
     await userEvent.click(buttons[0]);
 
-    // La clave es la solicitud, igual que en el detalle de la oferta existente.
-    expect(await screen.findByText('Conversación abierta: req-1')).toBeInTheDocument();
+    expect(openChatForOffer).toHaveBeenCalledWith({
+      userId: 'buyer-1',
+      offer: expect.objectContaining({
+        id: 'offer-a',
+        commerceId: 'commerce-offer-a',
+        store: 'Comercio A',
+      }),
+      subject: 'Comercio A',
+    });
+    expect(await screen.findByText('Conversación abierta: thread-1')).toBeInTheDocument();
+  });
+
+  it('muestra un aviso si no se puede abrir la conversación', async () => {
+    openChatForOffer.mockResolvedValue({
+      item: null,
+      error: 'El backend rechazó la operación por permisos.',
+      notice: null,
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [offer('offer-a', 'req-1', 'Comercio A', 900)],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+    const buttons = await screen.findAllByRole('button', { name: /mensajes/i });
+    await userEvent.click(buttons[0]);
+
+    expect(
+      await screen.findByText('El backend rechazó la operación por permisos.')
+    ).toBeInTheDocument();
   });
 
   it('muestra el estado vacío real cuando no hay ofertas', async () => {

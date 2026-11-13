@@ -6,7 +6,7 @@ import SafeImage from '../../components/ui/SafeImage';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
-import { fetchBuyerOffers, mapOffer, NOTICES } from '../../data/appData';
+import { fetchBuyerOffers, mapOffer, openChatForOffer, NOTICES } from '../../data/appData';
 
 // Actualización estética Junio 2026
 
@@ -15,6 +15,8 @@ export default function Responses() {
   const location = useLocation();
   const { user } = useAuth();
   const [selectedAvailability, setSelectedAvailability] = useState(null);
+  const [openingOfferId, setOpeningOfferId] = useState(null);
+  const [chatError, setChatError] = useState('');
 
   // La solicitud viene del formulario (datos reales que escribió la persona).
   const requestDraft = Array.isArray(location.state?.products) ? location.state.products[0] : null;
@@ -34,6 +36,27 @@ export default function Responses() {
         .join(' ')
     : 'Las ofertas se muestran al abrir una solicitud publicada.';
 
+  const handleOpenChat = async (offer) => {
+    if (openingOfferId) return;
+    setChatError('');
+    setOpeningOfferId(offer.id);
+
+    const result = await openChatForOffer({
+      userId: user?.id,
+      offer,
+      subject: offer.store,
+    });
+
+    setOpeningOfferId(null);
+
+    if (!result.item) {
+      setChatError(result.error || result.notice || NOTICES.chats);
+      return;
+    }
+
+    navigate(`/chat/${result.item.id}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#E7E7E7] flex flex-col">
       <header className="bg-white/80 backdrop-blur-md px-4 py-3 flex items-center gap-4 shadow-sm sticky top-0 z-10 border-b border-white/30">
@@ -51,6 +74,12 @@ export default function Responses() {
       {publishError ? (
         <div className="px-4 pt-4">
           <DataNotice tone="error">{publishError}</DataNotice>
+        </div>
+      ) : null}
+
+      {chatError ? (
+        <div className="px-4 pt-4">
+          <DataNotice tone="error">{chatError}</DataNotice>
         </div>
       ) : null}
 
@@ -150,11 +179,12 @@ export default function Responses() {
             <Button
               fullWidth
               size="sm"
-              onClick={() => navigate(`/chat/${offer.requestId || offer.id}`)}
+              onClick={() => handleOpenChat(offer)}
+              disabled={openingOfferId === offer.id}
               className="py-2.5"
             >
               <MessageCircle className="w-4 h-4" />
-              CHATEAR
+              {openingOfferId === offer.id ? 'ABRIENDO…' : 'CHATEAR'}
             </Button>
           </div>
         ))}
