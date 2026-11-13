@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, MessageCircle, User } from 'lucide-react';
+import { Search, Tags, User } from 'lucide-react';
 
 // Actualización estética Junio 2026
 
@@ -13,7 +13,7 @@ export default function UserBottomNav() {
 
   const navItems = [
     { icon: Search, label: 'Buscador', path: '/categories' },
-    { icon: MessageCircle, label: 'Mensajes', path: '/chat-list' },
+    { icon: Tags, label: 'Ofertas', path: '/offers' },
     { icon: User, label: 'Perfil', path: '/profile-user' },
   ];
 
