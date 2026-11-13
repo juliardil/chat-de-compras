@@ -86,6 +86,34 @@ describe('publicación de una solicitud', () => {
     expect(screen.queryByText('Confirmación de publicación')).not.toBeInTheDocument();
   });
 
+  it('conserva la cantidad solicitada en el payload de la solicitud', async () => {
+    createPurchaseRequest.mockResolvedValue({
+      ok: true,
+      data: [{ id: 'req-1' }],
+      error: null,
+    });
+
+    renderForm();
+    await fillMinimumFields();
+
+    const quantity = screen.getByPlaceholderText('Ej: 1');
+    await userEvent.clear(quantity);
+    await userEvent.type(quantity, '4');
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar solicitud automotriz/i }));
+
+    expect(await screen.findByText('Confirmación de publicación')).toBeInTheDocument();
+    expect(createPurchaseRequest).toHaveBeenCalledTimes(1);
+
+    const payload = createPurchaseRequest.mock.calls[0][0];
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0]).toMatchObject({
+      item: 'Pastillas de freno',
+      quantity: 4,
+      images: [],
+    });
+  });
+
   it('no muestra la confirmación si el comprador no tiene perfil en el backend', async () => {
     fetchBuyerProfileId.mockResolvedValue({
       item: null,

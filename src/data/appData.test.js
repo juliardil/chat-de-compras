@@ -7,8 +7,10 @@ import {
   createPurchaseRequest,
   mapChatThread,
   mapOffer,
+  mapOpportunity,
   mapOrder,
   mapRequest,
+  mapRequestItem,
   splitOrders,
   NOTICES,
 } from './appData';
@@ -61,6 +63,101 @@ describe('capa de datos de la app', () => {
     expect(request.offers).toBeNull();
   });
 
+  it('normaliza los campos técnicos y la cantidad de cada ítem', () => {
+    const item = mapRequestItem({
+      id: 7,
+      category: 'Frenos',
+      item: 'Pastillas de freno',
+      vehicleType: 'Auto',
+      vehicleBrand: 'Toyota',
+      vehicleModel: 'Corolla',
+      yearFrom: 2015,
+      yearTo: 2020,
+      reference: '04465-02060',
+      brand: 'Bosch',
+      condition: 'Nuevo',
+      quantity: '4',
+      notes: 'Delanteras',
+      images: ['data:image/jpeg;base64,AAA'],
+    });
+
+    expect(item).toMatchObject({
+      key: 7,
+      category: 'Frenos',
+      product: 'Pastillas de freno',
+      vehicleType: 'Auto',
+      vehicleBrand: 'Toyota',
+      vehicleModel: 'Corolla',
+      yearFrom: 2015,
+      yearTo: 2020,
+      reference: '04465-02060',
+      brand: 'Bosch',
+      condition: 'Nuevo',
+      quantity: 4,
+      notes: 'Delanteras',
+      images: ['data:image/jpeg;base64,AAA'],
+    });
+  });
+
+  it('acepta claves antiguas y conserva la cantidad como texto', () => {
+    const item = mapRequestItem({
+      name: 'Bujes',
+      cantidad: '3',
+      vehicle_brand: 'Ford',
+      vehicle_model: 'Fiesta',
+      part_number: 'BUJ-1',
+    });
+
+    expect(item.product).toBe('Bujes');
+    expect(item.quantity).toBe(3);
+    expect(item.vehicleBrand).toBe('Ford');
+    expect(item.vehicleModel).toBe('Fiesta');
+    expect(item.reference).toBe('BUJ-1');
+    // Sin cantidad guardada se asume 1 unidad (nunca 0 ni NaN).
+    expect(mapRequestItem({ item: 'Filtro' }).quantity).toBe(1);
+    expect(mapRequestItem({ item: 'Filtro', quantity: '0' }).quantity).toBe(1);
+  });
+
+  it('expone la cantidad y las imágenes en la oportunidad del comercio', () => {
+    const row = {
+      id: 'req-2',
+      title: 'Bafles',
+      description: 'Bafles traseros',
+      budget_amount: 2000,
+      currency: 'MXN',
+      created_at: new Date().toISOString(),
+      items: [
+        {
+          id: 1,
+          category: 'Audio y Sonido',
+          item: 'Bafles',
+          vehicleBrand: 'Toyota',
+          vehicleModel: 'Corolla',
+          quantity: '2',
+          images: ['data:image/jpeg;base64,AAA'],
+        },
+        { id: 2, item: 'Amplificador', cantidad: 3 },
+      ],
+    };
+
+    const request = mapRequest(row);
+    expect(request.items.map((item) => item.quantity)).toEqual([2, 3]);
+
+    const opportunity = mapOpportunity(row);
+    expect(opportunity.items).toHaveLength(2);
+    expect(opportunity.items[0]).toMatchObject({
+      product: 'Bafles',
+      category: 'Audio y Sonido',
+      vehicleBrand: 'Toyota',
+      vehicleModel: 'Corolla',
+      quantity: 2,
+      images: ['data:image/jpeg;base64,AAA'],
+    });
+    expect(opportunity.items[1]).toMatchObject({ product: 'Amplificador', quantity: 3 });
+    expect(opportunity.quantityTotal).toBe(5);
+    expect(opportunity.image).toBe('data:image/jpeg;base64,AAA');
+  });
+
   it('mapea ofertas y pedidos usando las columnas snake_case', () => {
     const offer = mapOffer({
       id: 'offer-1',
@@ -70,12 +167,20 @@ describe('capa de datos de la app', () => {
       currency: 'MXN',
       delivery_days: 2,
       conditions: 'Pago contra entrega',
-      items: [{ name: 'Pastillas', available: true }],
+      items: [
+        { name: 'Pastillas', quantity: 2, available: true },
+        { name: 'Discos', cantidad: '1', available: false },
+      ],
     });
 
     expect(offer.store).toBe('Taller Real');
     expect(offer.found).toBe(1);
-    expect(offer.total).toBe(1);
+    expect(offer.total).toBe(2);
+    expect(offer.quantityTotal).toBe(3);
+    expect(offer.items).toEqual([
+      { name: 'Pastillas', quantity: 2, status: 'available' },
+      { name: 'Discos', quantity: 1, status: 'missing' },
+    ]);
 
     const order = mapOrder({
       id: 'order-12345678',

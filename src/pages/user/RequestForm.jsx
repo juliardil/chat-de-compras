@@ -26,12 +26,61 @@ const AUTOMOTIVE_FORM_FIELDS = [
   { name: 'reference', label: 'Referencia o número de parte', placeholder: 'Ej: 04465-02060', type: 'text' },
   { name: 'brand', label: 'Marca del repuesto (opcional)', placeholder: 'Ej: Bosch, Monroe, Fram', type: 'text' },
   { name: 'condition', label: 'Condición', type: 'select', options: ['Nuevo', 'Usado', 'Indistinto'] },
-  { name: 'quantity', label: 'Cantidad', type: 'number', placeholder: 'Ej: 1', defaultValue: '1' },
+  { name: 'quantity', label: 'Cantidad', type: 'number', placeholder: 'Ej: 1', defaultValue: '1', min: 1, step: 1 },
   { name: 'notes', label: 'Notas adicionales', type: 'textarea', placeholder: 'Detalles específicos, color, ubicación, etc.' }
 ];
 
 // Campos mínimos para poder enviar una solicitud.
 const REQUIRED_FIELDS = ['category', 'item', 'vehicleType'];
+
+const normalizeQuantity = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.floor(parsed);
+};
+
+// Las fotos se guardan dentro del mismo JSONB `items` que ya usa la solicitud.
+// Se reducen en el navegador para no enviar archivos originales de varios MB.
+const MAX_IMAGE_SIDE = 900;
+const IMAGE_QUALITY = 0.65;
+
+const compressImage = (file) =>
+  new Promise((resolve) => {
+    if (!file || !String(file.type || '').startsWith('image/')) {
+      resolve(null);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => resolve(null);
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => resolve(null);
+      image.onload = () => {
+        try {
+          const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(image.width, image.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.width * scale));
+          canvas.height = Math.max(1, Math.round(image.height * scale));
+
+          const context = canvas.getContext('2d');
+          if (!context) {
+            resolve(null);
+            return;
+          }
+
+          context.fillStyle = '#FFFFFF';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', IMAGE_QUALITY));
+        } catch {
+          resolve(null);
+        }
+      };
+      image.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
 
 export default function RequestForm() {
   const navigate = useNavigate();
@@ -106,14 +155,20 @@ export default function RequestForm() {
     });
   };
 
-  const handleImageUpload = (id, e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setProducts(products.map(p => 
-        p.id === id ? { ...p, images: [...p.images, url] } : p
-      ));
-    }
+  const handleImageUpload = async (id, e) => {
+    const file = e.target.files?.[0];
+    // Permite volver a elegir el mismo archivo después de quitarlo.
+    e.target.value = '';
+    if (!file) return;
+
+    const dataUrl = await compressImage(file);
+    if (!dataUrl) return;
+
+    setProducts((current) =>
+      current.map((product) =>
+        product.id === id ? { ...product, images: [...product.images, dataUrl] } : product
+      )
+    );
   };
 
   const removeImage = (prodId, imgIndex) => {
@@ -140,6 +195,13 @@ export default function RequestForm() {
         productErrors.yearTo = 'El año final no puede ser menor al año inicial.';
       }
 
+      if (
+        product.quantity !== '' &&
+        (!Number.isFinite(Number(product.quantity)) || Number(product.quantity) < 1)
+      ) {
+        productErrors.quantity = 'La cantidad debe ser al menos 1.';
+      }
+
       if (Object.keys(productErrors).length > 0) {
         nextErrors[product.id] = productErrors;
       }
@@ -157,8 +219,8 @@ export default function RequestForm() {
 
     setSubmitting(true);
 
-    // Se intenta publicar de verdad. Las imágenes locales (blob:) no se envían
-    // porque requieren subida a Storage, que aún no está configurada.
+    // Se intenta publicar de verdad. Las imágenes de referencia ya están
+    // comprimidas como data URL y viajan dentro de `items`.
     // buyer_id referencia buyer_profiles.id, así que primero se resuelve el
     // perfil real de la sesión (nunca se inventa un identificador).
     const buyer = await fetchBuyerProfileId(user?.id);
@@ -176,11 +238,20 @@ export default function RequestForm() {
       return;
     }
 
+    // Se conserva la cantidad real (no se fuerza a 1) y las fotos de
+    // referencia comprimidas; ambos datos viajan dentro de `items`, que es la
+    // columna JSONB existente. No se crean tablas ni buckets nuevos.
+    const items = products.map(({ images, ...rest }) => ({
+      ...rest,
+      quantity: normalizeQuantity(rest.quantity),
+      images: Array.isArray(images) ? images.filter(Boolean) : [],
+    }));
+
     const result = await createPurchaseRequest({
       buyer_id: buyer.item.id,
       title: products[0]?.item || 'Solicitud de compra',
       description: products[0]?.notes || products[0]?.item || '',
-      items: products.map(({ images: _images, ...rest }) => rest),
+      items,
       currency: 'MXN',
       status: 'open',
     });
@@ -289,6 +360,9 @@ export default function RequestForm() {
                         label={field.label}
                         placeholder={field.placeholder}
                         type={field.type}
+                        min={field.min}
+                        step={field.step}
+                        inputMode={field.type === 'number' ? 'numeric' : undefined}
                         value={product[field.name]}
                         onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
                       />

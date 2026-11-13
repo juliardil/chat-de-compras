@@ -110,7 +110,7 @@ export default function Offers() {
                     key={`${group.key}-item-${index}`}
                     className="text-[11px] text-gray-700 bg-white/70 px-2 py-1 rounded-full border border-white/40"
                   >
-                    {item.item || item.name || 'Producto'}
+                    {item.product || 'Producto'} × {item.quantity}
                   </span>
                 ))}
               </div>
@@ -166,7 +166,7 @@ export default function Offers() {
                           }`}
                         >
                           {item.status === 'available' ? null : <AlertTriangle className="w-3 h-3" />}
-                          {item.name}
+                          {item.name} × {item.quantity}
                           {item.status === 'available' ? '' : ' (no disponible)'}
                         </li>
                       ))}

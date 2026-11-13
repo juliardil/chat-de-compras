@@ -37,6 +37,20 @@ import {
 
 // Actualización estética Junio 2026
 
+function DetailField({ label, value }) {
+  return (
+    <div className="min-w-0">
+      <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+        {label}
+      </span>
+      <p className="text-sm font-medium text-gray-800 break-words">{value || 'No indicado'}</p>
+    </div>
+  );
+}
+
+const formatYears = (item) =>
+  [item.yearFrom, item.yearTo].filter(Boolean).join(' – ');
+
 const startedToday = (value) => {
   if (!value) return false;
   const date = new Date(value);
@@ -186,8 +200,8 @@ export default function Dashboard() {
     const opportunity = opportunities.find((opp) => opp.id === offeringId);
     if (!opportunity) return;
 
-    if (!price) {
-      setOfferError('Escribe un precio para enviar la oferta.');
+    if (!price || !(Number(price) > 0)) {
+      setOfferError('Escribe un precio por unidad mayor a cero para enviar la oferta.');
       return;
     }
 
@@ -198,16 +212,29 @@ export default function Dashboard() {
       return;
     }
 
+    const unitPrice = Number(price);
+    const units = opportunity.quantityTotal || 1;
+
     setSending(true);
     setOfferError('');
 
     const result = await createOffer({
       request_id: opportunity.id,
       commerce_id: extra.commerceId,
-      total_amount: Number(price),
+      // El precio se captura por unidad y se multiplica por la cantidad real
+      // solicitada; antes la oferta se enviaba sin cantidad y el total no la
+      // reflejaba.
+      total_amount: Number((unitPrice * units).toFixed(2)),
       currency: 'MXN',
       conditions: closingMessage.trim() || null,
       status: 'active',
+      items: opportunity.items.map((item) => ({
+        name: item.product,
+        description: item.product,
+        quantity: item.quantity,
+        unitPrice,
+        totalPrice: Number((unitPrice * item.quantity).toFixed(2)),
+      })),
     });
 
     setSending(false);
@@ -308,10 +335,31 @@ export default function Dashboard() {
                     <span className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-[#0197AF]/20 to-[#4B227A]/20 text-[#4B227A] rounded-lg text-[10px] font-bold uppercase border border-[#4B227A]/30">
                       <Flame className="w-3 h-3 fill-current" /> Solicitud abierta
                     </span>
+                    <span className="flex items-center gap-1 px-2 py-0.5 bg-[#00EED0]/20 text-[#4B227A] rounded-lg text-[10px] font-bold border border-[#00EED0]/30">
+                      {opp.quantityTotal} {opp.quantityTotal === 1 ? 'unidad' : 'unidades'} · {opp.items.length}{' '}
+                      {opp.items.length === 1 ? 'producto' : 'productos'}
+                    </span>
                   </div>
                   <p className="text-sm text-gray-600 line-clamp-3">
                     {opp.details || 'Sin descripción.'}
                   </p>
+                  {opp.items.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {opp.items.slice(0, 3).map((item) => (
+                        <span
+                          key={item.key}
+                          className="text-[10px] font-medium text-gray-700 bg-white/70 px-2 py-0.5 rounded-full border border-white/40"
+                        >
+                          {item.product} × {item.quantity}
+                        </span>
+                      ))}
+                      {opp.items.length > 3 ? (
+                        <span className="text-[10px] font-medium text-gray-600 px-1 py-0.5">
+                          +{opp.items.length - 3} más
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -356,6 +404,24 @@ export default function Dashboard() {
                       </div>
                     ) : (
                       <>
+                        <div className="rounded-xl bg-white/60 border border-white/40 p-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                            Solicitud
+                          </p>
+                          <p className="text-sm font-semibold text-gray-800">{opp.product}</p>
+                          <p className="text-xs text-gray-600">
+                            {opp.quantityTotal} {opp.quantityTotal === 1 ? 'unidad' : 'unidades'} en total
+                          </p>
+                          {opp.items.length > 0 ? (
+                            <ul className="mt-1 space-y-0.5">
+                              {opp.items.map((item) => (
+                                <li key={item.key} className="text-xs text-gray-700">
+                                  • {item.product} × {item.quantity}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
                         <div className="relative">
                           <textarea
                             className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-medium"
@@ -365,16 +431,32 @@ export default function Dashboard() {
                             onChange={(e) => setClosingMessage(e.target.value)}
                           />
                         </div>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">$</span>
-                          <input
-                            type="number"
-                            className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl pl-7 pr-4 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-bold text-sm"
-                            placeholder="Tu precio"
-                            value={price}
-                            onChange={(e) => setPrice(e.target.value)}
-                            autoFocus
-                          />
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                            Precio por unidad
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">$</span>
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              className="w-full bg-white/70 backdrop-blur-md border border-[#4B227A]/30 rounded-xl pl-7 pr-4 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF] font-bold text-sm"
+                              placeholder="Precio por unidad"
+                              value={price}
+                              onChange={(e) => setPrice(e.target.value)}
+                              autoFocus
+                            />
+                          </div>
+                          {Number(price) > 0 ? (
+                            <p className="mt-1 text-xs text-gray-600 text-right">
+                              Total por {opp.quantityTotal}{' '}
+                              {opp.quantityTotal === 1 ? 'unidad' : 'unidades'}:{' '}
+                              <strong className="text-[#006E7A]">
+                                {formatCurrency(Number(price) * (opp.quantityTotal || 1), 'MXN')}
+                              </strong>
+                            </p>
+                          ) : null}
                         </div>
                         {offerError ? (
                           <DataNotice tone="error">{offerError}</DataNotice>
@@ -418,7 +500,12 @@ export default function Dashboard() {
       {/* Modal de Detalles con glassmorphism - Actualización estética Junio 2026 */}
       {selectedOpp && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white/80 backdrop-blur-md w-full max-w-sm rounded-2xl p-6 shadow-xl relative animate-in zoom-in-95 duration-200 border border-white/30">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detalle de la oportunidad"
+            className="bg-white/80 backdrop-blur-md w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-6 shadow-xl relative animate-in zoom-in-95 duration-200 border border-white/30"
+          >
             <button
               aria-label="Cerrar detalles de la oportunidad"
               onClick={() => setSelectedOpp(null)}
@@ -427,16 +514,80 @@ export default function Dashboard() {
               <X className="w-6 h-6" />
             </button>
 
-            <h2 className="text-xl font-bold text-gray-800 mb-1">{selectedOpp.product}</h2>
-            <p className="text-sm text-gray-600 mb-6 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-800 mb-1 pr-8">{selectedOpp.product}</h2>
+            <p className="text-sm text-gray-600 mb-5 flex items-center gap-2">
               <Clock className="w-4 h-4" /> {selectedOpp.timeLeft}
             </p>
 
             <div className="space-y-4 mb-6">
-              <div className="bg-white/70 backdrop-blur-md p-4 rounded-xl border border-white/30">
-                <span className="text-xs text-gray-600 block mb-1">Descripción</span>
-                <p className="text-gray-800 font-medium">{selectedOpp.details || 'Sin descripción.'}</p>
-              </div>
+              {selectedOpp.items.length > 0 ? (
+                selectedOpp.items.map((item) => (
+                  <article
+                    key={item.key}
+                    className="rounded-xl border border-white/40 bg-white/70 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                          Producto específico
+                        </span>
+                        <p className="font-bold text-gray-800 break-words">{item.product}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-[#00EED0]/25 border border-[#00EED0]/40 px-2.5 py-1 text-xs font-bold text-[#4B227A]">
+                        × {item.quantity}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <DetailField label="Tipo de repuesto/accesorio" value={item.category} />
+                      <DetailField label="Tipo de vehículo" value={item.vehicleType} />
+                      <DetailField label="Marca" value={item.vehicleBrand} />
+                      <DetailField label="Modelo" value={item.vehicleModel} />
+                      <DetailField label="Años (inicial y final)" value={formatYears(item)} />
+                      <DetailField label="Referencia o número de parte" value={item.reference} />
+                      <DetailField label="Marca del repuesto" value={item.brand} />
+                      <DetailField label="Condición" value={item.condition} />
+                      <DetailField
+                        label="Cantidad solicitada"
+                        value={`${item.quantity} ${item.quantity === 1 ? 'unidad' : 'unidades'}`}
+                      />
+                    </div>
+
+                    <div className="mt-3">
+                      <DetailField label="Notas adicionales" value={item.notes} />
+                    </div>
+
+                    <div className="mt-3">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                        Imágenes de referencia
+                      </span>
+                      {item.images.length > 0 ? (
+                        <div className="mt-1.5 flex gap-2 overflow-x-auto pb-1">
+                          {item.images.map((image, index) => (
+                            <div
+                              key={`${item.key}-image-${index}`}
+                              className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/40 bg-white/70"
+                            >
+                              <SafeImage
+                                src={image}
+                                alt={`Referencia ${index + 1} de ${item.product}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-xs text-gray-500">Sin imágenes adjuntas.</p>
+                      )}
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="bg-white/70 backdrop-blur-md p-4 rounded-xl border border-white/30">
+                  <span className="text-xs text-gray-600 block mb-1">Descripción</span>
+                  <p className="text-gray-800 font-medium">{selectedOpp.details || 'Sin descripción.'}</p>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <div className="flex-1 bg-gradient-to-br from-[#00EED0]/20 to-[#0197AF]/20 p-3 rounded-xl border border-[#0197AF]/30">
@@ -448,6 +599,14 @@ export default function Dashboard() {
                   <p className="text-[#006E7A] font-bold">Abierta</p>
                 </div>
               </div>
+
+              {selectedOpp.items.length > 1 ? (
+                <p className="text-xs text-gray-600">
+                  Cantidad total solicitada: <strong>{selectedOpp.quantityTotal}</strong>{' '}
+                  {selectedOpp.quantityTotal === 1 ? 'unidad' : 'unidades'} en{' '}
+                  {selectedOpp.items.length} productos.
+                </p>
+              ) : null}
             </div>
 
             <Button fullWidth onClick={() => {

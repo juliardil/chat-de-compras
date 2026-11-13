@@ -110,9 +110,14 @@ export default function Responses() {
                   <span className="text-xs font-medium">Sin calificación</span>
                 </div>
 
-                <div className="text-lg font-bold text-[#006E7A] mb-2">
+                <div className="text-lg font-bold text-[#006E7A] mb-1">
                   {offer.price}
                 </div>
+                {offer.quantityTotal > 0 ? (
+                  <p className="text-xs text-gray-600 mb-2">
+                    {offer.quantityTotal} {offer.quantityTotal === 1 ? 'unidad' : 'unidades'} en total
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -162,7 +167,7 @@ export default function Responses() {
             <div className="space-y-3">
               {selectedAvailability.items.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/70 border border-white/30">
-                  <span className="text-sm font-medium text-gray-800">{item.name}</span>
+                  <span className="text-sm font-medium text-gray-800">{item.name} × {item.quantity}</span>
                   {item.status === 'available' ? (
                     <span className="flex items-center gap-1 text-xs font-bold text-[#4B227A] bg-[#00EED0]/20 px-2 py-1 rounded-lg border border-[#00EED0]/30">
                       <Check className="w-3 h-3" /> Disponible

@@ -274,6 +274,40 @@ export const fetchBuyerRequests = async (userId) => {
   };
 };
 
+const toPositiveInteger = (value, fallback = 1) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.floor(parsed);
+};
+
+const readItemImages = (item) => {
+  const raw = Array.isArray(item?.images) ? item.images : [];
+  return raw
+    .map((image) => (typeof image === 'string' ? image : image?.url || image?.src || ''))
+    .filter(Boolean);
+};
+
+// Normaliza un ítem guardado en purchase_requests.items. El formulario del
+// comprador usa `item`, `quantity`, `vehicleBrand`… y versiones anteriores
+// pudieron guardar esos mismos datos con otras claves o como texto. El panel
+// del comercio necesita una forma estable para mostrar todos los campos.
+export const mapRequestItem = (item = {}, index = 0) => ({
+  key: item.id ?? `item-${index}`,
+  category: item.category || '',
+  product: item.item || item.name || item.description || 'Producto',
+  vehicleType: item.vehicleType || item.vehicle_type || '',
+  vehicleBrand: item.vehicleBrand || item.vehicle_brand || '',
+  vehicleModel: item.vehicleModel || item.vehicle_model || '',
+  yearFrom: item.yearFrom ?? item.year_from ?? '',
+  yearTo: item.yearTo ?? item.year_to ?? '',
+  reference: item.reference || item.part_number || '',
+  brand: item.brand || '',
+  condition: item.condition || '',
+  quantity: toPositiveInteger(item.quantity ?? item.cantidad, 1),
+  notes: item.notes || '',
+  images: readItemImages(item),
+});
+
 export const mapRequest = (row) => ({
   id: row.id,
   product: row.title || 'Solicitud sin título',
@@ -285,7 +319,7 @@ export const mapRequest = (row) => ({
   offers: Number.isFinite(Number(row.offers_count)) && row.offers_count !== null
     ? Number(row.offers_count)
     : null,
-  items: Array.isArray(row.items) ? row.items : [],
+  items: Array.isArray(row.items) ? row.items.map(mapRequestItem) : [],
 });
 
 // -----------------------------------------------------------------------------
@@ -351,8 +385,13 @@ export const mapOffer = (row) => {
     status: row.status,
     found: available,
     total: items.length,
+    quantityTotal: items.reduce(
+      (total, item) => total + toPositiveInteger(item?.quantity ?? item?.cantidad, 1),
+      0
+    ),
     items: items.map((item) => ({
-      name: item.name || item.title || 'Producto',
+      name: item.name || item.title || item.description || 'Producto',
+      quantity: toPositiveInteger(item.quantity ?? item.cantidad, 1),
       status: item.available === false ? 'missing' : 'available',
     })),
   };
@@ -492,7 +531,7 @@ export const fetchOpenRequests = async (commerceId) => {
     (db) =>
       db
         .from('purchase_requests')
-        .select('*')
+        .select('id,title,description,items,budget_amount,currency,status,expires_at,created_at')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
         .limit(50),
@@ -515,17 +554,24 @@ export const fetchCommerceSales = async (commerceId) => {
   );
 };
 
-export const mapOpportunity = (row) => ({
-  id: row.id,
-  product: row.title || 'Solicitud sin título',
-  details: row.description || '',
-  budget: formatCurrency(row.budget_amount, row.currency),
-  timeLeft: formatRelativeDate(row.expires_at || row.created_at),
-  image: null,
-  user: '',
-  rating: null,
-  transactions: null,
-});
+export const mapOpportunity = (row) => {
+  const items = Array.isArray(row.items) ? row.items.map(mapRequestItem) : [];
+  const firstImage = items.find((item) => item.images.length > 0)?.images[0] || null;
+
+  return {
+    id: row.id,
+    product: row.title || 'Solicitud sin título',
+    details: row.description || '',
+    budget: formatCurrency(row.budget_amount, row.currency),
+    timeLeft: formatRelativeDate(row.expires_at || row.created_at),
+    image: firstImage,
+    items,
+    quantityTotal: items.reduce((total, item) => total + item.quantity, 0),
+    user: '',
+    rating: null,
+    transactions: null,
+  };
+};
 
 // -----------------------------------------------------------------------------
 // Notificaciones / reseñas / categorías
