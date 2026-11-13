@@ -13,6 +13,7 @@ import Categories from './pages/user/Categories';
 import RequestForm from './pages/user/RequestForm';
 import Responses from './pages/user/Responses';
 import Offers from './pages/user/Offers';
+import RequestSuccess from './pages/user/RequestSuccess';
 import ChatDispatch from './pages/common/ChatDispatch';
 import ProductDetail from './pages/user/ProductDetail';
 import Tracking from './pages/user/Tracking';
@@ -93,6 +94,7 @@ function AppRoutes() {
         {/* User Routes */}
         <Route path="/categories" element={<RequireRole role="user"><Categories /></RequireRole>} />
         <Route path="/request" element={<RequireRole role="user"><RequestForm /></RequireRole>} />
+        <Route path="/request-success" element={<RequireRole role="user"><RequestSuccess /></RequireRole>} />
         <Route path="/responses" element={<RequireRole role="user"><Responses /></RequireRole>} />
         <Route path="/offers" element={<RequireRole role="user"><Offers /></RequireRole>} />
         <Route path="/product/:id" element={<RequireRole role="user"><ProductDetail /></RequireRole>} />

@@ -187,11 +187,24 @@ export default function RequestForm() {
 
     setSubmitting(false);
 
+    // Confirmación solo cuando la publicación terminó correctamente. Si falló,
+    // se conserva el tratamiento actual: /responses muestra el motivo real.
+    if (result.ok) {
+      navigate('/request-success', {
+        replace: true,
+        state: {
+          requestId: result.data?.[0]?.id || null,
+          products,
+        },
+      });
+      return;
+    }
+
     navigate('/responses', {
       state: {
         products,
-        requestId: result.ok ? result.data?.[0]?.id || null : null,
-        publishError: result.ok ? null : result.error,
+        requestId: null,
+        publishError: result.error,
       },
     });
   };
