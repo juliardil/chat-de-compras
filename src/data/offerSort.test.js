@@ -15,7 +15,7 @@ const ids = (list) => list.map((item) => item.id);
 describe('ordenamiento de ofertas', () => {
   it('ofrece las opciones de orden solicitadas', () => {
     expect(OFFER_SORT_OPTIONS.map((option) => option.key)).toEqual([
-      'relevance',
+      'distance',
       'price_asc',
       'price_desc',
       'delivery',
@@ -23,9 +23,20 @@ describe('ordenamiento de ofertas', () => {
     ]);
   });
 
-  it('conserva el orden original en relevancia', () => {
-    const list = [offer('a', { amount: 900 }), offer('b', { amount: 100 })];
-    expect(ids(sortOffers(list, 'relevance'))).toEqual(['a', 'b']);
+  it('ordena por distancia y deja al final las ofertas sin ubicación', () => {
+    const list = [
+      offer('lejos', { distanceKm: 8.4 }),
+      offer('sin-ubicacion'),
+      offer('cerca', { distanceKm: 1.2 }),
+      offer('medio', { distanceKm: 3.5 }),
+    ];
+
+    expect(ids(sortOffers(list, 'distance'))).toEqual([
+      'cerca',
+      'medio',
+      'lejos',
+      'sin-ubicacion',
+    ]);
   });
 
   it('ordena por precio de menor a mayor y deja al final las ofertas sin importe', () => {
@@ -87,8 +98,20 @@ describe('ordenamiento de ofertas', () => {
       'pastillas',
       'sin-precio',
     ]);
-    // En relevancia se conserva el orden original de los productos.
-    expect(sortOfferGroups(groups, 'relevance')).toBe(groups);
+  });
+
+  it('ordena los grupos por la oferta más cercana', () => {
+    const groups = [
+      { key: 'lejos', offers: [offer('lejos', { distanceKm: 9.2 })] },
+      { key: 'sin-ubicacion', offers: [offer('sin-ubicacion')] },
+      { key: 'cerca', offers: [offer('cerca', { distanceKm: 2.4 })] },
+    ];
+
+    expect(sortOfferGroups(groups, 'distance').map((group) => group.key)).toEqual([
+      'cerca',
+      'lejos',
+      'sin-ubicacion',
+    ]);
   });
 
   it('ordena también las ofertas dentro de cada grupo', () => {

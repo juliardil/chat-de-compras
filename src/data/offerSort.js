@@ -1,6 +1,8 @@
 // Ordenamiento de ofertas recibidas por el comprador.
 // Se comparte entre la sección «Ofertas» y el detalle de «Respuestas» para que
 // ambas pantallas ordenen con las mismas reglas reales:
+//   * distancia: usa la distancia real en km; las ofertas sin ubicación quedan
+//     al final.
 //   * precio: usa el importe cotizado (total_amount); las ofertas sin importe
 //     quedan al final.
 //   * tiempo de entrega: usa delivery_days; sin plazo, al final.
@@ -9,7 +11,7 @@
 //     al final (no se les inventa una calificación).
 
 export const OFFER_SORT_OPTIONS = [
-  { key: 'relevance', label: 'Relevancia' },
+  { key: 'distance', label: 'Menor distancia' },
   { key: 'price_asc', label: 'Menor precio' },
   { key: 'price_desc', label: 'Mayor precio' },
   { key: 'delivery', label: 'Entrega rápida' },
@@ -29,6 +31,11 @@ const compareNullable = (a, b, direction = 'asc') => {
 };
 
 const getOfferComparator = (sortKey) => {
+  if (sortKey === 'distance') {
+    return (a, b) =>
+      compareNullable(toNumberOrNull(a.distanceKm), toNumberOrNull(b.distanceKm), 'asc');
+  }
+
   if (sortKey === 'price_asc') {
     return (a, b) => compareNullable(toNumberOrNull(a.amount), toNumberOrNull(b.amount), 'asc');
   }

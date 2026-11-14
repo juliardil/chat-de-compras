@@ -37,7 +37,7 @@ export default function Offers() {
   const { user } = useAuth();
   const [openingOfferId, setOpeningOfferId] = useState(null);
   const [chatError, setChatError] = useState('');
-  const [sortKey, setSortKey] = useState('relevance');
+  const [sortKey, setSortKey] = useState('distance');
 
   const { items, extra, loading, error, notice } = useModuleData(async () => {
     const [offersResult, requestsResult] = await Promise.all([

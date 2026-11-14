@@ -19,7 +19,7 @@ export default function Responses() {
   const [selectedAvailability, setSelectedAvailability] = useState(null);
   const [openingOfferId, setOpeningOfferId] = useState(null);
   const [chatError, setChatError] = useState('');
-  const [sortKey, setSortKey] = useState('relevance');
+  const [sortKey, setSortKey] = useState('distance');
 
   // La solicitud viene del formulario (datos reales que escribió la persona).
   const requestDraft = Array.isArray(location.state?.products) ? location.state.products[0] : null;

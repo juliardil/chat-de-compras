@@ -331,4 +331,47 @@ describe('sección Ofertas del comprador', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Mayor precio' }));
     expect(productOrder()).toEqual(['ACEITE', 'pastillas']);
   });
+
+  it('ordena por kilómetros de forma predeterminada, del más cercano al más lejano', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          ...offer('offer-lejos', 'req-1', 'Comercio Lejos', 900),
+          commerce_latitude: 19.5326,
+          commerce_longitude: -99.1332,
+        },
+        {
+          ...offer('offer-cerca', 'req-2', 'Comercio Cerca', 300),
+          commerce_latitude: 19.4576,
+          commerce_longitude: -99.1332,
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'ACEITE'), request('req-2', 'pastillas')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers({
+      id: 'buyer-1',
+      role: 'user',
+      location: { latitude: 19.4326, longitude: -99.1332 },
+    });
+    await screen.findByRole('heading', { name: 'ACEITE' });
+
+    // Aunque ACEITE se cargó primero, el más cercano (2.8 km) va primero.
+    expect(screen.getAllByRole('heading', { level: 2 }).map((node) => node.textContent)).toEqual([
+      'pastillas',
+      'ACEITE',
+    ]);
+    expect(screen.getByText('2.8 km')).toBeInTheDocument();
+    expect(screen.getByText('11 km')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menor distancia' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
 });
