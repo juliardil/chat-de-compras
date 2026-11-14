@@ -301,4 +301,34 @@ describe('sección Ofertas del comprador', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confiabilidad' }));
     expect(storeOrder()).toEqual(['Comercio A', 'Comercio B']);
   });
+
+  it('ordena los productos por su mejor oferta aunque haya una oferta por producto', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        offer('offer-a', 'req-1', 'Comercio A', 900),
+        offer('offer-b', 'req-2', 'Comercio B', 300),
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'ACEITE'), request('req-2', 'pastillas')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+    await screen.findByRole('heading', { name: 'ACEITE' });
+
+    const productOrder = () =>
+      screen.getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
+
+    expect(productOrder()).toEqual(['ACEITE', 'pastillas']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Menor precio' }));
+    expect(productOrder()).toEqual(['pastillas', 'ACEITE']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mayor precio' }));
+    expect(productOrder()).toEqual(['ACEITE', 'pastillas']);
+  });
 });

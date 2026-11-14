@@ -16,7 +16,7 @@ import OfferSortBar from '../../components/ui/OfferSortBar';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
-import { sortOffers } from '../../data/offerSort';
+import { sortOfferGroups } from '../../data/offerSort';
 import {
   fetchBuyerOffers,
   fetchBuyerRequests,
@@ -96,6 +96,10 @@ export default function Offers() {
     groups[index].offers.push(offer);
   });
 
+  // Ordenar también los grupos por su mejor oferta hace que el selector tenga
+  // efecto aunque cada producto haya recibido una sola propuesta.
+  const sortedGroups = sortOfferGroups(groups, sortKey);
+
   // Abre (o crea) el hilo real entre este comprador y el comercio de la oferta.
   const handleOpenChat = async (offer) => {
     if (openingOfferId) return;
@@ -140,7 +144,7 @@ export default function Offers() {
           <OfferSortBar value={sortKey} onChange={setSortKey} />
         ) : null}
 
-        {!loading && groups.map((group) => (
+        {!loading && sortedGroups.map((group) => (
           <section
             key={group.key}
             className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/30"
@@ -172,7 +176,7 @@ export default function Offers() {
             ) : null}
 
             <div className="flex flex-col gap-3">
-              {sortOffers(group.offers, sortKey).map((offer) => (
+              {group.offers.map((offer) => (
                 <article
                   key={offer.id}
                   className="rounded-xl border border-white/40 bg-white/70 p-3"

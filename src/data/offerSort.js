@@ -28,24 +28,46 @@ const compareNullable = (a, b, direction = 'asc') => {
   return direction === 'asc' ? a - b : b - a;
 };
 
+const getOfferComparator = (sortKey) => {
+  if (sortKey === 'price_asc') {
+    return (a, b) => compareNullable(toNumberOrNull(a.amount), toNumberOrNull(b.amount), 'asc');
+  }
+
+  if (sortKey === 'price_desc') {
+    return (a, b) => compareNullable(toNumberOrNull(a.amount), toNumberOrNull(b.amount), 'desc');
+  }
+
+  if (sortKey === 'delivery') {
+    return (a, b) =>
+      compareNullable(toNumberOrNull(a.deliveryDays), toNumberOrNull(b.deliveryDays), 'asc');
+  }
+
+  if (sortKey === 'reliability') {
+    return (a, b) => {
+      const byRating = compareNullable(a.rating ?? null, b.rating ?? null, 'desc');
+      if (byRating !== 0) return byRating;
+      return (b.ratingCount || 0) - (a.ratingCount || 0);
+    };
+  }
+
+  return null;
+};
+
 export const sortOffers = (list, sortKey) => {
-  if (!Array.isArray(list) || sortKey === 'relevance') return list;
+  const comparator = getOfferComparator(sortKey);
+  if (!Array.isArray(list) || !comparator) return list;
 
-  return [...list].sort((a, b) => {
-    if (sortKey === 'price_asc') {
-      return compareNullable(toNumberOrNull(a.amount), toNumberOrNull(b.amount), 'asc');
-    }
+  return [...list].sort(comparator);
+};
 
-    if (sortKey === 'price_desc') {
-      return compareNullable(toNumberOrNull(a.amount), toNumberOrNull(b.amount), 'desc');
-    }
+// Los productos se muestran agrupados. Al elegir un criterio, cada grupo se
+// ordena por dentro y los grupos se ordenan por su mejor oferta, para que el
+// selector también tenga efecto cuando hay una sola oferta por producto.
+export const sortOfferGroups = (groups, sortKey) => {
+  const comparator = getOfferComparator(sortKey);
+  if (!Array.isArray(groups) || !comparator) return groups;
 
-    if (sortKey === 'delivery') {
-      return compareNullable(toNumberOrNull(a.deliveryDays), toNumberOrNull(b.deliveryDays), 'asc');
-    }
-
-    const byRating = compareNullable(a.rating ?? null, b.rating ?? null, 'desc');
-    if (byRating !== 0) return byRating;
-    return (b.ratingCount || 0) - (a.ratingCount || 0);
-  });
+  return [...groups]
+    .map((group) => ({ ...group, offers: sortOffers(group.offers, sortKey) }))
+    .sort((a, b) => comparator(a.offers[0], b.offers[0]));
 };

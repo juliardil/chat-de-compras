@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OFFER_SORT_OPTIONS, sortOffers } from './offerSort';
+import { OFFER_SORT_OPTIONS, sortOffers, sortOfferGroups } from './offerSort';
 
 const offer = (id, overrides = {}) => ({
   id,
@@ -68,5 +68,43 @@ describe('ordenamiento de ofertas', () => {
 
     expect(sorted).not.toBe(list);
     expect(ids(list)).toEqual(['a', 'b']);
+  });
+
+  it('ordena los grupos de producto por su mejor oferta', () => {
+    const groups = [
+      { key: 'aceite', offers: [offer('aceite', { amount: 300 })] },
+      { key: 'sin-precio', offers: [offer('sin-precio')] },
+      { key: 'pastillas', offers: [offer('pastillas', { amount: 250 })] },
+    ];
+
+    expect(sortOfferGroups(groups, 'price_asc').map((group) => group.key)).toEqual([
+      'pastillas',
+      'aceite',
+      'sin-precio',
+    ]);
+    expect(sortOfferGroups(groups, 'price_desc').map((group) => group.key)).toEqual([
+      'aceite',
+      'pastillas',
+      'sin-precio',
+    ]);
+    // En relevancia se conserva el orden original de los productos.
+    expect(sortOfferGroups(groups, 'relevance')).toBe(groups);
+  });
+
+  it('ordena también las ofertas dentro de cada grupo', () => {
+    const groups = [
+      {
+        key: 'pastillas',
+        offers: [
+          offer('caro', { amount: 900 }),
+          offer('barato', { amount: 250 }),
+        ],
+      },
+    ];
+
+    const [group] = sortOfferGroups(groups, 'price_asc');
+    expect(ids(group.offers)).toEqual(['barato', 'caro']);
+    // El grupo original no se modifica.
+    expect(ids(groups[0].offers)).toEqual(['caro', 'barato']);
   });
 });
