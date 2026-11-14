@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Phone, Globe, Instagram, Save, FileText, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Clock, Phone, Globe, Instagram, Save, FileText, ChevronDown, MapPin } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../context/auth-context';
@@ -23,10 +23,68 @@ export default function EditProfile() {
     schedule: business.schedule || '',
     phone: business.phone || '',
     instagram: business.instagram || '',
-    website: business.website || ''
+    website: business.website || '',
+    latitude: business.latitude ?? '',
+    longitude: business.longitude ?? ''
   });
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState(null);
   const [error, setError] = useState(null);
+
+  const hasCoordinates =
+    formData.latitude !== '' &&
+    formData.latitude !== null &&
+    formData.longitude !== '' &&
+    formData.longitude !== null;
+
+  // Captura la ubicación real del comercio desde el navegador. Se guarda junto
+  // con el resto del perfil y app_ensure_profile la sincroniza a
+  // commerce_profiles para que los compradores vean la distancia en km.
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage({
+        tone: 'error',
+        text: 'Este navegador no permite obtener tu ubicación.',
+      });
+      return;
+    }
+
+    setLocationMessage(null);
+    setLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData((current) => ({
+          ...current,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }));
+        setLocationMessage({
+          tone: 'info',
+          text: 'Ubicación capturada. Guarda los cambios para publicarla.',
+        });
+        setLocating(false);
+      },
+      (geoError) => {
+        setLocating(false);
+        setLocationMessage({
+          tone: 'error',
+          text:
+            geoError?.code === 1
+              ? 'Permiso de ubicación denegado. Actívalo en tu navegador e inténtalo de nuevo.'
+              : 'No se pudo obtener tu ubicación. Inténtalo de nuevo.',
+        });
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
+  const toCoordinate = (value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   const scheduleOptions = [
     'Lunes a Viernes: 9:00 AM - 6:00 PM',
@@ -74,6 +132,8 @@ export default function EditProfile() {
           phone: formData.phone.trim(),
           instagram: formData.instagram.trim(),
           website: formData.website.trim(),
+          latitude: toCoordinate(formData.latitude),
+          longitude: toCoordinate(formData.longitude),
         },
       });
       navigate('/profile', { state: { profileUpdated: true } });
@@ -194,6 +254,49 @@ export default function EditProfile() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Ubicación del comercio */}
+        <div className="bg-white/80 backdrop-blur-md p-5 rounded-xl shadow-sm border border-white/30">
+          <div className="flex items-center gap-2 mb-4 text-[#4B227A] font-bold">
+            <MapPin className="w-5 h-5" />
+            <h2>Ubicación del Comercio</h2>
+          </div>
+
+          <p className="text-xs text-gray-600 mb-3">
+            {hasCoordinates
+              ? `Coordenadas guardadas: ${Number(formData.latitude).toFixed(4)}, ${Number(formData.longitude).toFixed(4)}`
+              : 'Sin ubicación guardada. Se usa para mostrar a los compradores la distancia en km.'}
+          </p>
+
+          <Button
+            fullWidth
+            type="button"
+            variant="outline"
+            onClick={handleUseMyLocation}
+            disabled={locating}
+            className="py-3 flex items-center justify-center gap-2 border-[#0197AF]/30 text-[#006E7A]"
+          >
+            <MapPin className="w-4 h-4" />
+            {locating
+              ? 'OBTENIENDO…'
+              : hasCoordinates
+                ? 'ACTUALIZAR UBICACIÓN'
+                : 'USAR MI UBICACIÓN ACTUAL'}
+          </Button>
+
+          {locationMessage ? (
+            <p
+              role={locationMessage.tone === 'error' ? 'alert' : 'status'}
+              className={`mt-3 text-sm rounded-xl px-4 py-3 border ${
+                locationMessage.tone === 'error'
+                  ? 'text-red-700 bg-red-50 border-red-100'
+                  : 'text-[#006E7A] bg-[#00EED0]/10 border-[#00EED0]/30'
+              }`}
+            >
+              {locationMessage.text}
+            </p>
+          ) : null}
         </div>
 
         {error ? (

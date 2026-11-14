@@ -60,6 +60,47 @@ const normalizeMessage = (error) =>
 const errorStatus = (error) =>
   error?.statusCode ?? error?.status ?? error?.code ?? error?.cause?.statusCode ?? null;
 
+// -----------------------------------------------------------------------------
+// Distancias
+// La distancia entre comprador y comercio se calcula con la fórmula de
+// Haversine a partir de coordenadas reales. Si falta alguna coordenada se
+// devuelve null: la interfaz no muestra una distancia inventada.
+// -----------------------------------------------------------------------------
+const EARTH_RADIUS_KM = 6371;
+
+export function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  const inputs = [lat1, lon1, lat2, lon2];
+  // null/undefined/vacío significan «sin coordenada»; no deben convertirse en 0.
+  if (inputs.some((value) => value === null || value === undefined || value === '')) return null;
+
+  const values = inputs.map((value) => Number(value));
+  if (!values.every((value) => Number.isFinite(value))) return null;
+
+  const [fromLat, fromLon, toLat, toLon] = values;
+  if (Math.abs(fromLat) > 90 || Math.abs(toLat) > 90) return null;
+  if (Math.abs(fromLon) > 180 || Math.abs(toLon) > 180) return null;
+
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLon = toRadians(toLon - fromLon);
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(toRadians(fromLat)) *
+      Math.cos(toRadians(toLat)) *
+      Math.sin(deltaLon / 2) ** 2;
+
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(haversine)));
+}
+
+export function formatDistance(km) {
+  if (!Number.isFinite(km) || km < 0) return '';
+  if (km < 1) {
+    const meters = Math.max(50, Math.round((km * 1000) / 50) * 50);
+    return `${meters} m`;
+  }
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
+}
+
 // Traduce cualquier error de InsForge/SDK a un mensaje entendible por el usuario.
 export function describeError(error, fallback = 'No se pudo completar la operación.') {
   if (!error) return fallback;
@@ -356,32 +397,89 @@ export const fetchBuyerOffers = async (userId) => {
 
   if (offers.items.length === 0) return offers;
 
-  // Los nombres comerciales viven en commerce_profiles. Si esa consulta no
-  // está permitida, se usa un nombre genérico (nunca inventado).
+  // Los nombres comerciales, la ubicación y la confiabilidad viven en
+  // commerce_profiles / commerce_reviews. Si una consulta no está permitida,
+  // se usa un valor neutro (nunca inventado).
   const commerceIds = [...new Set(offers.items.map((offer) => offer.commerce_id).filter(Boolean))];
-  let commerceNames = {};
+  const commerceById = {};
+
   if (commerceIds.length > 0) {
     const profiles = await runQuery(
-      (db) => db.from('commerce_profiles').select('id,trade_name').in('id', commerceIds),
+      (db) =>
+        db
+          .from('commerce_profiles')
+          .select('id,trade_name,latitude,longitude')
+          .in('id', commerceIds),
       NOTICES.offers
     );
-    commerceNames = profiles.items.reduce((acc, profile) => {
-      acc[profile.id] = profile.trade_name;
+
+    profiles.items.forEach((profile) => {
+      commerceById[profile.id] = profile;
+    });
+
+    // Confiabilidad: promedio de reseñas publicadas. La política RLS permite
+    // leer las reseñas publicadas de cualquier comercio.
+    const reviews = await runQuery(
+      (db) =>
+        db
+          .from('commerce_reviews')
+          .select('commerce_id,rating')
+          .in('commerce_id', commerceIds)
+          .eq('status', 'published'),
+      NOTICES.reviews
+    );
+
+    const ratingTotals = reviews.items.reduce((acc, review) => {
+      const commerceId = review.commerce_id;
+      const rating = Number(review.rating);
+      if (!commerceId || !Number.isFinite(rating)) return acc;
+
+      const current = acc[commerceId] || { sum: 0, count: 0 };
+      acc[commerceId] = { sum: current.sum + rating, count: current.count + 1 };
       return acc;
     }, {});
+
+    Object.entries(ratingTotals).forEach(([commerceId, totals]) => {
+      if (!commerceById[commerceId]) return;
+      commerceById[commerceId] = {
+        ...commerceById[commerceId],
+        rating: totals.sum / totals.count,
+        rating_count: totals.count,
+      };
+    });
   }
 
   return {
-    items: offers.items.map((offer) => ({ ...offer, commerce_name: commerceNames[offer.commerce_id] || '' })),
+    items: offers.items.map((offer) => {
+      const commerce = commerceById[offer.commerce_id] || {};
+      return {
+        ...offer,
+        commerce_name: commerce.trade_name || '',
+        commerce_latitude: commerce.latitude ?? null,
+        commerce_longitude: commerce.longitude ?? null,
+        commerce_rating: commerce.rating ?? null,
+        commerce_rating_count: commerce.rating_count ?? 0,
+      };
+    }),
     error: offers.error,
     notice: offers.notice,
   };
 };
 
-export const mapOffer = (row) => {
+export const mapOffer = (row, buyerLocation = null) => {
   const items = Array.isArray(row.items) ? row.items : [];
   const isAvailable = (item) => item?.available !== false;
   const availableItems = items.filter((item) => item && isAvailable(item));
+
+  const amount = Number(row.total_amount);
+  const rating = Number(row.commerce_rating);
+  const ratingCount = Number(row.commerce_rating_count);
+  const distanceKm = calculateDistanceKm(
+    buyerLocation?.latitude,
+    buyerLocation?.longitude,
+    row.commerce_latitude,
+    row.commerce_longitude
+  );
 
   return {
     id: row.id,
@@ -389,7 +487,15 @@ export const mapOffer = (row) => {
     commerceId: row.commerce_id || null,
     store: row.commerce_name || 'Comercio',
     price: formatCurrency(row.total_amount, row.currency),
+    amount: Number.isFinite(amount) ? amount : null,
+    currency: row.currency || 'MXN',
     deliveryDays: row.delivery_days ?? null,
+    // Distancia real solo cuando ambas partes tienen coordenadas guardadas.
+    distanceKm,
+    distanceLabel: formatDistance(distanceKm),
+    // Confiabilidad = promedio de reseñas publicadas del comercio.
+    rating: Number.isFinite(rating) ? rating : null,
+    ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
     conditions: row.conditions || '',
     status: row.status,
     found: availableItems.length,

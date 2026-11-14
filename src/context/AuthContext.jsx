@@ -66,9 +66,10 @@ const clearStoredSession = () => {
 // -----------------------------------------------------------------------------
 // Mapeo del usuario de InsForge hacia el usuario de la app.
 // auth.users.profile (JSONB) guarda: name, phone, birth_date, role ('user' |
-// 'commerce'), business (datos del comercio) y addresses (direcciones del
-// comprador). El correo vive en
-// auth.users.email y no se edita desde la app (requiere reverificación).
+// 'commerce'), business (datos del comercio), addresses (direcciones del
+// comprador) y location (coordenadas del comprador para calcular distancias).
+// El correo vive en auth.users.email y no se edita desde la app (requiere
+// reverificación).
 // -----------------------------------------------------------------------------
 const readInsforgeProfile = (authUser) =>
   authUser && typeof authUser.profile === 'object' && authUser.profile !== null
@@ -82,6 +83,7 @@ export const mapInsForgeUser = (authUser) => {
   const email = authUser.email || '';
   const name = profile.name || authUser.name || (email ? email.split('@')[0] : 'Usuario');
   const business = profile.business && typeof profile.business === 'object' ? profile.business : null;
+  const location = profile.location && typeof profile.location === 'object' ? profile.location : null;
 
   return {
     id: authUser.id,
@@ -91,6 +93,7 @@ export const mapInsForgeUser = (authUser) => {
     birthDate: profile.birth_date || '',
     business,
     addresses: Array.isArray(profile.addresses) ? profile.addresses : [],
+    location,
     role: profile.role === 'commerce' ? 'commerce' : 'user',
   };
 };
@@ -248,6 +251,7 @@ export const AuthProvider = ({ children }) => {
         birthDate: patch.birth_date ?? user?.birthDate ?? '',
         business: patch.business ?? user?.business ?? null,
         addresses: patch.addresses ?? user?.addresses ?? [],
+        location: patch.location ?? user?.location ?? null,
       };
       setUser(nextUser);
       writeStoredSession(nextUser);

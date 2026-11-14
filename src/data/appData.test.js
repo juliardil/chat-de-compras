@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateDistanceKm,
   describeError,
   fetchBuyerOrders,
+  formatDistance,
   fetchBuyerRequests,
   fetchNotifications,
   createOrderForChat,
@@ -282,5 +284,69 @@ describe('capa de datos de la app', () => {
     expect(
       mapChatMessage({ id: 'm3', sender_type: 'system', body: 'Aviso', created_at: createdAt })
     ).toMatchObject({ text: 'Aviso', sender: 'system' });
+  });
+
+  it('calcula la distancia real con Haversine y no inventa valores', () => {
+    // CDMX → Guadalajara: la distancia en línea recta ronda los 460 km.
+    const cdmxToGuadalajara = calculateDistanceKm(19.4326, -99.1332, 20.6597, -103.3496);
+    expect(cdmxToGuadalajara).toBeGreaterThan(450);
+    expect(cdmxToGuadalajara).toBeLessThan(475);
+
+    // Sin coordenadas, con valores inválidos o fuera de rango, no hay distancia.
+    expect(calculateDistanceKm(null, null, 19.4326, -99.1332)).toBeNull();
+    expect(calculateDistanceKm(19.4326, -99.1332, undefined, undefined)).toBeNull();
+    expect(calculateDistanceKm(19.4326, -99.1332, 'no-es-numero', -99.1332)).toBeNull();
+    expect(calculateDistanceKm(120, -99.1332, 19.4326, -99.1332)).toBeNull();
+    expect(calculateDistanceKm(19.4326, 250, 19.4326, -99.1332)).toBeNull();
+  });
+
+  it('formatea la distancia en metros o kilómetros', () => {
+    expect(formatDistance(0.2)).toBe('200 m');
+    expect(formatDistance(0.024)).toBe('50 m');
+    expect(formatDistance(2.7799)).toBe('2.8 km');
+    expect(formatDistance(12.4)).toBe('12 km');
+    expect(formatDistance(null)).toBe('');
+    expect(formatDistance(-3)).toBe('');
+  });
+
+  it('mapea la distancia y la confiabilidad reales de cada oferta', () => {
+    const nearby = mapOffer(
+      {
+        id: 'offer-geo',
+        request_id: 'req-1',
+        commerce_name: 'Taller Cercano',
+        total_amount: 500,
+        currency: 'MXN',
+        commerce_latitude: 19.4576,
+        commerce_longitude: -99.1332,
+        commerce_rating: 4.5,
+        commerce_rating_count: 12,
+        items: [],
+      },
+      { latitude: 19.4326, longitude: -99.1332 }
+    );
+
+    expect(nearby.amount).toBe(500);
+    expect(nearby.distanceKm).toBeCloseTo(2.78, 1);
+    expect(nearby.distanceLabel).toBe('2.8 km');
+    expect(nearby.rating).toBe(4.5);
+    expect(nearby.ratingCount).toBe(12);
+
+    // Comercio sin coordenadas ni reseñas: no se muestra distancia ni nota,
+    // aunque el comprador sí tenga ubicación (null no debe convertirse en 0,0).
+    const unknown = mapOffer(
+      {
+        id: 'offer-unknown',
+        total_amount: 100,
+        commerce_latitude: null,
+        commerce_longitude: null,
+        items: [],
+      },
+      { latitude: 19.4326, longitude: -99.1332 }
+    );
+    expect(unknown.distanceKm).toBeNull();
+    expect(unknown.distanceLabel).toBe('');
+    expect(unknown.rating).toBeNull();
+    expect(unknown.ratingCount).toBe(0);
   });
 });

@@ -3,9 +3,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Star, MessageCircle, MapPin, Package, Check, X as XIcon, Store } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
+import OfferSortBar from '../../components/ui/OfferSortBar';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
+import { sortOffers } from '../../data/offerSort';
 import { fetchBuyerOffers, mapOffer, openChatForOffer, NOTICES } from '../../data/appData';
 
 // Actualización estética Junio 2026
@@ -17,6 +19,7 @@ export default function Responses() {
   const [selectedAvailability, setSelectedAvailability] = useState(null);
   const [openingOfferId, setOpeningOfferId] = useState(null);
   const [chatError, setChatError] = useState('');
+  const [sortKey, setSortKey] = useState('relevance');
 
   // La solicitud viene del formulario (datos reales que escribió la persona).
   const requestDraft = Array.isArray(location.state?.products) ? location.state.products[0] : null;
@@ -28,7 +31,8 @@ export default function Responses() {
     [user?.id, requestId]
   );
 
-  const offers = items.map(mapOffer);
+  const offers = items.map((row) => mapOffer(row, user?.location));
+  const sortedOffers = sortOffers(offers, sortKey);
   const requestTitle = requestDraft?.item || (requestId ? 'Solicitud de compra' : 'Sin solicitud seleccionada');
   const requestDetail = requestDraft
     ? [requestDraft.vehicleBrand, requestDraft.vehicleModel, requestDraft.yearFrom]
@@ -100,7 +104,11 @@ export default function Responses() {
       <div className="flex-1 p-4 flex flex-col gap-4">
         {loading ? <LoadingModule label="Cargando ofertas…" /> : null}
 
-        {!loading && offers.map((offer) => (
+        {!loading && offers.length > 1 ? (
+          <OfferSortBar value={sortKey} onChange={setSortKey} />
+        ) : null}
+
+        {!loading && sortedOffers.map((offer) => (
           <div key={offer.id} className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/30">
             <div className="flex gap-4">
               <SafeImage src={null} alt={offer.store} className="w-20 h-20 rounded-xl object-cover bg-white/70" />
@@ -129,14 +137,26 @@ export default function Responses() {
                     )}
                     <div className="flex items-center gap-1 text-xs text-gray-600 bg-white/70 px-2 py-1 rounded-full border border-white/30">
                       <MapPin className="w-3 h-3" />
-                      Comercio
+                      {offer.distanceLabel || 'Sin ubicación'}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1 mb-2">
-                  <Star className="w-3 h-3 text-[#006E7A]" />
-                  <span className="text-xs font-medium">Sin calificación</span>
+                  {offer.rating !== null ? (
+                    <>
+                      <Star className="w-3 h-3 text-[#006E7A] fill-current" />
+                      <span className="text-xs font-semibold text-[#006E7A]">
+                        {offer.rating.toFixed(1)}
+                        {offer.ratingCount > 0 ? ` (${offer.ratingCount} reseñas)` : ''}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Star className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs font-medium text-gray-600">Sin calificación</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="text-lg font-bold text-[#006E7A] mb-1">

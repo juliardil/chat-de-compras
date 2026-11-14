@@ -1,11 +1,22 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Package, Store, Clock, Tags, AlertTriangle } from 'lucide-react';
+import {
+  MessageCircle,
+  Package,
+  Store,
+  Clock,
+  Tags,
+  AlertTriangle,
+  MapPin,
+  Star,
+} from 'lucide-react';
 import Button from '../../components/ui/Button';
 import UserBottomNav from '../../components/layout/UserBottomNav';
+import OfferSortBar from '../../components/ui/OfferSortBar';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
+import { sortOffers } from '../../data/offerSort';
 import {
   fetchBuyerOffers,
   fetchBuyerRequests,
@@ -26,6 +37,7 @@ export default function Offers() {
   const { user } = useAuth();
   const [openingOfferId, setOpeningOfferId] = useState(null);
   const [chatError, setChatError] = useState('');
+  const [sortKey, setSortKey] = useState('relevance');
 
   const { items, extra, loading, error, notice } = useModuleData(async () => {
     const [offersResult, requestsResult] = await Promise.all([
@@ -41,9 +53,10 @@ export default function Offers() {
     };
   }, [user?.id]);
 
-  const offers = items.map(mapOffer);
+  const offers = items.map((row) => mapOffer(row, user?.location));
   const requests = (extra || []).map(mapRequest);
   const requestById = new Map(requests.map((request) => [request.id, request]));
+  const normalizeText = (value) => String(value || '').trim().toLowerCase();
 
   // Agrupa por solicitud (producto publicado), conservando el orden en que
   // llegan las ofertas (más recientes primero).
@@ -56,14 +69,26 @@ export default function Offers() {
 
     if (index === undefined) {
       const request = requestById.get(key);
+      const product = request?.product || 'Solicitud de compra';
+      const description = request?.description || '';
+      const requestItems = request?.items || [];
+
       index = groups.length;
       groupIndex.set(key, index);
       groups.push({
         key,
-        product: request?.product || 'Solicitud de compra',
-        description: request?.description || '',
+        product,
+        description,
+        // El nombre del producto se muestra una sola vez: la descripción y
+        // los ítems solo se muestran cuando aportan información distinta.
+        showDescription:
+          Boolean(description) && normalizeText(description) !== normalizeText(product),
         statusLabel: request?.statusLabel || '',
-        items: request?.items || [],
+        items: requestItems,
+        showItems:
+          requestItems.length > 1 ||
+          (requestItems.length === 1 &&
+            normalizeText(requestItems[0].product) !== normalizeText(product)),
         offers: [],
       });
     }
@@ -111,6 +136,10 @@ export default function Offers() {
         {chatError ? <DataNotice tone="error">{chatError}</DataNotice> : null}
         {loading ? <LoadingModule label="Cargando ofertas…" /> : null}
 
+        {!loading && offers.length > 1 ? (
+          <OfferSortBar value={sortKey} onChange={setSortKey} />
+        ) : null}
+
         {!loading && groups.map((group) => (
           <section
             key={group.key}
@@ -120,7 +149,7 @@ export default function Offers() {
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Producto</p>
                 <h2 className="font-bold text-gray-800">{group.product}</h2>
-                {group.description ? (
+                {group.showDescription ? (
                   <p className="text-sm text-gray-600 line-clamp-2">{group.description}</p>
                 ) : null}
               </div>
@@ -129,7 +158,7 @@ export default function Offers() {
               </span>
             </div>
 
-            {group.items.length > 0 ? (
+            {group.showItems ? (
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {group.items.map((item, index) => (
                   <span
@@ -143,7 +172,7 @@ export default function Offers() {
             ) : null}
 
             <div className="flex flex-col gap-3">
-              {group.offers.map((offer) => (
+              {sortOffers(group.offers, sortKey).map((offer) => (
                 <article
                   key={offer.id}
                   className="rounded-xl border border-white/40 bg-white/70 p-3"
@@ -156,12 +185,30 @@ export default function Offers() {
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-800 truncate">{offer.store}</p>
                         <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+                          {offer.distanceLabel ? (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {offer.distanceLabel}
+                            </span>
+                          ) : null}
                           {offer.deliveryDays !== null ? (
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               {offer.deliveryDays} días
                             </span>
                           ) : null}
+                          {offer.rating !== null ? (
+                            <span className="flex items-center gap-1 font-semibold text-[#006E7A]">
+                              <Star className="w-3 h-3 fill-current" />
+                              {offer.rating.toFixed(1)}
+                              {offer.ratingCount > 0 ? ` (${offer.ratingCount})` : ''}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <Star className="w-3 h-3" />
+                              Sin calificación
+                            </span>
+                          )}
                           {offer.total > 0 ? (
                             <span className="flex items-center gap-1">
                               <Package className="w-3 h-3" />

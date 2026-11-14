@@ -24,7 +24,10 @@ export default function Addresses() {
 
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState(null);
   const [error, setError] = useState(null);
+  const location = user?.location || null;
   const [formData, setFormData] = useState({
     type: 'Casa',
     address: '',
@@ -65,6 +68,45 @@ export default function Addresses() {
     await persist(addresses.filter(addr => addr.id !== id));
   };
 
+  // Guarda la ubicación real del comprador (coordenadas del navegador) para
+  // calcular la distancia a los comercios en las ofertas recibidas.
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Este navegador no permite obtener tu ubicación.');
+      return;
+    }
+
+    setLocationError(null);
+    setLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await updateProfile({
+            location: {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              updatedAt: new Date().toISOString(),
+            },
+          });
+        } catch (err) {
+          setLocationError(err?.message || 'No se pudo guardar tu ubicación.');
+        } finally {
+          setLocating(false);
+        }
+      },
+      (geoError) => {
+        setLocating(false);
+        setLocationError(
+          geoError?.code === 1
+            ? 'Permiso de ubicación denegado. Actívalo en tu navegador e inténtalo de nuevo.'
+            : 'No se pudo obtener tu ubicación. Inténtalo de nuevo.'
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-10">
       <header className="bg-white/80 backdrop-blur-md px-4 py-4 border-b border-white/30 flex items-center gap-4 sticky top-0 z-10">
@@ -83,6 +125,43 @@ export default function Addresses() {
 
         {!showForm ? (
           <>
+            <div className="bg-white/80 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-white/30 mb-6">
+              <div className="flex items-start gap-4">
+                <div className="bg-[#00EED0]/20 p-3 rounded-2xl border border-[#00EED0]/30">
+                  <MapPin className="w-5 h-5 text-[#4B227A]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-gray-800 mb-1">Mi ubicación</h3>
+                  <p className="text-sm text-gray-600">
+                    {location?.latitude != null && location?.longitude != null
+                      ? `Guardada: ${Number(location.latitude).toFixed(4)}, ${Number(location.longitude).toFixed(4)}`
+                      : 'Sin ubicación guardada. Se usa para mostrar la distancia a los comercios.'}
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                fullWidth
+                variant="outline"
+                onClick={handleUseMyLocation}
+                disabled={locating}
+                className="mt-4 py-3 flex items-center justify-center gap-2 border-[#0197AF]/30 text-[#006E7A]"
+              >
+                <MapPin className="w-4 h-4" />
+                {locating
+                  ? 'OBTENIENDO…'
+                  : location
+                    ? 'ACTUALIZAR MI UBICACIÓN'
+                    : 'USAR MI UBICACIÓN ACTUAL'}
+              </Button>
+
+              {locationError ? (
+                <p role="alert" className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                  {locationError}
+                </p>
+              ) : null}
+            </div>
+
             <div className="flex flex-col gap-4 mb-6">
               {addresses.length === 0 ? (
                 <p className="text-sm text-gray-600 text-center py-8 italic">

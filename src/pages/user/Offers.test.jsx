@@ -196,4 +196,109 @@ describe('sección Ofertas del comprador', () => {
 
     expect(await screen.findByText('Sin ofertas recibidas')).toBeInTheDocument();
   });
+
+  it('muestra el nombre del producto una sola vez aunque la solicitud lo repita', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          ...offer('offer-a', 'req-1', 'Comercio A', 500),
+          items: [],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [
+        {
+          ...request('req-1', 'ACEITE'),
+          description: 'ACEITE',
+          items: [{ item: 'ACEITE' }],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByRole('heading', { name: 'ACEITE' })).toBeInTheDocument();
+    // Título, descripción y chip repetían el mismo texto: ahora solo el título.
+    expect(screen.getAllByText('ACEITE')).toHaveLength(1);
+    expect(screen.queryByText('ACEITE × 1')).not.toBeInTheDocument();
+  });
+
+  it('muestra la distancia real en km y la confiabilidad de cada comercio', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          ...offer('offer-a', 'req-1', 'Comercio Cercano', 500),
+          commerce_latitude: 19.4576,
+          commerce_longitude: -99.1332,
+          commerce_rating: 4.5,
+          commerce_rating_count: 12,
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers({
+      id: 'buyer-1',
+      role: 'user',
+      location: { latitude: 19.4326, longitude: -99.1332 },
+    });
+
+    expect(await screen.findByText('2.8 km')).toBeInTheDocument();
+    expect(screen.getByText('4.5 (12)')).toBeInTheDocument();
+  });
+
+  it('ordena las ofertas del producto por precio y por confiabilidad', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          ...offer('offer-a', 'req-1', 'Comercio A', 900),
+          commerce_rating: 4.9,
+          commerce_rating_count: 5,
+        },
+        {
+          ...offer('offer-b', 'req-1', 'Comercio B', 300),
+          commerce_rating: 3.1,
+          commerce_rating_count: 20,
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+    const section = (await screen.findByRole('heading', { name: 'Pastillas de freno' })).closest(
+      'section'
+    );
+    const storeOrder = () =>
+      within(section)
+        .getAllByText(/^Comercio [AB]$/)
+        .map((node) => node.textContent);
+
+    expect(storeOrder()).toEqual(['Comercio A', 'Comercio B']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Menor precio' }));
+    expect(storeOrder()).toEqual(['Comercio B', 'Comercio A']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mayor precio' }));
+    expect(storeOrder()).toEqual(['Comercio A', 'Comercio B']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Confiabilidad' }));
+    expect(storeOrder()).toEqual(['Comercio A', 'Comercio B']);
+  });
 });
