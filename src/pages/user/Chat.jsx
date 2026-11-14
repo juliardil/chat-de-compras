@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, XCircle, MapPin, User, Phone, X, Camera } from 'lucide-react';
+import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, MapPin, User, Phone, X, PackageCheck, LifeBuoy } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
@@ -21,7 +21,6 @@ export default function Chat() {
     inputText,
     setInputText,
     timeLeft,
-    showDeliveryOptions,
     showShippingForm,
     setShowShippingForm,
     shippingData,
@@ -32,9 +31,12 @@ export default function Chat() {
     handleProductArrivedYes,
     handleProductArrivedNo,
     handleShippingSubmit,
-    handleFileChange,
     connected,
-    chatError
+    chatError,
+    shippingSent,
+    receiptConfirmed,
+    shippingSubmitting,
+    receiptSending
   } = useChat();
 
   useEffect(() => {
@@ -130,7 +132,7 @@ export default function Chat() {
               ) : (
                 <>
                   <div 
-                    className={`px-4 py-3 rounded-2xl text-sm ${
+                    className={`px-4 py-3 rounded-2xl text-sm whitespace-pre-line break-words ${
                       msg.sender === 'buyer' 
                         ? 'bg-gradient-to-r from-[#00EED0] to-[#0197AF] text-black rounded-br-none shadow-[0_0_15px_rgba(0,238,208,0.3)]' 
                         : 'bg-white/80 backdrop-blur-md text-gray-800 border border-white/30 rounded-bl-none shadow-sm'
@@ -150,35 +152,53 @@ export default function Chat() {
       {/* Floating CTA - Buyer Only con neon - Actualización estética Junio 2026 */}
       {timeLeft > 0 && (
         <div className="fixed bottom-[80px] left-0 right-0 px-6 z-20 flex justify-center pointer-events-none">
-          {!showDeliveryOptions && !showShippingForm ? (
-            <Button 
-              onClick={() => setShowShippingForm(true)}
-              className="shadow-[0_0_25px_rgba(0,238,208,0.5)] bg-[#00EED0] hover:bg-[#00EED0]/90 text-black pointer-events-auto animate-bounce-subtle"
-            >
-              <CheckCircle2 className="w-5 h-5" />
-              Confirmar compra
-            </Button>
-          ) : showDeliveryOptions ? (
-            <div className="flex flex-col w-full gap-3 pointer-events-auto animate-in slide-in-from-bottom-5 fade-in duration-300">
-              <p className="text-center text-sm font-semibold text-gray-800 mb-2">Ya llegó tu producto?</p>
-              <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col w-full gap-2 pointer-events-auto">
+            {!shippingSent && !receiptConfirmed ? (
+              <Button 
+                onClick={() => setShowShippingForm(true)}
+                className="w-full shadow-[0_0_25px_rgba(0,238,208,0.5)] bg-[#00EED0] hover:bg-[#00EED0]/90 text-black pointer-events-auto animate-bounce-subtle"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                Confirmar compra
+              </Button>
+            ) : null}
+
+            {shippingSent && !receiptConfirmed ? (
+              <>
                 <Button 
-                  onClick={() => handleProductArrivedYes(navigate, id)}
+                  onClick={handleProductArrivedYes}
+                  disabled={receiptSending}
                   className="w-full shadow-[0_0_20px_rgba(0,238,208,0.4)] bg-[#00EED0] hover:bg-[#00EED0]/90 text-black justify-center"
                 >
-                  <CheckCircle2 className="w-5 h-5" />
-                  Sí
+                  <PackageCheck className="w-5 h-5" />
+                  {receiptSending ? 'Confirmando…' : 'Ya recibí el producto'}
                 </Button>
                 <Button 
                   onClick={() => handleProductArrivedNo(navigate)}
                   className="w-full bg-white/70 backdrop-blur-md text-[#4B227A] border border-[#4B227A]/30 hover:bg-white/90 justify-center shadow-lg"
                 >
-                  <XCircle className="w-5 h-5" />
-                  No
+                  <LifeBuoy className="w-5 h-5" />
+                  Contactar a soporte
                 </Button>
+              </>
+            ) : null}
+
+            {receiptConfirmed ? (
+              <div className="w-full rounded-2xl bg-white/85 backdrop-blur-md border border-[#00EED0]/40 px-4 py-3 text-center shadow-lg">
+                <p className="text-sm font-bold text-[#4B227A] flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#006E7A]" />
+                  Recepción confirmada
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleProductArrivedNo(navigate)}
+                  className="mt-2 text-xs font-semibold text-[#006E7A] hover:underline"
+                >
+                  ¿Algún problema? Contactar a soporte
+                </button>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -201,11 +221,18 @@ export default function Chat() {
             </div>
 
             <div className="mb-4">
-              <DataNotice>
-                Estos datos se usan solo en este dispositivo. El pedido todavía no se
-                registra en el backend.
+              <DataNotice tone={connected ? 'info' : 'warning'}>
+                {connected
+                  ? 'Estos datos se envían al comercio como mensaje en esta conversación para que prepare el envío.'
+                  : 'Sin backend configurado, los datos se guardan solo en este dispositivo.'}
               </DataNotice>
             </div>
+
+            {chatError ? (
+              <div className="mb-4">
+                <DataNotice tone="error">{chatError}</DataNotice>
+              </div>
+            ) : null}
 
             <form onSubmit={handleShippingSubmit} className="space-y-4">
               <Input 
@@ -270,35 +297,15 @@ export default function Chat() {
                 />
               </div>
 
-              <div className="pt-2">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Foto del Domicilio (Opcional)</label>
-                <div className="relative">
-                  <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="address-photo"
-                  />
-                  <label 
-                    htmlFor="address-photo"
-                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[#4B227A]/40 rounded-xl cursor-pointer hover:bg-white/70 transition-colors"
-                  >
-                    {shippingData.photo ? (
-                      <img src={shippingData.photo} alt="Domicilio" className="w-full h-full object-cover rounded-xl" />
-                    ) : (
-                      <div className="flex flex-col items-center gap-2 text-gray-600">
-                        <Camera className="w-8 h-8" />
-                        <span className="text-xs font-medium">Toca para subir foto</span>
-                      </div>
-                    )}
-                  </label>
-                </div>
-              </div>
-
               <div className="pt-4 sticky bottom-0 bg-white/90 backdrop-blur-sm pb-2">
-                <Button fullWidth type="submit" size="lg" className="bg-[#00EED0] hover:bg-[#00EED0]/90 text-black shadow-[0_0_20px_rgba(0,238,208,0.4)]">
-                  ENVIAR DATOS
+                <Button
+                  fullWidth
+                  type="submit"
+                  size="lg"
+                  disabled={shippingSubmitting}
+                  className="bg-[#00EED0] hover:bg-[#00EED0]/90 text-black shadow-[0_0_20px_rgba(0,238,208,0.4)]"
+                >
+                  {shippingSubmitting ? 'ENVIANDO…' : 'ENVIAR DATOS AL COMERCIO'}
                 </Button>
               </div>
             </form>

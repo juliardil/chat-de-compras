@@ -16,6 +16,12 @@ function ChatProbe({ chatId = '1' }) {
     sendMessage,
     timeLeft,
     closed,
+    shippingData,
+    setShippingData,
+    handleShippingSubmit,
+    handleProductArrivedYes,
+    shippingSent,
+    receiptConfirmed,
   } = useChat();
 
   useEffect(() => {
@@ -26,6 +32,8 @@ function ChatProbe({ chatId = '1' }) {
     <div>
       <span data-testid="time">{timeLeft}</span>
       <span data-testid="closed">{String(Boolean(closed))}</span>
+      <span data-testid="shipping">{String(Boolean(shippingSent))}</span>
+      <span data-testid="receipt">{String(Boolean(receiptConfirmed))}</span>
       <ul>
         {messages.map((message) => (
           <li key={message.id}>{message.text}</li>
@@ -39,6 +47,29 @@ function ChatProbe({ chatId = '1' }) {
       <button type="button" onClick={() => sendMessage('buyer')}>
         Enviar
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          setShippingData({
+            name: 'Luis',
+            phone: '55 1234 5678',
+            street: 'Av. Reforma 10',
+            interior: '',
+            neighborhood: 'Centro',
+            city: 'CDMX',
+            references: 'Portón negro',
+          })
+        }
+      >
+        Cargar envío
+      </button>
+      <form onSubmit={handleShippingSubmit}>
+        <button type="submit">Enviar datos</button>
+      </form>
+      <button type="button" onClick={() => handleProductArrivedYes()}>
+        Confirmar recepción
+      </button>
+      <span data-testid="shipping-name">{shippingData.name}</span>
     </div>
   );
 }
@@ -89,6 +120,34 @@ describe('ChatContext', () => {
     const messages = stored['1'].messages.map((message) => message.text);
 
     expect(messages).toContain('Mensaje persistente');
+  });
+
+  it('envía los datos de envío como mensaje y permite confirmar la recepción', async () => {
+    const user = userEvent.setup();
+    renderChat();
+
+    await user.click(screen.getByRole('button', { name: 'Cargar envío' }));
+    await user.click(screen.getByRole('button', { name: 'Enviar datos' }));
+
+    expect(await screen.findByText(/Datos de envío del comprador/i)).toBeInTheDocument();
+    expect(screen.getByText(/Destinatario: Luis/i)).toBeInTheDocument();
+    expect(screen.getByText(/Av. Reforma 10, Centro, CDMX/i)).toBeInTheDocument();
+    expect(screen.getByTestId('shipping')).toHaveTextContent('true');
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar recepción' }));
+
+    expect(await screen.findByText(/Recepción confirmada/i)).toBeInTheDocument();
+    expect(screen.getByTestId('receipt')).toHaveTextContent('true');
+  });
+
+  it('no envía los datos de envío si faltan campos obligatorios', async () => {
+    const user = userEvent.setup();
+    renderChat();
+
+    await user.click(screen.getByRole('button', { name: 'Enviar datos' }));
+
+    expect(screen.queryByText(/Datos de envío del comprador/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('shipping')).toHaveTextContent('false');
   });
 
   it('cierra el chat cuando el temporizador llega a cero', async () => {

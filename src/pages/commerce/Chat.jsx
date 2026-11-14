@@ -128,7 +128,7 @@ export default function Chat() {
               ) : (
                 <>
                   <div 
-                    className={`px-4 py-3 rounded-2xl text-sm ${
+                    className={`px-4 py-3 rounded-2xl text-sm whitespace-pre-line break-words ${
                       msg.sender === 'seller' 
                         ? 'bg-gradient-to-r from-[#00EED0] to-[#0197AF] text-black rounded-br-none shadow-[0_0_15px_rgba(0,238,208,0.3)]' 
                         : 'bg-white/80 backdrop-blur-md text-gray-800 border border-white/30 rounded-bl-none shadow-sm'
@@ -160,12 +160,12 @@ export default function Chat() {
               {sellerStep === 'initial' ? (
                 <>
                   <CheckCircle2 className="w-5 h-5" />
-                  VENTA EFECTIVA
+                  CONFIRMAR VENTA
                 </>
               ) : (
                 <>
                   <PackageCheck className="w-5 h-5" />
-                  YA SALIÓ EL PRODUCTO
+                  MARCAR COMO ENVIADO
                 </>
               )}
             </Button>

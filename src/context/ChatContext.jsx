@@ -28,9 +28,8 @@ const createMessage = (text, sender) => ({
   time: nowLabel()
 });
 
-// Un chat nuevo empieza vacío: no se siembran mensajes de ejemplo. Los
-// mensajes que se ven son los que escriben las personas usuarias y quedan en
-// localStorage (este dispositivo) hasta que se conecte chat_messages.
+// Un chat nuevo empieza vacío: no se siembran mensajes de ejemplo. Con backend
+// los mensajes viven en chat_messages; en demostración quedan en localStorage.
 const EMPTY_CHAT = {
   messages: [],
   timeLeft: CHAT_DURATION,
@@ -46,6 +45,35 @@ const createChat = () => ({
   warningSent: false,
   closed: false
 });
+
+// Los datos de envío se envían al comercio como un mensaje real del chat. El
+// prefijo permite reconocerlos al recargar la conversación y mostrar las
+// acciones de recepción en lugar del formulario.
+export const SHIPPING_MARKER = '📦 Datos de envío';
+export const RECEIPT_MARKER = '✅ Recepción confirmada';
+
+const formatShippingMessage = (data) => {
+  const address = [
+    String(data.street || '').trim(),
+    String(data.interior || '').trim() ? `Int. ${String(data.interior).trim()}` : '',
+    String(data.neighborhood || '').trim(),
+    String(data.city || '').trim(),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return [
+    `${SHIPPING_MARKER} del comprador`,
+    `Destinatario: ${String(data.name || '').trim()}`,
+    `Teléfono: ${String(data.phone || '').trim()}`,
+    `Dirección: ${address}`,
+    String(data.references || '').trim()
+      ? `Referencias: ${String(data.references).trim()}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+};
 
 const loadChats = () => {
   try {
@@ -103,8 +131,10 @@ export const ChatProvider = ({ children }) => {
   const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
   const [showShippingForm, setShowShippingForm] = useState(false);
   const [chatError, setChatError] = useState('');
+  const [shippingSubmitting, setShippingSubmitting] = useState(false);
+  const [receiptSending, setReceiptSending] = useState(false);
 
-  // Datos de envío del comprador (no se persisten para no guardar imágenes en localStorage)
+  // Datos de envío del comprador (se envían al comercio como mensaje del chat)
   const [shippingData, setShippingData] = useState({
     name: '',
     phone: '',
@@ -113,11 +143,19 @@ export const ChatProvider = ({ children }) => {
     neighborhood: '',
     city: '',
     references: '',
-    photo: null
   });
 
   const activeChat = (activeChatId && chats[activeChatId]) || EMPTY_CHAT;
   const { messages, timeLeft, sellerStep, closed } = activeChat;
+
+  // Se derivan de los mensajes para que el estado se mantenga al recargar y
+  // para que ambas partes vean el mismo avance de la compra.
+  const shippingSent = messages.some((message) =>
+    String(message.text || '').startsWith(SHIPPING_MARKER)
+  );
+  const receiptConfirmed = messages.some((message) =>
+    String(message.text || '').startsWith(RECEIPT_MARKER)
+  );
 
   // Persistir las conversaciones para que sobrevivan a una recarga. En modo
   // InsForge la fuente de verdad es el backend, así que no se cachea.
@@ -326,33 +364,113 @@ export const ChatProvider = ({ children }) => {
     });
   };
 
-  // Acciones del comprador para confirmar llegada
-  const handleProductArrivedYes = (navigateFunction, chatId) => {
-    navigateFunction(`/closing/${chatId}`);
+  // El comprador confirma que recibió el producto. Queda como mensaje de
+  // sistema en el chat para que el comercio también lo vea.
+  const handleProductArrivedYes = async () => {
+    if (!activeChatId) return;
+
+    const note = `${RECEIPT_MARKER}: el comprador indicó que ya recibió el producto.`;
+    setChatError('');
+    setReceiptSending(true);
+
+    try {
+      if (connected) {
+        const result = await sendChatMessageToBackend({
+          chat_id: activeChatId,
+          sender_type: 'system',
+          sender_name: 'Sistema',
+          body: note,
+        });
+
+        if (!result.ok) {
+          setChatError(result.error || 'No se pudo confirmar la recepción.');
+          return;
+        }
+
+        await refreshChat(activeChatId);
+      } else {
+        setChats((prev) => {
+          const chat = prev[activeChatId];
+          if (!chat) return prev;
+          return {
+            ...prev,
+            [activeChatId]: {
+              ...chat,
+              messages: [...chat.messages, createMessage(note, 'system')],
+            },
+          };
+        });
+      }
+
+      setShowDeliveryOptions(false);
+    } finally {
+      setReceiptSending(false);
+    }
   };
 
   const handleProductArrivedNo = (navigateFunction) => {
     navigateFunction('/support');
   };
 
-  // Gestión del formulario de envío
-  const handleShippingSubmit = (e) => {
+  // Envía los datos de envío al comercio como mensaje real del chat. El
+  // comercio los lee desde su dispositivo y prepara el envío.
+  const handleShippingSubmit = async (e) => {
     e.preventDefault();
-    setTimeout(() => {
+    if (!activeChatId) return;
+
+    const missing = [
+      ['nombre', shippingData.name],
+      ['teléfono', shippingData.phone],
+      ['calle', shippingData.street],
+      ['colonia', shippingData.neighborhood],
+      ['ciudad', shippingData.city],
+    ]
+      .filter(([, value]) => !String(value || '').trim())
+      .map(([label]) => label);
+
+    if (missing.length > 0) {
+      setChatError(`Completa ${missing.join(', ')} para enviar los datos al comercio.`);
+      return;
+    }
+
+    const body = formatShippingMessage(shippingData);
+    setChatError('');
+    setShippingSubmitting(true);
+
+    try {
+      if (connected) {
+        const result = await sendChatMessageToBackend({
+          chat_id: activeChatId,
+          sender_type: 'buyer',
+          sender_name: displayName,
+          body,
+        });
+
+        if (!result.ok) {
+          setChatError(result.error || 'No se pudieron enviar los datos de envío.');
+          return;
+        }
+
+        await refreshChat(activeChatId);
+      } else {
+        setChats((prev) => {
+          const chat = prev[activeChatId];
+          if (!chat) return prev;
+          return {
+            ...prev,
+            [activeChatId]: {
+              ...chat,
+              messages: [...chat.messages, createMessage(body, 'buyer')],
+            },
+          };
+        });
+      }
+
       setShowShippingForm(false);
       setShowDeliveryOptions(true);
-    }, 500);
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setShippingData((prev) => ({ ...prev, photo: reader.result }));
-    };
-    reader.readAsDataURL(file);
+    } finally {
+      setShippingSubmitting(false);
+    }
   };
 
   // El historial del comprador requiere compras/reseñas reales (purchase_orders
@@ -371,6 +489,10 @@ export const ChatProvider = ({ children }) => {
       closed,
       connected,
       chatError,
+      shippingSent,
+      receiptConfirmed,
+      shippingSubmitting,
+      receiptSending,
       // Entrada y modales
       inputText,
       setInputText,
@@ -391,7 +513,6 @@ export const ChatProvider = ({ children }) => {
       handleProductArrivedYes,
       handleProductArrivedNo,
       handleShippingSubmit,
-      handleFileChange,
       scrollToBottom
     }}>
       {children}
