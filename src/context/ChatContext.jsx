@@ -3,9 +3,13 @@ import { ChatContext } from './chat-context';
 import { useAuth } from './auth-context';
 import { isInsforgeConfigured } from '../lib/insforge';
 import {
+  createOrderForChat,
   fetchChatMessages,
+  fetchChatThread,
+  fetchOrderById,
   mapChatMessage,
   sendChatMessage as sendChatMessageToBackend,
+  updateOrderStatusForChat,
 } from '../data/appData';
 
 const STORAGE_KEY = 'chat_compras_chats_v1';
@@ -133,6 +137,16 @@ export const ChatProvider = ({ children }) => {
   const [chatError, setChatError] = useState('');
   const [shippingSubmitting, setShippingSubmitting] = useState(false);
   const [receiptSending, setReceiptSending] = useState(false);
+  // Pedido real vinculado a la conversación (se crea al confirmar la compra).
+  const [orderInfo, setOrderInfo] = useState({
+    id: null,
+    commerceId: null,
+    number: '',
+    total: null,
+    currency: 'MXN',
+    status: null,
+    product: '',
+  });
 
   // Datos de envío del comprador (se envían al comercio como mensaje del chat)
   const [shippingData, setShippingData] = useState({
@@ -189,6 +203,53 @@ export const ChatProvider = ({ children }) => {
     } finally {
       refreshingRef.current = false;
     }
+  }, [connected]);
+
+  // Mantiene a la vista el pedido real de esta conversación (si ya existe) y
+  // el comercio al que pertenece.
+  const refreshThreadMeta = useCallback(async (chatId) => {
+    if (!connected || !chatId) {
+      setOrderInfo({
+        id: null,
+        commerceId: null,
+        number: '',
+        total: null,
+        currency: 'MXN',
+        status: null,
+        product: '',
+      });
+      return;
+    }
+
+    const threadResult = await fetchChatThread(chatId);
+    const thread = threadResult.item;
+    if (!thread) return;
+
+    if (!thread.order_id) {
+      setOrderInfo({
+        id: null,
+        commerceId: thread.commerce_id || null,
+        number: '',
+        total: null,
+        currency: 'MXN',
+        status: null,
+        product: '',
+      });
+      return;
+    }
+
+    const orderResult = await fetchOrderById(thread.order_id);
+    const order = orderResult.item;
+
+    setOrderInfo({
+      id: thread.order_id,
+      commerceId: thread.commerce_id || null,
+      number: order?.order_number || '',
+      total: order?.total_amount ?? null,
+      currency: order?.currency || 'MXN',
+      status: order?.status || null,
+      product: order?.snapshot?.product || '',
+    });
   }, [connected]);
 
   // Abrir (o crear) el chat indicado por la ruta y limpiar modales al cambiar de conversación
@@ -267,6 +328,11 @@ export const ChatProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, [activeChatId, connected, refreshChat]);
 
+  // Carga el pedido vinculado al abrir la conversación.
+  useEffect(() => {
+    void refreshThreadMeta(activeChatId);
+  }, [activeChatId, refreshThreadMeta]);
+
   // Formatear tiempo del contador
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -321,47 +387,76 @@ export const ChatProvider = ({ children }) => {
     setInputText('');
   };
 
-  // Acciones del vendedor: marcar venta y luego envío
+  // Acciones del vendedor: confirmar la venta y luego marcar el envío. Cada
+  // paso actualiza el pedido real (confirmed → shipped) y avisa en el chat.
   const handleSellerAction = () => {
     if (!activeChatId) return;
 
-    setChats((prev) => {
-      const chat = prev[activeChatId];
-      if (!chat || chat.timeLeft <= 0) return prev;
+    const chat = chats[activeChatId];
+    if (!chat || chat.timeLeft <= 0) return;
 
-      if (chat.sellerStep === 'initial') {
-        return { ...prev, [activeChatId]: { ...chat, sellerStep: 'confirmed' } };
+    if (chat.sellerStep === 'initial') {
+      setChatError('');
+
+      if (connected) {
+        void updateOrderStatusForChat({
+          chatId: activeChatId,
+          status: 'confirmed',
+          patch: { confirmed_at: new Date().toISOString() },
+        }).then((result) => {
+          if (result.error) {
+            setChatError(result.error);
+          } else {
+            void refreshThreadMeta(activeChatId);
+          }
+        });
       }
 
-      if (chat.sellerStep === 'confirmed') {
-        const note = 'El vendedor ha marcado el producto como enviado. 🚚';
+      setChats((prev) => {
+        const current = prev[activeChatId];
+        if (!current) return prev;
+        return { ...prev, [activeChatId]: { ...current, sellerStep: 'confirmed' } };
+      });
+      return;
+    }
 
-        if (connected) {
-          void sendChatMessageToBackend({
-            chat_id: activeChatId,
-            sender_type: 'system',
-            sender_name: 'Sistema',
-            body: note,
-          }).then((result) => {
-            if (result.ok) void refreshChat(activeChatId);
-          });
-        }
+    if (chat.sellerStep === 'confirmed') {
+      const note = 'El vendedor ha marcado el producto como enviado. 🚚';
 
+      setChats((prev) => {
+        const current = prev[activeChatId];
+        if (!current) return prev;
         return {
           ...prev,
           [activeChatId]: {
-            ...chat,
+            ...current,
             sellerStep: 'shipped',
-            messages: [
-              ...chat.messages,
-              createMessage(note, 'system')
-            ]
-          }
+            messages: [...current.messages, createMessage(note, 'system')],
+          },
         };
-      }
+      });
 
-      return prev;
-    });
+      if (connected) {
+        void sendChatMessageToBackend({
+          chat_id: activeChatId,
+          sender_type: 'system',
+          sender_name: 'Sistema',
+          body: note,
+        }).then((result) => {
+          if (result.ok) void refreshChat(activeChatId);
+        });
+
+        void updateOrderStatusForChat({ chatId: activeChatId, status: 'shipped' }).then(
+          (result) => {
+            if (result.error) {
+              setChatError(result.error);
+            } else {
+              void refreshThreadMeta(activeChatId);
+            }
+          }
+        );
+      }
+    }
   };
 
   // El comprador confirma que recibió el producto. Queda como mensaje de
@@ -388,6 +483,19 @@ export const ChatProvider = ({ children }) => {
         }
 
         await refreshChat(activeChatId);
+
+        // El pedido pasa a «entregado» para que el comercio lo vea en ventas.
+        const orderUpdate = await updateOrderStatusForChat({
+          chatId: activeChatId,
+          status: 'delivered',
+          patch: { delivered_at: new Date().toISOString() },
+        });
+
+        if (orderUpdate.error) {
+          setChatError(orderUpdate.error);
+        } else {
+          await refreshThreadMeta(activeChatId);
+        }
       } else {
         setChats((prev) => {
           const chat = prev[activeChatId];
@@ -412,8 +520,8 @@ export const ChatProvider = ({ children }) => {
     navigateFunction('/support');
   };
 
-  // Envía los datos de envío al comercio como mensaje real del chat. El
-  // comercio los lee desde su dispositivo y prepara el envío.
+  // Envía los datos de envío al comercio como mensaje real del chat y registra
+  // el pedido en el backend. El comercio los lee desde su propia sesión.
   const handleShippingSubmit = async (e) => {
     e.preventDefault();
     if (!activeChatId) return;
@@ -439,6 +547,23 @@ export const ChatProvider = ({ children }) => {
 
     try {
       if (connected) {
+        // Primero se registra el pedido real usando la oferta guardada en el
+        // hilo. Solo si el pedido quedó guardado se envían los datos al
+        // comercio, para que no exista una compra «a medias».
+        const orderResult = await createOrderForChat({
+          chatId: activeChatId,
+          shipping: shippingData,
+        });
+
+        if (!orderResult.ok) {
+          setChatError(orderResult.error || 'No se pudo registrar el pedido.');
+          return;
+        }
+
+        if (orderResult.orderId) {
+          await refreshThreadMeta(activeChatId);
+        }
+
         const result = await sendChatMessageToBackend({
           chat_id: activeChatId,
           sender_type: 'buyer',
@@ -493,6 +618,7 @@ export const ChatProvider = ({ children }) => {
       receiptConfirmed,
       shippingSubmitting,
       receiptSending,
+      orderInfo,
       // Entrada y modales
       inputText,
       setInputText,

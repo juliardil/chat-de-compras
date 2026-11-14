@@ -4,6 +4,7 @@ import {
   fetchBuyerOrders,
   fetchBuyerRequests,
   fetchNotifications,
+  createOrderForChat,
   createPurchaseRequest,
   mapChatMessage,
   mapChatThread,
@@ -13,6 +14,7 @@ import {
   mapRequest,
   mapRequestItem,
   splitOrders,
+  updateOrderStatusForChat,
   NOTICES,
 } from './appData';
 
@@ -37,6 +39,20 @@ describe('capa de datos de la app', () => {
     const result = await createPurchaseRequest({ title: 'Prueba' });
     expect(result.ok).toBe(false);
     expect(result.error).toContain('No se guardó nada');
+  });
+
+  it('no registra pedidos sin backend', async () => {
+    const order = await createOrderForChat({
+      chatId: 'thread-1',
+      shipping: { name: 'Luis' },
+    });
+    expect(order).toMatchObject({ ok: false, skipped: true, orderId: null });
+
+    const update = await updateOrderStatusForChat({
+      chatId: 'thread-1',
+      status: 'shipped',
+    });
+    expect(update).toMatchObject({ ok: false, skipped: true });
   });
 
   it('traduce errores de permisos y de red', () => {

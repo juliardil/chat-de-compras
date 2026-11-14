@@ -2,11 +2,12 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, MapPin, User, Phone, X, PackageCheck, LifeBuoy } from 'lucide-react';
+import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, MapPin, User, Phone, X, PackageCheck, LifeBuoy, Star } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
 import { useChat } from '../../context/chat-context';
+import { formatCurrency } from '../../data/appData';
 
 // Actualización estética Junio 2026
 
@@ -36,7 +37,8 @@ export default function Chat() {
     shippingSent,
     receiptConfirmed,
     shippingSubmitting,
-    receiptSending
+    receiptSending,
+    orderInfo
   } = useChat();
 
   useEffect(() => {
@@ -80,11 +82,22 @@ export default function Chat() {
       {/* Agreement Card Fixed con glassmorphism - Actualización estética Junio 2026 */}
       <div className="bg-gradient-to-r from-[#0197AF]/15 to-[#4B227A]/15 border-b border-white/30 px-4 py-3 flex justify-between items-center sticky top-[60px] z-10 backdrop-blur-md">
         <div className="text-sm">
-          <p className="text-gray-600 text-xs uppercase font-bold tracking-wider">Acuerdo propuesto</p>
-          <p className="font-bold text-gray-800">Sin oferta registrada</p>
+          <p className="text-gray-600 text-xs uppercase font-bold tracking-wider">
+            {orderInfo.id ? 'Pedido registrado' : 'Acuerdo propuesto'}
+          </p>
+          <p className="font-bold text-gray-800">
+            {orderInfo.product || orderInfo.number || 'Sin oferta registrada'}
+          </p>
         </div>
         <div className="text-right">
-            <span className="text-xs text-[#006E7A] font-medium">Pendiente</span>
+          <p className="text-sm font-bold text-[#006E7A]">
+            {orderInfo.total !== null
+              ? formatCurrency(orderInfo.total, orderInfo.currency)
+              : 'Pendiente'}
+          </p>
+          {orderInfo.number ? (
+            <p className="text-[10px] text-gray-600 font-medium">{orderInfo.number}</p>
+          ) : null}
         </div>
       </div>
 
@@ -189,6 +202,21 @@ export default function Chat() {
                   <CheckCircle2 className="w-4 h-4 text-[#006E7A]" />
                   Recepción confirmada
                 </p>
+                {orderInfo.id ? (
+                  <div className="mt-3">
+                    <Button
+                      onClick={() =>
+                        navigate(`/closing/${id}`, {
+                          state: { orderId: orderInfo.id, commerceId: orderInfo.commerceId },
+                        })
+                      }
+                      className="w-full bg-[#00EED0] hover:bg-[#00EED0]/90 text-black justify-center shadow-[0_0_15px_rgba(0,238,208,0.35)]"
+                    >
+                      <Star className="w-4 h-4" />
+                      Calificar compra
+                    </Button>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => handleProductArrivedNo(navigate)}
@@ -223,7 +251,7 @@ export default function Chat() {
             <div className="mb-4">
               <DataNotice tone={connected ? 'info' : 'warning'}>
                 {connected
-                  ? 'Estos datos se envían al comercio como mensaje en esta conversación para que prepare el envío.'
+                  ? 'Estos datos se envían al comercio como mensaje y registran tu pedido para que prepare el envío.'
                   : 'Sin backend configurado, los datos se guardan solo en este dispositivo.'}
               </DataNotice>
             </div>

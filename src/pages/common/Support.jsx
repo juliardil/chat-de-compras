@@ -14,7 +14,7 @@ export default function Support() {
     },
     {
       question: '¿Es seguro comprar en Chat de Compras?',
-      answer: 'Los comercios muestran calificaciones y puedes conversar con ellos dentro de la app. Los mensajes de la conversación quedan registrados para ambas partes; verifica los datos del vendedor antes de pagar y no compartas datos bancarios en el chat.'
+      answer: 'Los comercios muestran calificaciones y puedes conversar con ellos dentro de la app. Al confirmar la compra, el pedido queda registrado y tus datos de envío llegan al comercio; verifica los datos del vendedor y no compartas datos bancarios en el chat.'
     },
     {
       question: '¿Cómo funcionan las calificaciones?',

@@ -478,6 +478,270 @@ export const splitOrders = (orders) => ({
 });
 
 // -----------------------------------------------------------------------------
+// Pedido creado desde el chat
+// -----------------------------------------------------------------------------
+const generateOrderNumber = () => {
+  const now = new Date();
+  const date = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('');
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `ORD-${date}-${random}`;
+};
+
+const formatShippingAddress = (data = {}) =>
+  [
+    String(data.street || '').trim(),
+    String(data.interior || '').trim() ? `Int. ${String(data.interior).trim()}` : '',
+    String(data.neighborhood || '').trim(),
+    String(data.city || '').trim(),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+const normalizeShipping = (data = {}) => ({
+  name: String(data.name || '').trim(),
+  phone: String(data.phone || '').trim(),
+  street: String(data.street || '').trim(),
+  interior: String(data.interior || '').trim(),
+  neighborhood: String(data.neighborhood || '').trim(),
+  city: String(data.city || '').trim(),
+  references: String(data.references || '').trim(),
+});
+
+// Registra el pedido real cuando el comprador confirma la compra. Usa la oferta
+// guardada en el hilo (productos, importe y moneda reales) y guarda una copia
+// del envío en el snapshot. Es idempotente por conversación: si el hilo ya
+// tiene pedido, devuelve ese mismo y no crea otro.
+export const createOrderForChat = async ({ chatId, shipping }) => {
+  if (!isInsforgeConfigured) {
+    return { ok: false, skipped: true, orderId: null, commerceId: null, error: null };
+  }
+  if (!chatId) {
+    return {
+      ok: false,
+      orderId: null,
+      commerceId: null,
+      error: 'No se indicó una conversación.',
+    };
+  }
+
+  const threadResult = await fetchChatThread(chatId);
+  const thread = threadResult.item;
+  if (threadResult.error || !thread) {
+    return {
+      ok: false,
+      orderId: null,
+      commerceId: null,
+      error: threadResult.error || 'No se encontró la conversación de la compra.',
+    };
+  }
+
+  if (thread.order_id) {
+    const existingOrder = await fetchOrderById(thread.order_id);
+    const isNewOffer = Boolean(
+      thread.offer_id &&
+        existingOrder.item &&
+        existingOrder.item.offer_id &&
+        existingOrder.item.offer_id !== thread.offer_id
+    );
+
+    // La misma compra: no se duplica el pedido. Si la conversación se abrió
+    // desde otra oferta, se registra una compra nueva y se re-vincula el hilo.
+    if (!isNewOffer) {
+      return { ok: true, existing: true, orderId: thread.order_id, commerceId: thread.commerce_id };
+    }
+  }
+
+  // Sin oferta no hay productos ni importe reales que registrar. Antes de
+  // rendirse, recupera la oferta real más reciente del comprador con este
+  // comercio (por ejemplo, un hilo creado antes de guardar offer_id).
+  let offerId = thread.offer_id;
+
+  if (!offerId) {
+    const requestsResult = await runQuery(
+      (db) => db.from('purchase_requests').select('id').eq('buyer_id', thread.buyer_id),
+      NOTICES.orders
+    );
+    const requestIds = requestsResult.items.map((request) => request.id).filter(Boolean);
+
+    if (requestIds.length > 0) {
+      const latestOffer = await runQuery(
+        (db) =>
+          db
+            .from('purchase_offers')
+            .select('*')
+            .eq('commerce_id', thread.commerce_id)
+            .eq('status', 'active')
+            .in('request_id', requestIds)
+            .order('created_at', { ascending: false })
+            .limit(1),
+        NOTICES.orders
+      );
+      offerId = latestOffer.items[0]?.id || null;
+    }
+  }
+
+  if (!offerId) {
+    return { ok: true, skipped: true, orderId: null, commerceId: thread.commerce_id };
+  }
+
+  const offerResult = await runQuery(
+    (db) => db.from('purchase_offers').select('*').eq('id', offerId).limit(1),
+    NOTICES.orders
+  );
+  const offer = offerResult.items[0];
+  if (!offer) {
+    return {
+      ok: false,
+      orderId: null,
+      commerceId: thread.commerce_id,
+      error: offerResult.error || 'No se encontró la oferta de esta compra.',
+    };
+  }
+
+  const commerceId = offer.commerce_id || thread.commerce_id;
+  const commerceResult = await runQuery(
+    (db) => db.from('commerce_profiles').select('id,trade_name').eq('id', commerceId).limit(1),
+    NOTICES.orders
+  );
+
+  const items = Array.isArray(offer.items) ? offer.items : [];
+  const firstAvailable = items.find((item) => item && item.available !== false) || items[0] || {};
+
+  let product =
+    firstAvailable.name || firstAvailable.title || firstAvailable.description || '';
+
+  // Si la oferta no trae ítems detallados, el título real de la solicitud es el
+  // mejor nombre disponible para el pedido (nunca se inventa uno).
+  if (!product && offer.request_id) {
+    const requestResult = await runQuery(
+      (db) => db.from('purchase_requests').select('title').eq('id', offer.request_id).limit(1),
+      NOTICES.orders
+    );
+    product = requestResult.items[0]?.title || '';
+  }
+
+  const normalizedShipping = normalizeShipping(shipping);
+
+  const snapshot = {
+    product: product || 'Pedido',
+    store: commerceResult.items[0]?.trade_name || '',
+    address: formatShippingAddress(normalizedShipping),
+    shipping: normalizedShipping,
+    placedAt: new Date().toISOString(),
+  };
+
+  let lastError = 'No se pudo registrar el pedido.';
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const orderNumber = generateOrderNumber();
+    const created = await runWrite(
+      (db) =>
+        db.from('purchase_orders').insert([
+          {
+            order_number: orderNumber,
+            request_id: offer.request_id || null,
+            offer_id: offer.id,
+            buyer_id: thread.buyer_id,
+            commerce_id: commerceId,
+            status: 'pending',
+            total_amount: offer.total_amount ?? 0,
+            currency: offer.currency || 'MXN',
+            snapshot,
+            items,
+          },
+        ]),
+      'No se pudo registrar el pedido.'
+    );
+
+    if (created.ok) {
+      let order = created.data[0] || null;
+
+      // El backend puede no devolver la fila insertada: se recupera por número.
+      if (!order) {
+        const found = await runQuery(
+          (db) =>
+            db.from('purchase_orders').select('*').eq('order_number', orderNumber).limit(1),
+          NOTICES.orders
+        );
+        order = found.items[0] || null;
+      }
+
+      if (!order) {
+        return {
+          ok: false,
+          orderId: null,
+          commerceId,
+          error: 'El pedido se creó, pero no se pudo recuperar. Revisa «Mis pedidos».',
+        };
+      }
+
+      // Vincula el pedido y la oferta a la conversación para que ambas partes
+      // consulten la misma compra.
+      const linked = await runWrite(
+        (db) =>
+          db
+            .from('chat_threads')
+            .update({ order_id: order.id, offer_id: offerId })
+            .eq('id', chatId),
+        'No se pudo vincular el pedido a la conversación.'
+      );
+
+      return {
+        ok: true,
+        orderId: order.id,
+        orderNumber: order.order_number || orderNumber,
+        commerceId,
+        linkError: linked.ok ? null : linked.error,
+      };
+    }
+
+    lastError = created.error || lastError;
+
+    // Solo reintenta si el número de pedido chocó con otro existente.
+    if (!/duplicate|unique|already exists/i.test(String(created.error || ''))) break;
+  }
+
+  return { ok: false, orderId: null, commerceId, error: lastError };
+};
+
+// Actualiza el estado del pedido vinculado a una conversación. Se usa cuando el
+// comercio confirma/envía y cuando el comprador confirma la recepción.
+export const updateOrderStatusForChat = async ({ chatId, status, patch = {} }) => {
+  if (!isInsforgeConfigured) {
+    return { ok: false, skipped: true, orderId: null, error: null };
+  }
+
+  const threadResult = await fetchChatThread(chatId);
+  const thread = threadResult.item;
+  if (threadResult.error || !thread) {
+    return {
+      ok: false,
+      orderId: null,
+      error: threadResult.error || 'No se encontró la conversación de la compra.',
+    };
+  }
+
+  if (!thread.order_id) {
+    return { ok: true, skipped: true, orderId: null, error: null };
+  }
+
+  const updated = await runWrite(
+    (db) => db.from('purchase_orders').update({ status, ...patch }).eq('id', thread.order_id),
+    'No se pudo actualizar el pedido.'
+  );
+
+  return {
+    ok: updated.ok,
+    orderId: thread.order_id,
+    error: updated.error,
+  };
+};
+
+// -----------------------------------------------------------------------------
 // Chats
 // -----------------------------------------------------------------------------
 export const fetchCommerceIdForUser = async (userId) => {
@@ -542,6 +806,17 @@ export const fetchChatThread = async (chatId) => {
   return { ...result, item: result.items[0] || null };
 };
 
+export const fetchOrderById = async (orderId) => {
+  if (!orderId) return emptyResult(NOTICES.orders, 'No se indicó un pedido.');
+
+  const result = await runQuery(
+    (db) => db.from('purchase_orders').select('*').eq('id', orderId).limit(1),
+    NOTICES.orders
+  );
+
+  return { ...result, item: result.items[0] || null };
+};
+
 export const fetchChatMessages = async (chatId) => {
   if (!chatId) return emptyResult(NOTICES.chats, 'No se indicó una conversación.');
 
@@ -578,7 +853,13 @@ export const mapChatMessage = (row) => {
 // Reutiliza la conversación entre un comprador y un comercio; si no existe la
 // crea. El backend aplica RLS: solo el comprador o el comercio dueños pueden
 // leerla y escribir en ella.
-export const ensureChatThread = async ({ buyerId, commerceId, subject, orderId = null }) => {
+export const ensureChatThread = async ({
+  buyerId,
+  commerceId,
+  subject,
+  orderId = null,
+  offerId = null,
+}) => {
   if (!isInsforgeConfigured) {
     return { item: null, error: null, notice: NOTICES.demo };
   }
@@ -602,7 +883,25 @@ export const ensureChatThread = async ({ buyerId, commerceId, subject, orderId =
   );
 
   if (existing.error) return { item: null, error: existing.error, notice: existing.notice };
-  if (existing.items[0]) return { item: existing.items[0], error: null, notice: null };
+
+  const thread = existing.items[0];
+  if (thread) {
+    // La oferta es el contexto de la compra. Se sincroniza al abrir el chat
+    // desde una oferta; si ya había un pedido de otra oferta, la nueva oferta
+    // representa una compra nueva (el pedido anterior se conserva intacto).
+    if (offerId && thread.offer_id !== offerId) {
+      const updated = await runWrite(
+        (db) => db.from('chat_threads').update({ offer_id: offerId }).eq('id', thread.id),
+        'No se pudo preparar la compra en esta conversación.'
+      );
+      if (updated.ok) {
+        return { item: { ...thread, offer_id: offerId }, error: null, notice: null };
+      }
+      return { item: thread, error: updated.error, notice: null };
+    }
+
+    return { item: thread, error: null, notice: null };
+  }
 
   const created = await runWrite(
     (db) =>
@@ -611,6 +910,7 @@ export const ensureChatThread = async ({ buyerId, commerceId, subject, orderId =
           buyer_id: buyerId,
           commerce_id: commerceId,
           order_id: orderId,
+          offer_id: offerId,
           subject: subject || 'Conversación',
           status: 'active',
         },
@@ -667,6 +967,7 @@ export const openChatForOffer = async ({ userId, offer, subject }) => {
     buyerId: buyer.item.id,
     commerceId: offer.commerceId,
     subject: subject || offer.store || 'Conversación',
+    offerId: offer.id || null,
   });
 };
 

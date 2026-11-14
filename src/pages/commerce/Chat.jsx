@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, PackageCheck, History, Star, MessageCircle, X } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
-import { NOTICES } from '../../data/appData';
+import { NOTICES, formatCurrency } from '../../data/appData';
 import { useChat } from '../../context/chat-context';
 
 // Actualización estética Junio 2026
@@ -30,7 +30,8 @@ export default function Chat() {
     sendMessage,
     handleSellerAction,
     connected,
-    chatError
+    chatError,
+    orderInfo
   } = useChat();
 
   useEffect(() => {
@@ -76,11 +77,22 @@ export default function Chat() {
       {/* Agreement Card Fixed con glassmorphism - Actualización estética Junio 2026 */}
       <div className="bg-gradient-to-r from-[#0197AF]/15 to-[#4B227A]/15 border-b border-white/30 px-4 py-3 flex justify-between items-center sticky top-[60px] z-10 backdrop-blur-md">
         <div className="text-sm">
-          <p className="text-gray-600 text-xs uppercase font-bold tracking-wider">Acuerdo propuesto</p>
-          <p className="font-bold text-gray-800">Sin oferta registrada</p>
+          <p className="text-gray-600 text-xs uppercase font-bold tracking-wider">
+            {orderInfo.id ? 'Pedido del comprador' : 'Acuerdo propuesto'}
+          </p>
+          <p className="font-bold text-gray-800">
+            {orderInfo.product || orderInfo.number || 'Sin oferta registrada'}
+          </p>
         </div>
         <div className="text-right">
-          <span className="text-xs text-[#006E7A] font-medium">Pendiente</span>
+          <p className="text-sm font-bold text-[#006E7A]">
+            {orderInfo.total !== null
+              ? formatCurrency(orderInfo.total, orderInfo.currency)
+              : 'Pendiente'}
+          </p>
+          {orderInfo.number ? (
+            <p className="text-[10px] text-gray-600 font-medium">{orderInfo.number}</p>
+          ) : null}
         </div>
       </div>
 

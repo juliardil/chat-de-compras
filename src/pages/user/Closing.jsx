@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import { DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
-import { createReview, fetchBuyerProfileId, NOTICES } from '../../data/appData';
+import { createReview, fetchBuyerProfileId } from '../../data/appData';
 import { Star, CheckCircle, ArrowLeft } from 'lucide-react';
 
 // Actualización estética Junio 2026
@@ -17,8 +17,8 @@ export default function Closing() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // La reseña necesita un pedido real. El cierre desde el chat todavía no crea
-  // uno, así que sin orderId no se escribe nada (ni se simula el guardado).
+  // La reseña se asocia al pedido real creado al confirmar la compra desde el
+  // chat. Sin pedido no se escribe nada (ni se simula el guardado).
   const orderId = location.state?.orderId || null;
   const commerceId = location.state?.commerceId || null;
 
@@ -32,7 +32,7 @@ export default function Closing() {
       setBusy(false);
       setMessage({
         tone: 'warning',
-        text: 'No hay un pedido asociado a este cierre. La calificación se guardará cuando el flujo de compra genere un pedido real en el backend.',
+        text: 'No hay un pedido asociado a este cierre. Abre la conversación, confirma la compra y luego califica.',
       });
       return;
     }
@@ -88,9 +88,10 @@ export default function Closing() {
         </p>
 
         <div className="w-full mb-6">
-          <DataNotice tone="info">
-            {NOTICES.reviews} El cierre de compra todavía no genera un pedido real en el backend,
-            así que la calificación no se guardará hasta que ese flujo esté conectado.
+          <DataNotice tone={orderId ? 'info' : 'warning'}>
+            {orderId
+              ? 'Tu calificación quedará asociada al pedido y será revisada antes de publicarse.'
+              : 'No hay un pedido asociado a este cierre. Abre la conversación, confirma la compra y luego califica.'}
           </DataNotice>
         </div>
 
