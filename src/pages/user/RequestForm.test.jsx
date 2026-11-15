@@ -67,6 +67,8 @@ describe('publicación de una solicitud', () => {
     expect(createPurchaseRequest.mock.calls[0][0]).toMatchObject({
       buyer_id: 'buyer-1',
       title: 'Pastillas de freno',
+      category: 'Frenos',
+      vehicle_type: 'Auto',
       status: 'open',
     });
   });

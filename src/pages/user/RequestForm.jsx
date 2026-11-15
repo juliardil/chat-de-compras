@@ -247,10 +247,19 @@ export default function RequestForm() {
       images: Array.isArray(images) ? images.filter(Boolean) : [],
     }));
 
+    // La segmentación también se expone en columnas principales para que el
+    // comercio pueda filtrar sin abrir el JSONB de `items`. Se conserva dentro
+    // de `items` por compatibilidad con los paneles ya existentes.
+    const primaryProduct = products[0] || {};
+    const category = String(primaryProduct.category ?? '').trim();
+    const vehicleType = String(primaryProduct.vehicleType ?? '').trim();
+
     const result = await createPurchaseRequest({
       buyer_id: buyer.item.id,
       title: products[0]?.item || 'Solicitud de compra',
       description: products[0]?.notes || products[0]?.item || '',
+      category: category || null,
+      vehicle_type: vehicleType || null,
       items,
       currency: 'MXN',
       status: 'open',

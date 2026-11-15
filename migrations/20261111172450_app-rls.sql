@@ -164,6 +164,13 @@ as $$
   );
 $$;
 
+-- Columnas de segmentación del comercio. Se declaran aquí (además de en
+-- 20261115000000_commerce-request-segmentation.sql) para que app_ensure_profile
+-- sea válida incluso si esta migración se aplica de forma aislada.
+alter table public.commerce_profiles
+  add column if not exists vehicle_types text[] not null default '{}'::text[],
+  add column if not exists inventory_systems text[] not null default '{}'::text[];
+
 -- Provisiona el perfil de negocio del usuario autenticado a partir de
 -- auth.users.profile. Es idempotente: se llama al iniciar sesión, al confirmar
 -- el registro y al guardar el perfil. No permite fijar estados ni aprobar
@@ -182,6 +189,10 @@ declare
   v_email text;
   v_phone text;
   v_business jsonb;
+  v_vehicle_types text[] := '{}'::text[];
+  v_inventory_systems text[] := '{}'::text[];
+  v_sync_vehicle_types boolean := false;
+  v_sync_inventory_systems boolean := false;
   v_buyer public.buyer_profiles%rowtype;
   v_commerce public.commerce_profiles%rowtype;
 begin
@@ -207,6 +218,37 @@ begin
   v_email := nullif(trim(coalesce(v_user.email, '')), '');
   v_phone := nullif(trim(coalesce(v_user.profile ->> 'phone', v_business ->> 'phone', '')), '');
 
+  v_sync_vehicle_types :=
+    coalesce(jsonb_typeof(v_business -> 'vehicleTypes') = 'array', false)
+    or coalesce(jsonb_typeof(v_business -> 'vehicle_types') = 'array', false);
+  v_sync_inventory_systems :=
+    coalesce(jsonb_typeof(v_business -> 'inventorySystems') = 'array', false)
+    or coalesce(jsonb_typeof(v_business -> 'inventory_systems') = 'array', false);
+
+  if jsonb_typeof(v_business -> 'vehicleTypes') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_vehicle_types
+      from jsonb_array_elements_text(v_business -> 'vehicleTypes') as entry(value)
+      where trim(value) <> '';
+  elsif jsonb_typeof(v_business -> 'vehicle_types') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_vehicle_types
+      from jsonb_array_elements_text(v_business -> 'vehicle_types') as entry(value)
+      where trim(value) <> '';
+  end if;
+
+  if jsonb_typeof(v_business -> 'inventorySystems') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_inventory_systems
+      from jsonb_array_elements_text(v_business -> 'inventorySystems') as entry(value)
+      where trim(value) <> '';
+  elsif jsonb_typeof(v_business -> 'inventory_systems') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_inventory_systems
+      from jsonb_array_elements_text(v_business -> 'inventory_systems') as entry(value)
+      where trim(value) <> '';
+  end if;
+
   if v_role = 'commerce' then
     select * into v_commerce
     from public.commerce_profiles cp
@@ -216,7 +258,8 @@ begin
 
     if not found then
       insert into public.commerce_profiles (
-        owner_user_id, trade_name, legal_name, email, phone, address, city, status
+        owner_user_id, trade_name, legal_name, email, phone, address, city,
+        vehicle_types, inventory_systems, status
       )
       values (
         v_uid,
@@ -234,6 +277,8 @@ begin
         v_phone,
         nullif(trim(coalesce(v_business ->> 'address', '')), ''),
         nullif(trim(coalesce(v_business ->> 'city', '')), ''),
+        v_vehicle_types,
+        v_inventory_systems,
         'pending'
       )
       returning * into v_commerce;
@@ -243,6 +288,14 @@ begin
           phone = coalesce(v_phone, phone),
           address = coalesce(nullif(trim(coalesce(v_business ->> 'address', '')), ''), address),
           city = coalesce(nullif(trim(coalesce(v_business ->> 'city', '')), ''), city),
+          vehicle_types = case
+            when v_sync_vehicle_types then v_vehicle_types
+            else vehicle_types
+          end,
+          inventory_systems = case
+            when v_sync_inventory_systems then v_inventory_systems
+            else inventory_systems
+          end,
           updated_at = now()
       where id = v_commerce.id
       returning * into v_commerce;

@@ -63,6 +63,34 @@ const clearStoredSession = () => {
   }
 };
 
+// Normaliza los arreglos de segmentación del negocio antes de guardar el
+// perfil: sin duplicados, sin valores vacíos y sin espacios accidentales.
+const normalizeStringList = (values) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value ?? '').trim())
+        .filter(Boolean)
+    )
+  );
+
+// Solo toca las claves presentes para no inventar segmentación cuando un
+// parche de perfil no incluye datos del negocio.
+const normalizeBusiness = (business) => {
+  if (!business || typeof business !== 'object' || Array.isArray(business)) {
+    return business;
+  }
+
+  const next = { ...business };
+  if (Object.prototype.hasOwnProperty.call(business, 'vehicleTypes')) {
+    next.vehicleTypes = normalizeStringList(business.vehicleTypes);
+  }
+  if (Object.prototype.hasOwnProperty.call(business, 'inventorySystems')) {
+    next.inventorySystems = normalizeStringList(business.inventorySystems);
+  }
+  return next;
+};
+
 // -----------------------------------------------------------------------------
 // Mapeo del usuario de InsForge hacia el usuario de la app.
 // auth.users.profile (JSONB) guarda: name, phone, birth_date, role ('user' |
@@ -141,6 +169,9 @@ export const AuthProvider = ({ children }) => {
     }
 
     const nextProfile = { ...readInsforgeProfile(data.user), ...patch };
+    if (patch && Object.prototype.hasOwnProperty.call(patch, 'business')) {
+      nextProfile.business = normalizeBusiness(patch.business);
+    }
     const { error: saveError } = await insforge.auth.setProfile(nextProfile);
     if (saveError) throw new Error(saveError.message || 'No se pudo guardar el perfil.');
 
@@ -249,7 +280,9 @@ export const AuthProvider = ({ children }) => {
         name: patch.name ?? user?.name,
         phone: patch.phone ?? user?.phone ?? '',
         birthDate: patch.birth_date ?? user?.birthDate ?? '',
-        business: patch.business ?? user?.business ?? null,
+        business: Object.prototype.hasOwnProperty.call(patch, 'business')
+          ? normalizeBusiness(patch.business)
+          : user?.business ?? null,
         addresses: patch.addresses ?? user?.addresses ?? [],
         location: patch.location ?? user?.location ?? null,
       };

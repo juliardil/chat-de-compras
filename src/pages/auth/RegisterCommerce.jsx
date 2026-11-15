@@ -5,6 +5,17 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Store, FileText, Mail, Lock, ArrowLeft, CheckCircle2, Car, Bike, ShieldCheck } from 'lucide-react';
 
+// Los arreglos de segmentación se guardan tal cual los consume la base de
+// datos: sin duplicados, sin valores vacíos y sin espacios accidentales.
+const cleanList = (values) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value ?? '').trim())
+        .filter(Boolean)
+    )
+  );
+
 export default function RegisterCommerce() {
   const navigate = useNavigate();
   const { register, confirmRegistration, resendVerificationCode, mode } = useAuth();
@@ -35,8 +46,8 @@ export default function RegisterCommerce() {
     phone: formData.phone.trim(),
     address: formData.address.trim(),
     mainCategory: formData.mainCategory,
-    inventorySystems: formData.inventorySystems,
-    vehicleTypes: formData.vehicleTypes,
+    inventorySystems: cleanList(formData.inventorySystems),
+    vehicleTypes: cleanList(formData.vehicleTypes),
     yearsExperience: formData.yearsExperience,
   });
 

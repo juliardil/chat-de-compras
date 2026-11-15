@@ -42,6 +42,10 @@ declare
   v_business jsonb;
   v_latitude double precision;
   v_longitude double precision;
+  v_vehicle_types text[] := '{}'::text[];
+  v_inventory_systems text[] := '{}'::text[];
+  v_sync_vehicle_types boolean := false;
+  v_sync_inventory_systems boolean := false;
   v_buyer public.buyer_profiles%rowtype;
   v_commerce public.commerce_profiles%rowtype;
 begin
@@ -78,6 +82,37 @@ begin
     else null
   end;
 
+  v_sync_vehicle_types :=
+    coalesce(jsonb_typeof(v_business -> 'vehicleTypes') = 'array', false)
+    or coalesce(jsonb_typeof(v_business -> 'vehicle_types') = 'array', false);
+  v_sync_inventory_systems :=
+    coalesce(jsonb_typeof(v_business -> 'inventorySystems') = 'array', false)
+    or coalesce(jsonb_typeof(v_business -> 'inventory_systems') = 'array', false);
+
+  if jsonb_typeof(v_business -> 'vehicleTypes') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_vehicle_types
+      from jsonb_array_elements_text(v_business -> 'vehicleTypes') as entry(value)
+      where trim(value) <> '';
+  elsif jsonb_typeof(v_business -> 'vehicle_types') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_vehicle_types
+      from jsonb_array_elements_text(v_business -> 'vehicle_types') as entry(value)
+      where trim(value) <> '';
+  end if;
+
+  if jsonb_typeof(v_business -> 'inventorySystems') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_inventory_systems
+      from jsonb_array_elements_text(v_business -> 'inventorySystems') as entry(value)
+      where trim(value) <> '';
+  elsif jsonb_typeof(v_business -> 'inventory_systems') = 'array' then
+    select coalesce(array_agg(distinct trim(value) order by trim(value)), '{}'::text[])
+      into v_inventory_systems
+      from jsonb_array_elements_text(v_business -> 'inventory_systems') as entry(value)
+      where trim(value) <> '';
+  end if;
+
   if v_role = 'commerce' then
     select * into v_commerce
     from public.commerce_profiles cp
@@ -88,7 +123,7 @@ begin
     if not found then
       insert into public.commerce_profiles (
         owner_user_id, trade_name, legal_name, email, phone, address, city,
-        latitude, longitude, status
+        latitude, longitude, vehicle_types, inventory_systems, status
       )
       values (
         v_uid,
@@ -108,6 +143,8 @@ begin
         nullif(trim(coalesce(v_business ->> 'city', '')), ''),
         v_latitude,
         v_longitude,
+        v_vehicle_types,
+        v_inventory_systems,
         'pending'
       )
       returning * into v_commerce;
@@ -119,6 +156,14 @@ begin
           city = coalesce(nullif(trim(coalesce(v_business ->> 'city', '')), ''), city),
           latitude = coalesce(v_latitude, latitude),
           longitude = coalesce(v_longitude, longitude),
+          vehicle_types = case
+            when v_sync_vehicle_types then v_vehicle_types
+            else vehicle_types
+          end,
+          inventory_systems = case
+            when v_sync_inventory_systems then v_inventory_systems
+            else inventory_systems
+          end,
           updated_at = now()
       where id = v_commerce.id
       returning * into v_commerce;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildPurchaseRequestPayload,
   calculateDistanceKm,
   describeError,
   fetchBuyerOrders,
@@ -348,5 +349,46 @@ describe('capa de datos de la app', () => {
     expect(unknown.distanceLabel).toBe('');
     expect(unknown.rating).toBeNull();
     expect(unknown.ratingCount).toBe(0);
+  });
+});
+
+describe('segmentación de una solicitud de compra', () => {
+  it('promueve la segmentación del primer ítem a columnas principales', () => {
+    const payload = buildPurchaseRequestPayload({
+      buyer_id: 'buyer-1',
+      title: 'Pastillas de freno',
+      items: [{ category: 'Frenos', vehicleType: 'Auto', item: 'Pastillas de freno' }],
+    });
+
+    expect(payload).toMatchObject({
+      buyer_id: 'buyer-1',
+      category: 'Frenos',
+      vehicle_type: 'Auto',
+    });
+    // La clave camelCase no es una columna: nunca debe enviarse a la API.
+    expect(payload).not.toHaveProperty('vehicleType');
+    // El JSONB original se conserva para los paneles que ya lo consumen.
+    expect(payload.items[0]).toMatchObject({ category: 'Frenos', vehicleType: 'Auto' });
+  });
+
+  it('prioriza los valores explícitos y recorta espacios', () => {
+    const payload = buildPurchaseRequestPayload({
+      title: 'Solicitud',
+      category: '  Frenos  ',
+      vehicle_type: ' Moto ',
+      vehicleType: 'Auto',
+      items: [{ category: 'Motor', vehicleType: 'Camioneta' }],
+    });
+
+    expect(payload.category).toBe('Frenos');
+    expect(payload.vehicle_type).toBe('Moto');
+    expect(payload).not.toHaveProperty('vehicleType');
+  });
+
+  it('omite columnas vacías para no forzar valores inventados', () => {
+    const payload = buildPurchaseRequestPayload({ title: 'Solicitud', items: [] });
+
+    expect(payload).not.toHaveProperty('category');
+    expect(payload).not.toHaveProperty('vehicle_type');
   });
 });

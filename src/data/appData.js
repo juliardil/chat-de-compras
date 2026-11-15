@@ -16,6 +16,10 @@
 // =============================================================================
 
 import { insforge, isInsforgeConfigured } from '../lib/insforge';
+import {
+  filterCompatibleRequests,
+  hasCommerceSegmentation,
+} from '../utils/matching';
 
 export const appMode = isInsforgeConfigured ? 'insforge' : 'demo';
 
@@ -40,6 +44,8 @@ export const NOTICES = {
     'No se pudieron cargar las métricas del comercio. Verifica tu sesión y que tu comercio esté aprobado.',
   commercePending:
     'Tu comercio está pendiente de aprobación. Mientras no se apruebe no verás solicitudes abiertas ni podrás enviar ofertas.',
+  commerceSegmentation:
+    'Tu comercio todavía no tiene configurada su segmentación (vehículos y sistemas de inventario). Actualiza tu perfil para recibir solicitudes compatibles.',
   categories:
     'No se pudieron cargar las categorías.',
   write:
@@ -855,7 +861,7 @@ export const fetchCommerceIdForUser = async (userId) => {
   if (!userId) return emptyResult(NOTICES.chats, 'No hay una sesión activa para consultar estos datos.');
 
   const result = await runQuery(
-    (db) => db.from('commerce_profiles').select('id,trade_name,status').eq('owner_user_id', userId).limit(1),
+    (db) => db.from('commerce_profiles').select('id,trade_name,status,vehicle_types,inventory_systems').eq('owner_user_id', userId).limit(1),
     NOTICES.chats
   );
 
@@ -1081,18 +1087,57 @@ export const openChatForOffer = async ({ userId, offer, subject }) => {
 // Comercio: oportunidades, métricas y ventas
 // -----------------------------------------------------------------------------
 export const fetchOpenRequests = async (commerceId) => {
+  if (!isInsforgeConfigured) return emptyResult(NOTICES.demo);
   if (!commerceId) return emptyResult(NOTICES.commerceMetrics);
 
-  return runQuery(
+  // La segmentación vive en el perfil del comercio. Se resuelve primero para
+  // no descargar solicitudes que este comercio no puede atender.
+  const commerce = await runQuery(
+    (db) =>
+      db
+        .from('commerce_profiles')
+        .select('id,status,vehicle_types,inventory_systems')
+        .eq('id', commerceId)
+        .limit(1),
+    NOTICES.commerceMetrics
+  );
+
+  if (commerce.error) {
+    return emptyResult(
+      commerce.notice || NOTICES.commerceMetrics,
+      commerce.error
+    );
+  }
+
+  const profile = commerce.items[0] || null;
+  if (!profile) return emptyResult(NOTICES.commerceMetrics);
+
+  if (!hasCommerceSegmentation(profile)) {
+    return emptyResult(NOTICES.commerceSegmentation);
+  }
+
+  const result = await runQuery(
     (db) =>
       db
         .from('purchase_requests')
-        .select('id,title,description,items,budget_amount,currency,status,expires_at,created_at')
+        .select(
+          'id,title,description,items,category,vehicle_type,budget_amount,currency,status,expires_at,created_at'
+        )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
         .limit(50),
     NOTICES.commerceMetrics
   );
+
+  if (result.error) return result;
+
+  // Segunda barrera además de RLS: cubre solicitudes antiguas con la
+  // segmentación solo en `items` y evita que un comercio vea solicitudes
+  // ajenas a su nicho si la migración de matching aún no está aplicada.
+  return {
+    ...result,
+    items: filterCompatibleRequests(result.items, profile),
+  };
 };
 
 export const fetchCommerceSales = async (commerceId) => {
@@ -1170,9 +1215,45 @@ export const fetchCategories = async () =>
 // -----------------------------------------------------------------------------
 // Escrituras (se intentan de verdad; el backend puede rechazarlas)
 // -----------------------------------------------------------------------------
+const normalizeSegmentationText = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+};
+
+// Construye el payload de una solicitud nueva. La categoría y el tipo de
+// vehículo se promueven a columnas principales y, si no vienen explícitos, se
+// toman del primer ítem para no perder el dato que capturó el comprador.
+// También elimina la clave camelCase `vehicleType`, que no es una columna.
+export const buildPurchaseRequestPayload = (payload = {}) => {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const { vehicleType, ...rest } = source;
+  const items = Array.isArray(rest.items) ? rest.items : [];
+  const firstItem = items[0] && typeof items[0] === 'object' ? items[0] : {};
+
+  const category =
+    normalizeSegmentationText(rest.category) ||
+    normalizeSegmentationText(firstItem.category) ||
+    null;
+  const vehicleTypeValue =
+    normalizeSegmentationText(rest.vehicle_type) ||
+    normalizeSegmentationText(vehicleType) ||
+    normalizeSegmentationText(firstItem.vehicle_type) ||
+    normalizeSegmentationText(firstItem.vehicleType) ||
+    null;
+
+  const next = { ...rest };
+  if (category) next.category = category;
+  else delete next.category;
+
+  if (vehicleTypeValue) next.vehicle_type = vehicleTypeValue;
+  else delete next.vehicle_type;
+
+  return next;
+};
+
 export const createPurchaseRequest = async (payload) =>
   runWrite(
-    (db) => db.from('purchase_requests').insert([payload]),
+    (db) => db.from('purchase_requests').insert([buildPurchaseRequestPayload(payload)]),
     'No se pudo publicar la solicitud.'
   );
 
