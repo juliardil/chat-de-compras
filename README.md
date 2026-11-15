@@ -86,15 +86,14 @@ de comprador/comercio.
   auditadas de analítica y auditoría, y búsqueda global de metadatos en la
   barra superior.
 - Con InsForge configurado usa autenticación real y permisos en servidor
-  (RLS + funciones). Requiere aplicar las migraciones
-  `migrations/20261106000000_admin-foundation.sql`,
-  `migrations/20261106010000_people-catalog.sql`,
-  `migrations/20261106020000_operations.sql`,
-  `migrations/20261106030000_trust-care.sql` y
-  `migrations/20261106040000_analytics-payments.sql`, además de dos buckets
-  privados: documentos (`VITE_INSFORGE_DOCUMENTS_BUCKET`, por defecto
+  (RLS + funciones). Requiere aplicar todas las migraciones de `migrations/`
+  (incluidas las de la app de comprador/comercio), además de tres buckets:
+  dos privados —documentos (`VITE_INSFORGE_DOCUMENTS_BUCKET`, por defecto
   `commerce-documents`) y evidencias de entrega
-  (`VITE_INSFORGE_EVIDENCE_BUCKET`, por defecto `delivery-evidence`).
+  (`VITE_INSFORGE_EVIDENCE_BUCKET`, por defecto `delivery-evidence`)— y uno
+  público para fotos de perfil (`VITE_INSFORGE_AVATARS_BUCKET`, por defecto
+  `avatars`). El bucket público se crea una vez con
+  `npx -y @insforge/cli storage create-bucket avatars --public`.
 
 Documentación:
 
