@@ -1,10 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Phone, Globe, Instagram, Save, FileText, ChevronDown, MapPin } from 'lucide-react';
+import { ArrowLeft, Clock, Phone, Globe, Instagram, Save, FileText, ChevronDown, MapPin, Camera } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
+import SafeImage from '../../components/ui/SafeImage';
+import avatarComercio from '../../assets/avatar-comercio.svg';
 import { useAuth } from '../../context/auth-context';
+import { uploadProfilePhoto, validateProfilePhoto } from '../../data/appData';
 
 // Edición del perfil comercial conectada al backend:
 //  * descripción, horario, teléfono, Instagram y sitio web se guardan en
@@ -31,6 +34,27 @@ export default function EditProfile() {
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState(null);
   const [error, setError] = useState(null);
+  const [photo, setPhoto] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const avatarPreview = photo || user?.avatarUrl || avatarComercio;
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const validation = validateProfilePhoto(file);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+
+    setError(null);
+    setPhotoFile(file);
+    setPhoto(URL.createObjectURL(file));
+  };
 
   const hasCoordinates =
     formData.latitude !== '' &&
@@ -124,6 +148,19 @@ export default function EditProfile() {
     setBusy(true);
 
     try {
+      let avatarUrl;
+      if (photoFile) {
+        const upload = await uploadProfilePhoto({
+          userId: user?.id,
+          role: 'commerce',
+          file: photoFile,
+        });
+        if (upload.error) {
+          throw new Error(upload.error);
+        }
+        avatarUrl = upload.url;
+      }
+
       await updateProfile({
         business: {
           ...business,
@@ -135,6 +172,7 @@ export default function EditProfile() {
           latitude: toCoordinate(formData.latitude),
           longitude: toCoordinate(formData.longitude),
         },
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       });
       navigate('/profile', { state: { profileUpdated: true } });
     } catch (err) {
@@ -154,6 +192,47 @@ export default function EditProfile() {
       </header>
 
       <div className="p-6 space-y-6">
+        {/* Foto de perfil */}
+        <div className="bg-white/80 backdrop-blur-md p-5 rounded-xl shadow-sm border border-white/30">
+          <div className="flex items-center gap-2 mb-4 text-[#4B227A] font-bold">
+            <Camera className="w-5 h-5" />
+            <h2>Foto de Perfil</h2>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-md bg-[#00EED0]/10">
+                <SafeImage
+                  src={avatarPreview}
+                  alt="Foto de perfil del comercio"
+                  className="w-full h-full object-cover"
+                  fallback={avatarComercio}
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Cambiar foto de perfil"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 p-1.5 bg-gray-800 text-white rounded-full border-2 border-white shadow-sm hover:bg-gray-700 transition-colors"
+              >
+                <Camera className="w-3 h-3" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-800">
+                {photoFile ? 'Nueva foto lista para guardar' : 'Cambiar foto'}
+              </p>
+              <p className="text-xs text-gray-500">JPG, PNG, WEBP o GIF · máx. 5 MB</p>
+            </div>
+          </div>
+        </div>
+
         {/* Descripción */}
         <div className="bg-white/80 backdrop-blur-md p-5 rounded-xl shadow-sm border border-white/30">
           <div className="flex items-center gap-2 mb-4 text-[#006E7A] font-bold">

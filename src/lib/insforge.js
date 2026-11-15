@@ -6,6 +6,7 @@ const baseUrl = (import.meta.env.VITE_INSFORGE_URL || '').trim();
 const anonKey = (import.meta.env.VITE_INSFORGE_ANON_KEY || '').trim();
 const rawDocumentsBucket = (import.meta.env.VITE_INSFORGE_DOCUMENTS_BUCKET || '').trim();
 const rawEvidenceBucket = (import.meta.env.VITE_INSFORGE_EVIDENCE_BUCKET || '').trim();
+const rawAvatarsBucket = (import.meta.env.VITE_INSFORGE_AVATARS_BUCKET || '').trim();
 
 export const isInsforgeConfigured = Boolean(baseUrl && anonKey);
 
@@ -14,11 +15,16 @@ export const isInsforgeConfigured = Boolean(baseUrl && anonKey);
 export const documentsBucket = rawDocumentsBucket || 'commerce-documents';
 export const deliveryEvidenceBucket = rawEvidenceBucket || 'delivery-evidence';
 
+// Fotos de perfil: bucket público de solo lectura. La escritura la controla
+// storage.objects (solo el dueño que sube el archivo).
+export const avatarsBucket = rawAvatarsBucket || 'avatars';
+
 export const insforgeConfig = {
   baseUrl,
   hasAnonKey: Boolean(anonKey),
   documentsBucket,
   deliveryEvidenceBucket,
+  avatarsBucket,
 };
 
 export const insforge = isInsforgeConfigured

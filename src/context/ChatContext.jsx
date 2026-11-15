@@ -5,6 +5,7 @@ import { isInsforgeConfigured } from '../lib/insforge';
 import {
   createOrderForChat,
   fetchChatMessages,
+  fetchChatCounterpart,
   fetchChatThread,
   fetchOrderById,
   mapChatMessage,
@@ -148,6 +149,13 @@ export const ChatProvider = ({ children }) => {
     product: '',
   });
 
+  // Nombre y foto de la contraparte para la cabecera del chat.
+  const [counterpart, setCounterpart] = useState({
+    id: null,
+    name: '',
+    avatarUrl: null,
+  });
+
   // Datos de envío del comprador (se envían al comercio como mensaje del chat)
   const [shippingData, setShippingData] = useState({
     name: '',
@@ -218,12 +226,16 @@ export const ChatProvider = ({ children }) => {
         status: null,
         product: '',
       });
+      setCounterpart({ id: null, name: '', avatarUrl: null });
       return;
     }
 
     const threadResult = await fetchChatThread(chatId);
     const thread = threadResult.item;
     if (!thread) return;
+
+    const counterpartInfo = await fetchChatCounterpart(thread, userRole);
+    setCounterpart(counterpartInfo);
 
     if (!thread.order_id) {
       setOrderInfo({
@@ -250,7 +262,7 @@ export const ChatProvider = ({ children }) => {
       status: order?.status || null,
       product: order?.snapshot?.product || '',
     });
-  }, [connected]);
+  }, [connected, userRole]);
 
   // Abrir (o crear) el chat indicado por la ruta y limpiar modales al cambiar de conversación
   const openChat = useCallback((chatId) => {
@@ -619,6 +631,7 @@ export const ChatProvider = ({ children }) => {
       shippingSubmitting,
       receiptSending,
       orderInfo,
+      counterpart,
       // Entrada y modales
       inputText,
       setInputText,

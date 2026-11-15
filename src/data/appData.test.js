@@ -18,6 +18,8 @@ import {
   mapRequestItem,
   splitOrders,
   updateOrderStatusForChat,
+  validateProfilePhoto,
+  MAX_PROFILE_PHOTO_BYTES,
   NOTICES,
 } from './appData';
 
@@ -146,6 +148,8 @@ describe('capa de datos de la app', () => {
       budget_amount: 2000,
       currency: 'MXN',
       created_at: new Date().toISOString(),
+      buyer_name: 'Juliana',
+      buyer_avatar_url: 'https://cdn.example.com/juliana.jpg',
       items: [
         {
           id: 1,
@@ -176,6 +180,8 @@ describe('capa de datos de la app', () => {
     expect(opportunity.items[1]).toMatchObject({ product: 'Amplificador', quantity: 3 });
     expect(opportunity.quantityTotal).toBe(5);
     expect(opportunity.image).toBe('data:image/jpeg;base64,AAA');
+    expect(opportunity.buyerName).toBe('Juliana');
+    expect(opportunity.buyerAvatar).toBe('https://cdn.example.com/juliana.jpg');
   });
 
   it('mapea ofertas y pedidos usando las columnas snake_case', () => {
@@ -183,6 +189,7 @@ describe('capa de datos de la app', () => {
       id: 'offer-1',
       request_id: 'req-1',
       commerce_name: 'Taller Real',
+      commerce_avatar_url: 'https://cdn.example.com/taller.jpg',
       total_amount: 900,
       currency: 'MXN',
       delivery_days: 2,
@@ -201,6 +208,7 @@ describe('capa de datos de la app', () => {
     });
 
     expect(offer.store).toBe('Taller Real');
+    expect(offer.avatar).toBe('https://cdn.example.com/taller.jpg');
     expect(offer.commerceId).toBeNull();
     expect(offer.found).toBe(1);
     expect(offer.total).toBe(2);
@@ -253,9 +261,13 @@ describe('capa de datos de la app', () => {
       subject: 'Consulta de precio',
       status: 'active',
       last_message_at: new Date().toISOString(),
+      counterpart_name: 'Taller Real',
+      counterpart_avatar_url: 'https://cdn.example.com/taller.jpg',
     });
 
     expect(thread.subject).toBe('Consulta de precio');
+    expect(thread.counterpartName).toBe('Taller Real');
+    expect(thread.avatar).toBe('https://cdn.example.com/taller.jpg');
     expect(thread.status).toBe('active');
     expect(thread.unread).toBe(0);
   });
@@ -349,6 +361,26 @@ describe('capa de datos de la app', () => {
     expect(unknown.distanceLabel).toBe('');
     expect(unknown.rating).toBeNull();
     expect(unknown.ratingCount).toBe(0);
+  });
+});
+
+describe('validación de la foto de perfil', () => {
+  const image = (type, size = 1024) => ({ type, size, name: 'foto.jpg' });
+
+  it('acepta imágenes admitidas dentro del límite', () => {
+    expect(validateProfilePhoto(image('image/jpeg'))).toBeNull();
+    expect(validateProfilePhoto(image('image/png'))).toBeNull();
+    expect(validateProfilePhoto(image('image/webp'))).toBeNull();
+    expect(validateProfilePhoto(image('image/gif'))).toBeNull();
+  });
+
+  it('rechaza archivos vacíos, no-imagen, formatos raros y exceso de tamaño', () => {
+    expect(validateProfilePhoto(null)).toMatch(/selecciona/i);
+    expect(validateProfilePhoto({ type: 'application/pdf', size: 100 })).toMatch(/imagen/i);
+    expect(validateProfilePhoto(image('image/svg+xml'))).toMatch(/JPG/i);
+    expect(
+      validateProfilePhoto(image('image/jpeg', MAX_PROFILE_PHOTO_BYTES + 1))
+    ).toMatch(/5 MB/i);
   });
 });
 

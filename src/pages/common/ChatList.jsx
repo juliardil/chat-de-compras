@@ -4,6 +4,7 @@ import { ArrowLeft, MessageSquare, ChevronRight } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import { EmptyModule, LoadingModule } from '../../components/ui/ModuleState';
+import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import { fetchChatThreads, mapChatThread, NOTICES } from '../../data/appData';
@@ -48,16 +49,28 @@ export default function ChatList() {
             }}
             className="bg-white/80 backdrop-blur-md p-4 border-b border-white/30 flex gap-4 hover:bg-white/90 transition-colors cursor-pointer"
           >
-            <div className="w-12 h-12 bg-gradient-to-br from-[#00EED0]/30 to-[#4B227A]/30 rounded-full flex items-center justify-center shrink-0">
-              <MessageSquare className="w-6 h-6 text-gray-700" />
+            <div className="w-12 h-12 bg-gradient-to-br from-[#00EED0]/30 to-[#4B227A]/30 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+              {chat.avatar ? (
+                <SafeImage
+                  src={chat.avatar}
+                  alt={`Foto de ${chat.counterpartName || chat.subject}`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <MessageSquare className="w-6 h-6 text-gray-700" />
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start mb-1">
-                <h3 className="font-bold text-gray-800 text-sm truncate">{chat.subject}</h3>
+                <h3 className="font-bold text-gray-800 text-sm truncate">
+                  {chat.counterpartName || chat.subject}
+                </h3>
                 <span className="text-[10px] text-gray-600 whitespace-nowrap ml-2">{chat.time}</span>
               </div>
-              <p className="text-xs font-medium text-[#006E7A] capitalize">{chat.status}</p>
+              <p className="text-xs font-medium text-[#006E7A] truncate">
+                {chat.counterpartName ? chat.subject : chat.status}
+              </p>
             </div>
 
             <div className="self-center">

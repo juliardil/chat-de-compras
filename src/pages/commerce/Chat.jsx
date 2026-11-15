@@ -2,8 +2,9 @@
 
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, PackageCheck, History, Star, MessageCircle, X } from 'lucide-react';
+import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, PackageCheck, History, Star, MessageCircle, X, User } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import SafeImage from '../../components/ui/SafeImage';
 import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
 import { NOTICES, formatCurrency } from '../../data/appData';
 import { useChat } from '../../context/chat-context';
@@ -31,7 +32,8 @@ export default function Chat() {
     handleSellerAction,
     connected,
     chatError,
-    orderInfo
+    orderInfo,
+    counterpart
   } = useChat();
 
   useEffect(() => {
@@ -51,8 +53,19 @@ export default function Chat() {
           <button aria-label="Volver" onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/80 rounded-full transition-colors">
             <ArrowLeft className="w-6 h-6 text-gray-800" />
           </button>
+          <div className="w-10 h-10 rounded-full bg-[#4B227A]/10 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+            {counterpart?.avatarUrl ? (
+              <SafeImage
+                src={counterpart.avatarUrl}
+                alt={`Foto de ${counterpart.name || 'el comprador'}`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-5 h-5 text-[#4B227A]" aria-hidden="true" />
+            )}
+          </div>
           <div>
-            <h1 className="font-bold text-gray-800">Conversación</h1>
+            <h1 className="font-bold text-gray-800">{counterpart?.name || 'Conversación'}</h1>
             <p className="text-xs text-[#006E7A] flex items-center gap-1">
               <span className="w-2 h-2 bg-[#00EED0] rounded-full"></span>
               {connected ? 'Conversación en tiempo real' : 'Mensajes guardados en este dispositivo'}

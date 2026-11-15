@@ -9,6 +9,7 @@ import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import { sortOffers } from '../../data/offerSort';
 import { fetchBuyerOffers, mapOffer, openChatForOffer, NOTICES } from '../../data/appData';
+import avatarComercio from '../../assets/avatar-comercio.svg';
 
 // Actualización estética Junio 2026
 
@@ -111,7 +112,12 @@ export default function Responses() {
         {!loading && sortedOffers.map((offer) => (
           <div key={offer.id} className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/30">
             <div className="flex gap-4">
-              <SafeImage src={null} alt={offer.store} className="w-20 h-20 rounded-xl object-cover bg-white/70" />
+              <SafeImage
+                src={offer.avatar}
+                alt={`Foto de ${offer.store}`}
+                className="w-20 h-20 rounded-xl object-cover bg-white/70"
+                fallback={avatarComercio}
+              />
               <div className="flex-1">
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-gray-800">{offer.store}</h3>

@@ -425,12 +425,22 @@ export default function Dashboard() {
               <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 mb-4 border border-white/30">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#4B227A]/10 border-2 border-white shadow-sm flex items-center justify-center">
-                      <User className="w-5 h-5 text-[#4B227A]" aria-hidden="true" />
+                    <div className="w-10 h-10 rounded-full bg-[#4B227A]/10 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                      {opp.buyerAvatar ? (
+                        <SafeImage
+                          src={opp.buyerAvatar}
+                          alt={`Foto de ${opp.buyerName || 'comprador'}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-5 h-5 text-[#4B227A]" aria-hidden="true" />
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-gray-800 text-sm">Comprador</span>
+                        <span className="font-bold text-gray-800 text-sm">
+                          {opp.buyerName || 'Comprador'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1 text-[11px] text-gray-600">
                         <Store className="w-3 h-3" /> Presupuesto: {opp.budget}
@@ -652,9 +662,31 @@ export default function Dashboard() {
             </button>
 
             <h2 className="text-xl font-bold text-gray-800 mb-1 pr-8">{selectedOpp.product}</h2>
-            <p className="text-sm text-gray-600 mb-5 flex items-center gap-2">
+            <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4" /> {selectedOpp.timeLeft}
             </p>
+
+            <div className="flex items-center gap-3 mb-5 rounded-xl border border-white/40 bg-white/70 p-3">
+              <div className="w-10 h-10 rounded-full bg-[#4B227A]/10 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+                {selectedOpp.buyerAvatar ? (
+                  <SafeImage
+                    src={selectedOpp.buyerAvatar}
+                    alt={`Foto de ${selectedOpp.buyerName || 'comprador'}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-5 h-5 text-[#4B227A]" aria-hidden="true" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Comprador
+                </p>
+                <p className="font-bold text-gray-800 truncate">
+                  {selectedOpp.buyerName || 'Comprador'}
+                </p>
+              </div>
+            </div>
 
             <div className="space-y-4 mb-6">
               {selectedOpp.items.length > 0 ? (

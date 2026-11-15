@@ -2,7 +2,9 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Mail, Phone, Calendar, Camera, CheckCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
+import { uploadProfilePhoto, validateProfilePhoto } from '../../data/appData';
 
 // Edición del perfil personal conectada al backend:
 //  * el correo viene de la cuenta (auth.users.email) y no se modifica aquí;
@@ -18,15 +20,27 @@ export default function EditUserProfile() {
     birthDate: user?.birthDate || ''
   });
   const [photo, setPhoto] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
+  const avatarPreview = photo || user?.avatarUrl || null;
+
   const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setPhoto(URL.createObjectURL(file));
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const validation = validateProfilePhoto(file);
+    if (validation) {
+      setError(validation);
+      return;
     }
+
+    setError(null);
+    setPhotoFile(file);
+    setPhoto(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
@@ -35,10 +49,24 @@ export default function EditUserProfile() {
     setBusy(true);
 
     try {
+      let avatarUrl;
+      if (photoFile) {
+        const upload = await uploadProfilePhoto({
+          userId: user?.id,
+          role: 'user',
+          file: photoFile,
+        });
+        if (upload.error) {
+          throw new Error(upload.error);
+        }
+        avatarUrl = upload.url;
+      }
+
       await updateProfile({
         name: formData.fullName.trim(),
         phone: formData.phone.trim(),
         birth_date: formData.birthDate,
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       });
       navigate('/profile-user', { state: { profileUpdated: true } });
     } catch (err) {
@@ -61,8 +89,12 @@ export default function EditUserProfile() {
         <div className="flex flex-col items-center mb-8">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-[#00EED0]/20 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-              {photo ? (
-                <img src={photo} alt="Foto de perfil" className="w-full h-full object-cover" />
+              {avatarPreview ? (
+                <SafeImage
+                  src={avatarPreview}
+                  alt="Foto de perfil"
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <User className="w-12 h-12 text-[#4B227A]" />
               )}
@@ -78,12 +110,15 @@ export default function EditUserProfile() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
               onChange={handlePhotoChange}
             />
           </div>
-          <p className="mt-2 text-xs font-bold text-[#006E7A] uppercase tracking-widest">Cambiar foto</p>
+          <p className="mt-2 text-xs font-bold text-[#006E7A] uppercase tracking-widest">
+            {photoFile ? 'Nueva foto lista para guardar' : 'Cambiar foto'}
+          </p>
+          <p className="mt-1 text-[10px] text-gray-500">JPG, PNG, WEBP o GIF · máx. 5 MB</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

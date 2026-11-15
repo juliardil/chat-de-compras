@@ -7,6 +7,7 @@ import { useAuth } from '../../context/auth-context';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import avatarComercio from '../../assets/avatar-comercio.svg';
+import { uploadProfilePhoto } from '../../data/appData';
 
 // Perfil del comercio. El nombre, la descripción y los datos de contacto
 // provienen de la sesión real (auth.users.profile.business con InsForge;
@@ -23,24 +24,43 @@ const VEHICLE_LABELS = {
 };
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const business = user?.business || {};
   const justUpdated = Boolean(location.state?.profileUpdated);
-  const [profileImage, setProfileImage] = useState(avatarComercio);
+  const [profileImage, setProfileImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
   const [showMembershipNotice, setShowMembershipNotice] = useState(false);
   const fileInputRef = useRef(null);
+
+  const avatarSrc = profileImage || user?.avatarUrl || avatarComercio;
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setProfileImage(url);
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setPhotoError(null);
+    setUploading(true);
+    try {
+      const result = await uploadProfilePhoto({ userId: user?.id, role: 'commerce', file });
+      if (result.error) {
+        setPhotoError(result.error);
+        return;
+      }
+
+      await updateProfile({ avatar_url: result.url });
+      setProfileImage(result.url);
+    } catch (err) {
+      setPhotoError(err?.message || 'No se pudo guardar la foto de perfil.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -78,25 +98,36 @@ export default function Profile() {
         <div className="flex flex-col items-center">
           <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-[#00EED0] to-[#4B227A] mb-4 relative shadow-[0_0_20px_rgba(0,238,208,0.4)]">
             <SafeImage
-              src={profileImage}
+              src={avatarSrc}
               alt="Foto de perfil del comercio"
               className="w-full h-full rounded-full object-cover border-4 border-white"
+              fallback={avatarComercio}
             />
             <button 
               aria-label="Cambiar foto de perfil"
               onClick={handleImageClick}
-              className="absolute bottom-0 right-0 bg-gray-800 text-white p-1.5 rounded-full border-2 border-white shadow-sm hover:bg-gray-700 transition-colors"
+              disabled={uploading}
+              className="absolute bottom-0 right-0 bg-gray-800 text-white p-1.5 rounded-full border-2 border-white shadow-sm hover:bg-gray-700 transition-colors disabled:opacity-60"
             >
               <Edit2 className="w-3 h-3" />
             </button>
             <input 
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
               onChange={handleImageChange}
             />
           </div>
+
+          {uploading ? (
+            <p className="mb-1 text-xs font-semibold text-[#006E7A]">Subiendo foto…</p>
+          ) : null}
+          {photoError ? (
+            <p role="alert" className="mb-2 max-w-xs text-center text-xs font-medium text-red-700">
+              {photoError}
+            </p>
+          ) : null}
           
           <h1 className="text-2xl font-bold text-gray-800 mb-1 text-center">{commerceName}</h1>
           <p className="text-gray-600 text-sm mb-2">{user?.email || '—'}</p>

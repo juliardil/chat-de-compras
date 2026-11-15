@@ -15,7 +15,7 @@
 // de consultar y las escrituras se rechazan si intentan tocar datos ajenos.
 // =============================================================================
 
-import { insforge, isInsforgeConfigured } from '../lib/insforge';
+import { avatarsBucket, insforge, isInsforgeConfigured } from '../lib/insforge';
 import {
   filterCompatibleRequests,
   hasCommerceSegmentation,
@@ -258,6 +258,93 @@ export const ensureProfile = async () => {
 };
 
 // -----------------------------------------------------------------------------
+// Fotos de perfil
+// -----------------------------------------------------------------------------
+export const MAX_PROFILE_PHOTO_BYTES = 5 * 1024 * 1024;
+const PROFILE_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+// Valida el archivo antes de subirlo. Devuelve null si es válido.
+export const validateProfilePhoto = (file) => {
+  if (!file) return 'Selecciona una imagen para tu perfil.';
+  if (!String(file.type || '').startsWith('image/')) {
+    return 'El archivo debe ser una imagen.';
+  }
+  if (file.type && !PROFILE_PHOTO_TYPES.includes(file.type)) {
+    return 'Usa una imagen JPG, PNG, WEBP o GIF.';
+  }
+  if (Number(file.size) > MAX_PROFILE_PHOTO_BYTES) {
+    return 'La imagen no puede superar 5 MB.';
+  }
+  return null;
+};
+
+const profilePhotoExtension = (file) => {
+  const name = String(file?.name || '');
+  const dot = name.lastIndexOf('.');
+  const extension = dot >= 0 ? name.slice(dot + 1).toLowerCase() : '';
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(extension)) {
+    return extension === 'jpeg' ? 'jpg' : extension;
+  }
+  return {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+  }[file?.type] || 'jpg';
+};
+
+// Sube la foto al bucket público y devuelve su URL. En modo demostración se
+// mantiene una URL local para que la vista previa funcione sin backend.
+export const uploadProfilePhoto = async ({ userId, role, file }) => {
+  const validation = validateProfilePhoto(file);
+  if (validation) return { url: null, key: null, error: validation };
+
+  if (!isInsforgeConfigured) {
+    return { url: URL.createObjectURL(file), key: null, error: null, demo: true };
+  }
+
+  if (!userId) {
+    return {
+      url: null,
+      key: null,
+      error: 'No hay una sesión activa para subir la foto de perfil.',
+    };
+  }
+
+  const folder = role === 'commerce' ? 'commerce' : 'buyer';
+  const path = `${folder}/${userId}/avatar-${Date.now()}.${profilePhotoExtension(file)}`;
+
+  try {
+    const bucket = insforge.storage.from(avatarsBucket);
+    const { data, error } = await bucket.upload(path, file);
+    if (error) {
+      return {
+        url: null,
+        key: null,
+        error: describeError(error, 'No se pudo subir la foto de perfil.'),
+      };
+    }
+
+    const publicUrl = data?.url || bucket.getPublicUrl(path)?.data?.publicUrl || null;
+    if (!publicUrl) {
+      return {
+        url: null,
+        key: null,
+        error: 'La foto se subió, pero no se obtuvo su URL pública.',
+      };
+    }
+
+    return { url: publicUrl, key: data?.key || path, error: null };
+  } catch (error) {
+    return {
+      url: null,
+      key: null,
+      error: describeError(error, 'No se pudo subir la foto de perfil.'),
+    };
+  }
+};
+
+// -----------------------------------------------------------------------------
 // Solicitudes del comprador
 // -----------------------------------------------------------------------------
 // Las tablas de negocio referencian buyer_profiles.id, no el id de auth.users.
@@ -414,7 +501,7 @@ export const fetchBuyerOffers = async (userId) => {
       (db) =>
         db
           .from('commerce_profiles')
-          .select('id,trade_name,latitude,longitude')
+          .select('id,trade_name,latitude,longitude,avatar_url')
           .in('id', commerceIds),
       NOTICES.offers
     );
@@ -461,6 +548,7 @@ export const fetchBuyerOffers = async (userId) => {
       return {
         ...offer,
         commerce_name: commerce.trade_name || '',
+        commerce_avatar_url: commerce.avatar_url || null,
         commerce_latitude: commerce.latitude ?? null,
         commerce_longitude: commerce.longitude ?? null,
         commerce_rating: commerce.rating ?? null,
@@ -492,6 +580,7 @@ export const mapOffer = (row, buyerLocation = null) => {
     requestId: row.request_id,
     commerceId: row.commerce_id || null,
     store: row.commerce_name || 'Comercio',
+    avatar: row.commerce_avatar_url || null,
     price: formatCurrency(row.total_amount, row.currency),
     amount: Number.isFinite(amount) ? amount : null,
     currency: row.currency || 'MXN',
@@ -876,7 +965,7 @@ export const fetchChatThreads = async ({ userId, role }) => {
   if (role === 'commerce') {
     const commerce = await fetchCommerceIdForUser(userId);
     if (!commerce.item) return emptyResult(commerce.notice || NOTICES.chats, commerce.error);
-    return fetchChatThreadsBy('commerce_id', commerce.item.id);
+    return fetchChatThreadsBy('commerce_id', commerce.item.id, role);
   }
 
   const buyer = await fetchBuyerProfileId(userId);
@@ -884,11 +973,55 @@ export const fetchChatThreads = async ({ userId, role }) => {
     return emptyResult(buyer.notice || NOTICES.chats, buyer.error);
   }
 
-  return fetchChatThreadsBy('buyer_id', buyer.item.id);
+  return fetchChatThreadsBy('buyer_id', buyer.item.id, role);
 };
 
-const fetchChatThreadsBy = (column, id) =>
-  runQuery(
+// Agrega el nombre y la foto de la contraparte a cada conversación. El
+// comprador puede leer el perfil público de los comercios aprobados; el
+// comercio usa una RPC que solo devuelve id, nombre y avatar de compradores
+// con los que tiene relación.
+const attachChatCounterparts = async (threads, role) => {
+  const isCommerce = role === 'commerce';
+  const ids = [
+    ...new Set(
+      threads
+        .map((thread) => (isCommerce ? thread.buyer_id : thread.commerce_id))
+        .filter(Boolean)
+    ),
+  ];
+
+  if (ids.length === 0) return threads;
+
+  const result = isCommerce
+    ? await runQuery((db) => db.rpc('app_buyer_avatars', { p_ids: ids }), NOTICES.chats)
+    : await runQuery(
+        (db) =>
+          db
+            .from('commerce_profiles')
+            .select('id,trade_name,avatar_url')
+            .in('id', ids),
+        NOTICES.chats
+      );
+
+  if (result.error) return threads;
+
+  const profileById = result.items.reduce((acc, profile) => {
+    acc[profile.id] = profile;
+    return acc;
+  }, {});
+
+  return threads.map((thread) => {
+    const profile = profileById[isCommerce ? thread.buyer_id : thread.commerce_id] || {};
+    return {
+      ...thread,
+      counterpart_name: (isCommerce ? profile.display_name : profile.trade_name) || '',
+      counterpart_avatar_url: profile.avatar_url || null,
+    };
+  });
+};
+
+const fetchChatThreadsBy = async (column, id, role) => {
+  const result = await runQuery(
     (db) =>
       db
         .from('chat_threads')
@@ -898,9 +1031,15 @@ const fetchChatThreadsBy = (column, id) =>
     NOTICES.chats
   );
 
+  if (result.error || result.items.length === 0) return result;
+  return { ...result, items: await attachChatCounterparts(result.items, role) };
+};
+
 export const mapChatThread = (row) => ({
   id: row.id,
   subject: row.subject || 'Conversación',
+  counterpartName: row.counterpart_name || '',
+  avatar: row.counterpart_avatar_url || null,
   status: row.status || 'active',
   lastMessageAt: row.last_message_at || row.created_at,
   time: formatRelativeDate(row.last_message_at || row.created_at),
@@ -916,6 +1055,44 @@ export const fetchChatThread = async (chatId) => {
   );
 
   return { ...result, item: result.items[0] || null };
+};
+
+// Resuelve la contraparte de una conversación para pintar su foto y nombre en
+// la cabecera del chat.
+export const fetchChatCounterpart = async (thread, role) => {
+  const empty = { id: null, name: '', avatarUrl: null };
+  if (!thread) return empty;
+
+  if (role === 'commerce') {
+    if (!thread.buyer_id) return empty;
+    const result = await runQuery(
+      (db) => db.rpc('app_buyer_avatars', { p_ids: [thread.buyer_id] }),
+      NOTICES.chats
+    );
+    const profile = result.items[0] || {};
+    return {
+      id: profile.id || thread.buyer_id,
+      name: profile.display_name || '',
+      avatarUrl: profile.avatar_url || null,
+    };
+  }
+
+  if (!thread.commerce_id) return empty;
+  const result = await runQuery(
+    (db) =>
+      db
+        .from('commerce_profiles')
+        .select('id,trade_name,avatar_url')
+        .eq('id', thread.commerce_id)
+        .limit(1),
+    NOTICES.chats
+  );
+  const profile = result.items[0] || {};
+  return {
+    id: profile.id || thread.commerce_id,
+    name: profile.trade_name || '',
+    avatarUrl: profile.avatar_url || null,
+  };
 };
 
 export const fetchOrderById = async (orderId) => {
@@ -1134,9 +1311,38 @@ export const fetchOpenRequests = async (commerceId) => {
   // Segunda barrera además de RLS: cubre solicitudes antiguas con la
   // segmentación solo en `items` y evita que un comercio vea solicitudes
   // ajenas a su nicho si la migración de matching aún no está aplicada.
+  const compatibleRequests = filterCompatibleRequests(result.items, profile);
+  const buyerIds = [
+    ...new Set(compatibleRequests.map((request) => request.buyer_id).filter(Boolean)),
+  ];
+  let buyerById = {};
+
+  if (buyerIds.length > 0) {
+    // RPC acotada: solo id, nombre y avatar de compradores con los que este
+    // comercio tiene relación o cuya solicitud abierta puede atender.
+    const buyers = await runQuery(
+      (db) => db.rpc('app_buyer_avatars', { p_ids: buyerIds }),
+      NOTICES.commerceMetrics
+    );
+
+    if (!buyers.error) {
+      buyerById = buyers.items.reduce((acc, buyer) => {
+        acc[buyer.id] = buyer;
+        return acc;
+      }, {});
+    }
+  }
+
   return {
     ...result,
-    items: filterCompatibleRequests(result.items, profile),
+    items: compatibleRequests.map((request) => {
+      const buyer = buyerById[request.buyer_id] || {};
+      return {
+        ...request,
+        buyer_name: buyer.display_name || '',
+        buyer_avatar_url: buyer.avatar_url || null,
+      };
+    }),
   };
 };
 
@@ -1168,7 +1374,9 @@ export const mapOpportunity = (row) => {
     image: firstImage,
     items,
     quantityTotal: items.reduce((total, item) => total + item.quantity, 0),
-    user: '',
+    buyerName: row.buyer_name || 'Comprador',
+    buyerAvatar: row.buyer_avatar_url || null,
+    user: row.buyer_name || '',
     rating: null,
     transactions: null,
   };

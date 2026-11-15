@@ -119,6 +119,7 @@ export const mapInsForgeUser = (authUser) => {
     name,
     phone: profile.phone || '',
     birthDate: profile.birth_date || '',
+    avatarUrl: typeof profile.avatar_url === 'string' ? profile.avatar_url : '',
     business,
     addresses: Array.isArray(profile.addresses) ? profile.addresses : [],
     location,
@@ -280,6 +281,7 @@ export const AuthProvider = ({ children }) => {
         name: patch.name ?? user?.name,
         phone: patch.phone ?? user?.phone ?? '',
         birthDate: patch.birth_date ?? user?.birthDate ?? '',
+        avatarUrl: patch.avatar_url ?? user?.avatarUrl ?? '',
         business: Object.prototype.hasOwnProperty.call(patch, 'business')
           ? normalizeBusiness(patch.business)
           : user?.business ?? null,
@@ -292,6 +294,18 @@ export const AuthProvider = ({ children }) => {
     }
 
     const { authUser, profile } = await saveInsforgeProfile(patch);
+
+    // La URL de la foto se guarda en auth.users.profile (para la vista propia)
+    // y en buyer_profiles/commerce_profiles (para que la contraparte la lea).
+    if (Object.prototype.hasOwnProperty.call(patch, 'avatar_url')) {
+      const { error: avatarError } = await insforge.database.rpc('app_set_avatar_url', {
+        p_avatar_url: patch.avatar_url || null,
+      });
+      if (avatarError) {
+        throw new Error(avatarError.message || 'No se pudo guardar la foto de perfil.');
+      }
+    }
+
     await ensureProfile();
     const nextUser = mapInsForgeUser({ ...authUser, profile });
     setUser(nextUser);

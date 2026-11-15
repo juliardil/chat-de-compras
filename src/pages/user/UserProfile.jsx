@@ -12,7 +12,9 @@ import {
   CheckCircle
 } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
+import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
+import { uploadProfilePhoto } from '../../data/appData';
 
 // Perfil del comprador. El nombre y el correo vienen de la sesión real
 // (InsForge cuando está configurado; sesión local en modo demostración). No se
@@ -21,20 +23,40 @@ import { useAuth } from '../../context/auth-context';
 export default function UserProfile() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [profileImage, setProfileImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
   const fileInputRef = useRef(null);
   const justUpdated = Boolean(location.state?.profileUpdated);
+
+  const avatarSrc = profileImage || user?.avatarUrl || null;
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setProfileImage(url);
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    // Permite volver a elegir el mismo archivo después de un error.
+    e.target.value = '';
+    if (!file) return;
+
+    setPhotoError(null);
+    setUploading(true);
+    try {
+      const result = await uploadProfilePhoto({ userId: user?.id, role: 'user', file });
+      if (result.error) {
+        setPhotoError(result.error);
+        return;
+      }
+
+      await updateProfile({ avatar_url: result.url });
+      setProfileImage(result.url);
+    } catch (err) {
+      setPhotoError(err?.message || 'No se pudo guardar la foto de perfil.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -83,8 +105,12 @@ export default function UserProfile() {
         <div className="flex flex-col items-center">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-[#4B227A]/10 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-              {profileImage ? (
-                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              {avatarSrc ? (
+                <SafeImage
+                  src={avatarSrc}
+                  alt={`Foto de perfil de ${user?.name || 'usuario'}`}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <User className="w-12 h-12 text-[#4B227A]" />
               )}
@@ -92,18 +118,27 @@ export default function UserProfile() {
             <button 
               aria-label="Cambiar foto de perfil"
               onClick={handleImageClick}
-              className="absolute bottom-0 right-0 p-2 bg-[#00EED0] text-gray-900 rounded-full shadow-lg shadow-[#00EED0]/40 border-2 border-white hover:bg-[#00EED0]/90 transition-colors"
+              disabled={uploading}
+              className="absolute bottom-0 right-0 p-2 bg-[#00EED0] text-gray-900 rounded-full shadow-lg shadow-[#00EED0]/40 border-2 border-white hover:bg-[#00EED0]/90 transition-colors disabled:opacity-60"
             >
               <Camera className="w-4 h-4" />
             </button>
             <input 
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
               onChange={handleImageChange}
             />
           </div>
+          {uploading ? (
+            <p className="mt-3 text-xs font-semibold text-[#006E7A]">Subiendo foto…</p>
+          ) : null}
+          {photoError ? (
+            <p role="alert" className="mt-3 max-w-xs text-center text-xs font-medium text-red-700">
+              {photoError}
+            </p>
+          ) : null}
           <h2 className="mt-4 text-xl font-bold text-gray-800">{user?.name || 'Usuario'}</h2>
           <p className="text-gray-600 text-sm">{user?.email || '—'}</p>
 
