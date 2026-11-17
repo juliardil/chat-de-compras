@@ -18,9 +18,6 @@ import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
 import { uploadProfilePhoto } from '../../data/appData';
 
-const BUYER_PATH = '/categories';
-const JOBS_PATH = '/workshop-jobs';
-
 // Perfil del comprador. El nombre y el correo vienen de la sesión real
 // (InsForge cuando está configurado; sesión local en modo demostración). No se
 // muestran estadísticas de compras porque el módulo de pedidos todavía no está
@@ -28,7 +25,7 @@ const JOBS_PATH = '/workshop-jobs';
 export default function UserProfile() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, updateProfile, setViewMode } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [profileImage, setProfileImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState(null);
@@ -104,12 +101,6 @@ export default function UserProfile() {
     }
   ];
 
-  const changeView = (path, mode) => {
-    if (typeof setViewMode === 'function') setViewMode(mode);
-    setSettingsOpen(false);
-    navigate(path);
-  };
-
   const handleLogout = () => {
     setSettingsOpen(false);
     logout();
@@ -160,38 +151,6 @@ export default function UserProfile() {
                   <ChevronRight className="w-4 h-4 shrink-0 text-gray-500" />
                 </button>
               ))}
-
-              <div className="border-t border-slate-200 bg-[#E7E7E7]/40 px-3 py-3">
-                <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                  Cambiar de vista
-                </p>
-                <nav aria-label="Cambiar de vista" className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    aria-current={location.pathname === JOBS_PATH ? undefined : 'page'}
-                    onClick={() => changeView(BUYER_PATH, 'buyer')}
-                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0197AF]/40 ${
-                      location.pathname === JOBS_PATH
-                        ? 'text-[#4B227A] hover:bg-[#4B227A]/10'
-                        : 'bg-[#4B227A] text-white shadow'
-                    }`}
-                  >
-                    🛒 Compras
-                  </button>
-                  <button
-                    type="button"
-                    aria-current={location.pathname === JOBS_PATH ? 'page' : undefined}
-                    onClick={() => changeView(JOBS_PATH, 'business')}
-                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0197AF]/40 ${
-                      location.pathname === JOBS_PATH
-                        ? 'bg-[#4B227A] text-white shadow'
-                        : 'text-[#4B227A] hover:bg-[#4B227A]/10'
-                    }`}
-                  >
-                    🔧 Panel de Trabajo
-                  </button>
-                </nav>
-              </div>
 
               <button
                 type="button"

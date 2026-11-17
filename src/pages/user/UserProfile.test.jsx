@@ -5,9 +5,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import UserProfile from './UserProfile';
 
-const { mockLogout, mockSetViewMode } = vi.hoisted(() => ({
+const { mockLogout } = vi.hoisted(() => ({
   mockLogout: vi.fn(),
-  mockSetViewMode: vi.fn(),
 }));
 
 vi.mock('../../context/auth-context', () => ({
@@ -15,7 +14,6 @@ vi.mock('../../context/auth-context', () => ({
     user: { id: 'u-1', name: 'Julia', email: 'julia@example.com' },
     logout: mockLogout,
     updateProfile: vi.fn(),
-    setViewMode: mockSetViewMode,
   }),
 }));
 
@@ -59,7 +57,6 @@ const getMenuButton = () =>
 describe('Perfil principal', () => {
   beforeEach(() => {
     mockLogout.mockClear();
-    mockSetViewMode.mockClear();
   });
 
   it('muestra solo el icono de hamburguesa en la esquina superior del encabezado', () => {
@@ -77,7 +74,7 @@ describe('Perfil principal', () => {
     expect(screen.getByText('Panel de comunidad')).toBeInTheDocument();
   });
 
-  it('abre un menú con opciones de cuenta, selector de rol y cierre de sesión', async () => {
+  it('abre un menú solo con las opciones de cuenta y cierre de sesión', async () => {
     const user = userEvent.setup();
     renderProfile();
 
@@ -89,8 +86,9 @@ describe('Perfil principal', () => {
     expect(within(header).getByRole('button', { name: /notificaciones/i })).toBeInTheDocument();
     expect(within(header).getByRole('button', { name: /historial/i })).toBeInTheDocument();
     expect(within(header).getByRole('button', { name: /seguridad/i })).toBeInTheDocument();
-    expect(within(header).getByRole('button', { name: /compras/i })).toBeInTheDocument();
-    expect(within(header).getByRole('button', { name: /panel de trabajo/i })).toBeInTheDocument();
+    expect(screen.queryByText(/cambiar de vista/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /compras/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /panel de trabajo/i })).not.toBeInTheDocument();
     expect(getMenuButton()).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getAllByRole('button', { name: /cerrar sesión/i })).toHaveLength(1);
   });
@@ -103,24 +101,6 @@ describe('Perfil principal', () => {
     await user.click(screen.getByRole('button', { name: /información personal/i }));
 
     expect(screen.getByTestId('ruta-actual')).toHaveTextContent('/edit-user-profile');
-    expect(getMenuButton()).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('cambia de vista desde el selector del menú', async () => {
-    const user = userEvent.setup();
-    renderProfileWithLocation();
-
-    await user.click(getMenuButton());
-    await user.click(screen.getByRole('button', { name: /compras/i }));
-
-    expect(screen.getByTestId('ruta-actual')).toHaveTextContent('/categories');
-    expect(mockSetViewMode).toHaveBeenCalledWith('buyer');
-
-    await user.click(getMenuButton());
-    await user.click(screen.getByRole('button', { name: /panel de trabajo/i }));
-
-    expect(screen.getByTestId('ruta-actual')).toHaveTextContent('/workshop-jobs');
-    expect(mockSetViewMode).toHaveBeenCalledWith('business');
     expect(getMenuButton()).toHaveAttribute('aria-expanded', 'false');
   });
 
