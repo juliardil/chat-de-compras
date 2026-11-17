@@ -22,6 +22,8 @@ import Closing from './pages/user/Closing';
 import UserProfile from './pages/user/UserProfile';
 import ClubChatPage from './pages/user/ClubChatPage';
 import WorkshopJobsPage from './pages/user/WorkshopJobsPage';
+import OfferResponsesPage from './pages/user/OfferResponsesPage';
+import OfferNegotiationPage from './pages/user/OfferNegotiationPage';
 import Addresses from './pages/user/Addresses';
 import EditUserProfile from './pages/user/EditUserProfile';
 
@@ -120,6 +122,14 @@ function AppRoutes() {
         <Route
           path="/workshop-jobs"
           element={<RequireRole allowWorkshopBusiness><WorkshopJobsPage /></RequireRole>}
+        />
+        <Route
+          path="/workshop-jobs/responses"
+          element={<RequireRole allowWorkshopBusiness><OfferResponsesPage /></RequireRole>}
+        />
+        <Route
+          path="/workshop-jobs/responses/:offerId"
+          element={<RequireRole allowWorkshopBusiness><OfferNegotiationPage /></RequireRole>}
         />
         <Route path="/addresses" element={<RequireRole role="user"><Addresses /></RequireRole>} />
         <Route path="/edit-user-profile" element={<RequireRole role="user"><EditUserProfile /></RequireRole>} />

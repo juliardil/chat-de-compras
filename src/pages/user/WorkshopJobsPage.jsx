@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { BadgeCheck, Wrench } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { BadgeCheck, MessageCircle, Wrench } from 'lucide-react';
 import ViewSwitcher from '../../components/layout/ViewSwitcher';
 import WorkshopJobsPanel from '../../components/workshop/WorkshopJobsPanel';
 import WorkshopPlateHistory from '../../components/workshop/WorkshopPlateHistory';
@@ -11,6 +12,7 @@ import { useAuth } from '../../context/auth-context';
 // se repite ningún botón de retorno ni barra inferior de cambio de modo.
 export default function WorkshopJobsPage() {
   const { user, workshopVerified, viewMode, setViewMode } = useAuth();
+  const navigate = useNavigate();
   const setViewModeRef = useRef(setViewMode);
 
   useEffect(() => {
@@ -69,6 +71,26 @@ export default function WorkshopJobsPage() {
             <div className="mt-6">
               <WorkshopPlateHistory />
             </div>
+
+            {/* Acceso destacado al final del Panel de Trabajo. */}
+            <button
+              type="button"
+              onClick={() => navigate('/workshop-jobs/responses')}
+              className="mt-6 w-full rounded-2xl border border-[#00EED0]/30 bg-[#0B1020] px-5 py-4 text-left text-white shadow-[0_0_24px_rgba(0,238,208,0.12)] transition hover:border-[#00EED0]/60 hover:shadow-[0_0_30px_rgba(0,238,208,0.25)]"
+            >
+              <span className="flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00EED0]/15 text-[#00EED0]">
+                  <MessageCircle className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold">Respuestas de mis ofertas</span>
+                  <span className="mt-0.5 block text-[11px] text-slate-300">
+                    Abre la bandeja de chat para negociar y confirmar servicios.
+                  </span>
+                </span>
+                <span aria-hidden="true" className="text-[#00EED0]">→</span>
+              </span>
+            </button>
           </>
         )}
       </main>

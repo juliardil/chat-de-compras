@@ -29,6 +29,7 @@ const renderPage = () =>
     <MemoryRouter initialEntries={['/workshop-jobs']}>
       <Routes>
         <Route path="/workshop-jobs" element={<WorkshopJobsPage />} />
+        <Route path="/workshop-jobs/responses" element={<h1>Respuestas de mis ofertas</h1>} />
         <Route path="/categories" element={<h1>Vista de Compras</h1>} />
       </Routes>
     </MemoryRouter>
@@ -44,11 +45,21 @@ describe('Panel de Trabajos del Taller Verificado', () => {
 
     expect(await screen.findByText('Bandeja de trabajos')).toBeInTheDocument();
     expect(screen.getByText('Historial por placa')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /respuestas de mis ofertas/i })).toBeInTheDocument();
     expect(setViewMode).toHaveBeenCalledWith('business');
     expect(screen.getByRole('button', { name: /panel de trabajo/i })).toHaveAttribute(
       'aria-current',
       'page'
     );
+  });
+
+  it('abre la bandeja de respuestas desde el acceso inferior', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /respuestas de mis ofertas/i }));
+
+    expect(await screen.findByRole('heading', { name: 'Respuestas de mis ofertas' })).toBeInTheDocument();
   });
 
   it('vuelve al modo comprador desde el switcher sin accesos duplicados', async () => {
