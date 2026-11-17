@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Mail, Phone, Calendar, Camera, CheckCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
+import WorkshopPanel from '../../components/workshop/WorkshopPanel';
 import { useAuth } from '../../context/auth-context';
 import { uploadProfilePhoto, validateProfilePhoto } from '../../data/appData';
 
@@ -197,6 +198,9 @@ export default function EditUserProfile() {
           </Button>
         </form>
       </div>
+
+      {/* Taller verificado (módulo aislado): se muestra junto a los datos personales */}
+      <WorkshopPanel />
     </div>
   );
 }
