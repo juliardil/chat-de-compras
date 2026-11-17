@@ -497,7 +497,7 @@ describe('repositorio de demostración · Fase 2', () => {
   });
 
   describe('migración del almacén', () => {
-    it('migra un almacén de Fase 1 a la versión 5 conservando miembros, invitaciones y auditoría', async () => {
+    it('migra un almacén de Fase 1 a la versión actual conservando miembros, invitaciones y auditoría', async () => {
       const legacyStore = {
         version: 1,
         members: [
@@ -545,7 +545,7 @@ describe('repositorio de demostración · Fase 2', () => {
       expect(session.memberId).toBe('legacy-member');
 
       const stored = JSON.parse(localStorage.getItem(STORE_KEY));
-      expect(stored.version).toBe(5);
+      expect(stored.version).toBe(6);
       expect(stored.members).toHaveLength(1);
       expect(stored.invitations).toHaveLength(1);
       expect(stored.buyers).toHaveLength(6);

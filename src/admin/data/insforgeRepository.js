@@ -1190,6 +1190,189 @@ export function createInsforgeRepository(insforge) {
       };
     },
 
+    // -------------------------------------------------------------------------
+    // Patrocinios de clubes
+    // -------------------------------------------------------------------------
+    async listSponsorshipRates() {
+      const { data, error } = await insforge.database.rpc('admin_list_sponsorship_rates');
+      throwIfError(error, 'No se pudieron cargar las tarifas de patrocinio.');
+      return asArray(data).map((row) => ({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        amount: Number(row.amount || 0),
+        currency: row.currency || 'MXN',
+        billingCycle: row.billing_cycle || 'monthly',
+        description: row.description || '',
+        isActive: Boolean(row.is_active),
+        updatedAt: row.updated_at,
+      }));
+    },
+
+    async saveSponsorshipRate({
+      id = null,
+      code,
+      name,
+      amount,
+      currency = 'MXN',
+      billingCycle = 'monthly',
+      description = '',
+      isActive = true,
+    } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_save_sponsorship_rate', {
+        p_id: id || null,
+        p_code: code,
+        p_name: name,
+        p_amount: Number(amount),
+        p_currency: currency,
+        p_billing_cycle: billingCycle,
+        p_description: description || null,
+        p_is_active: Boolean(isActive),
+      });
+      throwIfError(error, 'No se pudo guardar la tarifa de patrocinio.');
+      const row = asArray(data)[0] || {};
+      return {
+        id: row.id || id,
+        code: row.code || code,
+        name: row.name || name,
+        amount: Number(row.amount ?? amount),
+        currency: row.currency || currency,
+        billingCycle: row.billing_cycle || billingCycle,
+        description: row.description || '',
+        isActive: Boolean(row.is_active ?? isActive),
+        updatedAt: row.updated_at || null,
+      };
+    },
+
+    async listClubSponsors({ search = '', status = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_club_sponsors', {
+        p_search: String(search || '').trim() || null,
+        p_status: status || 'all',
+      });
+      throwIfError(error, 'No se pudieron cargar las marcas patrocinadoras.');
+      return asArray(data).map((row) => ({
+        id: row.id,
+        brandName: row.brand_name,
+        groupId: row.group_id,
+        groupName: row.group_name || 'Todos los clubes',
+        logoUrl: row.logo_url,
+        benefit: row.benefit,
+        discountPercent: Number(row.discount_percent || 0),
+        contactEmail: row.contact_email,
+        commerceId: row.commerce_id,
+        workshopId: row.workshop_id,
+        rateId: row.rate_id,
+        rateName: row.rate_name,
+        amount: Number(row.amount || 0),
+        currency: row.currency || 'MXN',
+        billingCycle: row.billing_cycle || 'monthly',
+        startsOn: row.starts_on,
+        endsOn: row.ends_on,
+        moderationStatus: row.moderation_status,
+        lifecycleStatus: row.lifecycle_status || row.moderation_status,
+        createdAt: row.created_at,
+      }));
+    },
+
+    async saveClubSponsor({
+      id = null,
+      groupId = null,
+      brandName,
+      logoUrl = '',
+      benefit = '',
+      discountPercent = 0,
+      contactEmail = '',
+      commerceId = null,
+      workshopId = null,
+      rateId = null,
+      amount = 0,
+      currency = 'MXN',
+      billingCycle = 'monthly',
+      startsOn = null,
+      endsOn = null,
+    } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_save_club_sponsor', {
+        p_id: id || null,
+        p_group_id: groupId || null,
+        p_brand_name: brandName,
+        p_logo_url: logoUrl || null,
+        p_benefit: benefit || null,
+        p_discount_percent: Number(discountPercent),
+        p_contact_email: contactEmail || null,
+        p_commerce_id: commerceId || null,
+        p_workshop_id: workshopId || null,
+        p_rate_id: rateId || null,
+        p_amount: Number(amount),
+        p_currency: currency,
+        p_billing_cycle: billingCycle,
+        p_starts_on: startsOn || null,
+        p_ends_on: endsOn || null,
+      });
+      throwIfError(error, 'No se pudo guardar el patrocinio.');
+      const row = asArray(data)[0] || {};
+      return {
+        id: row.id || id,
+        brandName: row.brand_name || brandName,
+        moderationStatus: row.moderation_status || 'pending',
+        lifecycleStatus: row.lifecycle_status || row.moderation_status || 'pending',
+      };
+    },
+
+    async setClubSponsorStatus({ id, status, reason = '' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_set_club_sponsor_status', {
+        p_id: id,
+        p_status: status,
+        p_reason: reason || null,
+      });
+      throwIfError(error, 'No se pudo actualizar la aprobación de la marca.');
+      const row = asArray(data)[0] || {};
+      return {
+        id: row.id || id,
+        brandName: row.brand_name,
+        moderationStatus: row.moderation_status || status,
+        lifecycleStatus: row.lifecycle_status || status,
+      };
+    },
+
+    async getSponsorshipOverview() {
+      const { data, error } = await insforge.database.rpc('admin_sponsorship_overview');
+      throwIfError(error, 'No se pudo cargar la visión financiera de patrocinios.');
+      const row = asArray(data)[0] || {};
+      return {
+        pendingBrands: Number(row.pending_brands || 0),
+        approvedBrands: Number(row.approved_brands || 0),
+        activeBrands: Number(row.active_brands || 0),
+        expiringBrands: Number(row.expiring_brands || 0),
+        expiredBrands: Number(row.expired_brands || 0),
+        monthlyRevenue: Number(row.monthly_revenue || 0),
+        oneTimeRevenue: Number(row.one_time_revenue || 0),
+        totalRevenue: Number(row.total_revenue || 0),
+        groupsReached: Number(row.groups_reached || 0),
+        buyersReached: Number(row.buyers_reached || 0),
+        ordersAttributed: Number(row.orders_attributed || 0),
+        purchaseAmount: Number(row.purchase_amount || 0),
+      };
+    },
+
+    async getSponsorImpactReport() {
+      const { data, error } = await insforge.database.rpc('admin_sponsor_impact_report');
+      throwIfError(error, 'No se pudo cargar el impacto comercial de patrocinios.');
+      return asArray(data).map((row) => ({
+        sponsorId: row.sponsor_id,
+        brandName: row.brand_name,
+        groupName: row.group_name || 'Todos los clubes',
+        moderationStatus: row.moderation_status,
+        lifecycleStatus: row.lifecycle_status || row.moderation_status,
+        clubBuyers: Number(row.club_buyers || 0),
+        partsOrders: Number(row.parts_orders || 0),
+        serviceOrders: Number(row.service_orders || 0),
+        totalOrders: Number(row.total_orders || 0),
+        purchaseAmount: Number(row.purchase_amount || 0),
+        amount: Number(row.amount || 0),
+        billingCycle: row.billing_cycle || 'monthly',
+      }));
+    },
+
     async globalSearch({ query = '' } = {}) {
       const { data, error } = await insforge.database.rpc('admin_global_search', {
         p_query: String(query || '').trim(),

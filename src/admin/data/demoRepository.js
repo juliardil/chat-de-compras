@@ -67,7 +67,7 @@ import { buildCsv, csvDateStamp } from '../utils/csv';
 
 const STORE_KEY = 'chat_compras_admin_demo_v1';
 const SESSION_KEY = 'chat_compras_admin_demo_session_v1';
-const STORE_VERSION = 5;
+const STORE_VERSION = 6;
 
 // Credenciales exclusivas del modo demostración. No existen en producción.
 export const DEMO_PASSWORD = 'Demo1234!';
@@ -89,6 +89,12 @@ const makeId = () =>
 const nowIso = () => new Date().toISOString();
 
 const hoursAgo = (hours) => new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+const dateIn = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+};
 
 const readJson = (key, fallback) => {
   try {
@@ -197,6 +203,169 @@ function buildWorkshopsSeed() {
   };
 }
 
+// Datos de ejemplo del módulo de patrocinios de clubes (solo modo demostración).
+function buildSponsorshipsSeed() {
+  return {
+    sponsorshipRates: [
+      {
+        id: 'demo-rate-1',
+        code: 'club_basic',
+        name: 'Patrocinio Básico',
+        amount: 899,
+        currency: 'MXN',
+        billingCycle: 'monthly',
+        description: 'Logo y beneficio en la tarjeta del club.',
+        isActive: true,
+        updatedAt: hoursAgo(24 * 20),
+      },
+      {
+        id: 'demo-rate-2',
+        code: 'club_pro',
+        name: 'Patrocinio Pro',
+        amount: 1899,
+        currency: 'MXN',
+        billingCycle: 'monthly',
+        description: 'Logo destacado, descuento exclusivo y reporte de impacto.',
+        isActive: true,
+        updatedAt: hoursAgo(24 * 12),
+      },
+      {
+        id: 'demo-rate-3',
+        code: 'club_rodada',
+        name: 'Rodada Patrocinada',
+        amount: 3499,
+        currency: 'MXN',
+        billingCycle: 'one_time',
+        description: 'Patrocinio único de una rodada o evento del club.',
+        isActive: true,
+        updatedAt: hoursAgo(24 * 30),
+      },
+    ],
+    clubSponsors: [
+      {
+        id: 'demo-sponsor-1',
+        brandName: 'Refacciones Express',
+        groupId: 'demo-group-1',
+        logoUrl: '',
+        benefit: '10% de descuento en refacciones y filtros',
+        discountPercent: 10,
+        contactEmail: 'marcas@refaccionesexpress.demo',
+        commerceId: 'demo-commerce-4',
+        workshopId: null,
+        rateId: 'demo-rate-2',
+        amount: 1899,
+        currency: 'MXN',
+        billingCycle: 'monthly',
+        startsOn: dateIn(-20),
+        endsOn: dateIn(20),
+        moderationStatus: 'approved',
+        createdAt: hoursAgo(24 * 18),
+      },
+      {
+        id: 'demo-sponsor-2',
+        brandName: 'Taller Mecánico Reforma',
+        groupId: 'demo-group-1',
+        logoUrl: '',
+        benefit: 'Diagnóstico gratuito y 15% en mano de obra',
+        discountPercent: 15,
+        contactEmail: 'patrocinios@tallerreforma.demo',
+        commerceId: null,
+        workshopId: 'demo-workshop-1',
+        rateId: 'demo-rate-2',
+        amount: 1899,
+        currency: 'MXN',
+        billingCycle: 'monthly',
+        startsOn: dateIn(-25),
+        endsOn: dateIn(4),
+        moderationStatus: 'approved',
+        createdAt: hoursAgo(24 * 22),
+      },
+      {
+        id: 'demo-sponsor-3',
+        brandName: 'Lubricantes del Norte',
+        groupId: null,
+        logoUrl: '',
+        benefit: '8% en aceites y lubricantes para miembros',
+        discountPercent: 8,
+        contactEmail: 'ventas@lubricantesnorte.demo',
+        commerceId: 'demo-commerce-2',
+        workshopId: null,
+        rateId: 'demo-rate-1',
+        amount: 899,
+        currency: 'MXN',
+        billingCycle: 'monthly',
+        startsOn: dateIn(2),
+        endsOn: dateIn(32),
+        moderationStatus: 'pending',
+        createdAt: hoursAgo(24 * 2),
+      },
+      {
+        id: 'demo-sponsor-4',
+        brandName: 'Electro Auto Norte',
+        groupId: 'demo-group-1',
+        logoUrl: '',
+        benefit: 'Revisión eléctrica sin costo',
+        discountPercent: 0,
+        contactEmail: 'contacto@electroauto.demo',
+        commerceId: null,
+        workshopId: 'demo-workshop-2',
+        rateId: 'demo-rate-1',
+        amount: 899,
+        currency: 'MXN',
+        billingCycle: 'monthly',
+        startsOn: dateIn(-4),
+        endsOn: dateIn(26),
+        moderationStatus: 'rejected',
+        createdAt: hoursAgo(24 * 5),
+      },
+      {
+        id: 'demo-sponsor-5',
+        brandName: 'Motos y Suspensión Sur',
+        groupId: 'demo-group-1',
+        logoUrl: '',
+        benefit: 'Rodada patrocinada con chequeo de suspensión',
+        discountPercent: 0,
+        contactEmail: 'eventos@motossur.demo',
+        commerceId: null,
+        workshopId: 'demo-workshop-3',
+        rateId: 'demo-rate-3',
+        amount: 3499,
+        currency: 'MXN',
+        billingCycle: 'one_time',
+        startsOn: dateIn(-40),
+        endsOn: dateIn(-5),
+        moderationStatus: 'approved',
+        createdAt: hoursAgo(24 * 45),
+      },
+    ],
+    sponsorImpact: {
+      'demo-sponsor-1': { clubBuyers: 3, partsOrders: 7, serviceOrders: 0, purchaseAmount: 1245 },
+      'demo-sponsor-2': { clubBuyers: 2, partsOrders: 0, serviceOrders: 4, purchaseAmount: 3120 },
+      'demo-sponsor-3': { clubBuyers: 1, partsOrders: 2, serviceOrders: 0, purchaseAmount: 330 },
+      'demo-sponsor-4': { clubBuyers: 0, partsOrders: 0, serviceOrders: 0, purchaseAmount: 0 },
+      'demo-sponsor-5': { clubBuyers: 2, partsOrders: 0, serviceOrders: 3, purchaseAmount: 1890 },
+    },
+  };
+}
+
+function clubSponsorLifecycle(sponsor) {
+  const status = sponsor.moderationStatus || 'pending';
+  if (status !== 'approved') return status;
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (sponsor.startsOn && sponsor.startsOn > today) return 'scheduled';
+  if (sponsor.endsOn && sponsor.endsOn < today) return 'expired';
+
+  if (sponsor.endsOn) {
+    const daysLeft = Math.round(
+      (new Date(`${sponsor.endsOn}T00:00:00Z`) - new Date(`${today}T00:00:00Z`)) / 86400000
+    );
+    if (daysLeft <= 7) return 'expiring';
+  }
+
+  return 'active';
+}
+
 function buildSeed() {
   const members = DEMO_ACCOUNTS.map((account, index) => ({
     id: `demo-member-${index + 1}`,
@@ -221,6 +390,7 @@ function buildSeed() {
     ...phase5,
     ...buildGroupsSeed(),
     ...buildWorkshopsSeed(),
+    ...buildSponsorshipsSeed(),
     members,
     invitations: [
       {
@@ -337,6 +507,13 @@ function upgradeStore(stored) {
     groups: Array.isArray(stored.groups) ? stored.groups : buildGroupsSeed().groups,
     groupSettings: stored.groupSettings || buildGroupsSeed().groupSettings,
     workshops: Array.isArray(stored.workshops) ? stored.workshops : buildWorkshopsSeed().workshops,
+    sponsorshipRates: Array.isArray(stored.sponsorshipRates)
+      ? stored.sponsorshipRates
+      : buildSponsorshipsSeed().sponsorshipRates,
+    clubSponsors: Array.isArray(stored.clubSponsors)
+      ? stored.clubSponsors
+      : buildSponsorshipsSeed().clubSponsors,
+    sponsorImpact: stored.sponsorImpact || buildSponsorshipsSeed().sponsorImpact,
     audit: Array.isArray(stored.audit) ? stored.audit : [],
   };
 
@@ -3920,6 +4097,288 @@ export const demoRepository = {
     });
     saveStore(store);
     return next;
+  },
+
+  // ---------------------------------------------------------------------------
+  // Patrocinios de clubes (modo demostración)
+  // ---------------------------------------------------------------------------
+  async listSponsorshipRates({ actor } = {}) {
+    requirePermission(actor, 'sponsorships.view', 'No tienes permiso para ver las tarifas.');
+    const store = readStore();
+    return (Array.isArray(store.sponsorshipRates) ? store.sponsorshipRates : [])
+      .map((rate) => ({ ...rate, amount: Number(rate.amount || 0) }))
+      .sort((a, b) => a.amount - b.amount);
+  },
+
+  async saveSponsorshipRate({ id, code, name, amount, currency, billingCycle, description, isActive, actor } = {}) {
+    requirePermission(actor, 'sponsorships.manage', 'No tienes permiso para administrar tarifas.');
+
+    const normalizedCode = String(code || '').trim().toLowerCase();
+    const normalizedName = String(name || '').trim();
+    const numericAmount = Number(amount);
+
+    if (!/^[a-z0-9_]{3,40}$/.test(normalizedCode)) {
+      throw new Error('El código debe tener entre 3 y 40 caracteres (a-z, 0-9, guion bajo).');
+    }
+    if (normalizedName.length < 2 || normalizedName.length > 80) {
+      throw new Error('El nombre debe tener entre 2 y 80 caracteres.');
+    }
+    if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+      throw new Error('El costo debe ser un número mayor o igual a cero.');
+    }
+    if (!['monthly', 'one_time'].includes(billingCycle)) {
+      throw new Error('El ciclo debe ser mensual o único.');
+    }
+
+    const store = readStore();
+    const rates = Array.isArray(store.sponsorshipRates) ? store.sponsorshipRates : [];
+    const index = id ? rates.findIndex((rate) => rate.id === id) : -1;
+    const previous = index >= 0 ? rates[index] : null;
+    const record = {
+      id: previous?.id || makeId(),
+      code: normalizedCode,
+      name: normalizedName,
+      amount: numericAmount,
+      currency: currency || 'MXN',
+      billingCycle,
+      description: String(description || '').trim(),
+      isActive: Boolean(isActive),
+      updatedAt: nowIso(),
+    };
+
+    store.sponsorshipRates = index >= 0
+      ? rates.map((rate, position) => (position === index ? record : rate))
+      : [...rates, record];
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || null,
+      actorRole: actor?.roleKey || null,
+      action: previous ? 'sponsorships.rate.update' : 'sponsorships.rate.create',
+      module: 'Patrocinios',
+      entityType: 'club_sponsorship_rate',
+      entityId: record.id,
+      metadata: { code: record.code, amount: record.amount, mode: 'demo' },
+    });
+    saveStore(store);
+    return record;
+  },
+
+  async listClubSponsors({ search = '', status = 'all', actor } = {}) {
+    requirePermission(actor, 'sponsorships.view', 'No tienes permiso para ver los patrocinios.');
+    const store = readStore();
+    const term = String(search || '').trim().toLowerCase();
+    const groups = Array.isArray(store.groups) ? store.groups : [];
+
+    return (Array.isArray(store.clubSponsors) ? store.clubSponsors : [])
+      .filter((sponsor) => {
+        const lifecycle = clubSponsorLifecycle(sponsor);
+        const matchesStatus = status === 'all'
+          || sponsor.moderationStatus === status
+          || lifecycle === status;
+        if (!matchesStatus) return false;
+        if (!term) return true;
+
+        const groupName = groups.find((group) => group.id === sponsor.groupId)?.name || '';
+        return [sponsor.brandName, groupName, sponsor.contactEmail]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .map((sponsor) => ({
+        ...sponsor,
+        groupName: groups.find((group) => group.id === sponsor.groupId)?.name || 'Todos los clubes',
+        rateName: (Array.isArray(store.sponsorshipRates) ? store.sponsorshipRates : [])
+          .find((rate) => rate.id === sponsor.rateId)?.name || null,
+        lifecycleStatus: clubSponsorLifecycle(sponsor),
+      }))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+
+  async saveClubSponsor({
+    id,
+    groupId,
+    brandName,
+    logoUrl,
+    benefit,
+    discountPercent,
+    contactEmail,
+    commerceId,
+    workshopId,
+    rateId,
+    amount,
+    currency,
+    billingCycle,
+    startsOn,
+    endsOn,
+    actor,
+  } = {}) {
+    requirePermission(actor, 'sponsorships.manage', 'No tienes permiso para administrar marcas.');
+
+    const normalizedName = String(brandName || '').trim();
+    const numericAmount = Number(amount);
+    if (normalizedName.length < 2 || normalizedName.length > 120) {
+      throw new Error('El nombre de la marca debe tener entre 2 y 120 caracteres.');
+    }
+    if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+      throw new Error('El costo debe ser un número mayor o igual a cero.');
+    }
+    if (!['monthly', 'one_time'].includes(billingCycle)) {
+      throw new Error('El ciclo debe ser mensual o único.');
+    }
+    if (startsOn && endsOn && endsOn < startsOn) {
+      throw new Error('La fecha de fin no puede ser anterior a la de inicio.');
+    }
+
+    const store = readStore();
+    const sponsors = Array.isArray(store.clubSponsors) ? store.clubSponsors : [];
+    const index = id ? sponsors.findIndex((sponsor) => sponsor.id === id) : -1;
+    const previous = index >= 0 ? sponsors[index] : null;
+    const record = {
+      id: previous?.id || makeId(),
+      groupId: groupId || null,
+      brandName: normalizedName,
+      logoUrl: String(logoUrl || '').trim(),
+      benefit: String(benefit || '').trim(),
+      discountPercent: Number(discountPercent || 0),
+      contactEmail: String(contactEmail || '').trim(),
+      commerceId: commerceId || null,
+      workshopId: workshopId || null,
+      rateId: rateId || null,
+      amount: numericAmount,
+      currency: currency || 'MXN',
+      billingCycle,
+      startsOn: startsOn || null,
+      endsOn: endsOn || null,
+      moderationStatus: previous?.moderationStatus || 'pending',
+      createdAt: previous?.createdAt || nowIso(),
+    };
+
+    store.clubSponsors = index >= 0
+      ? sponsors.map((sponsor, position) => (position === index ? record : sponsor))
+      : [...sponsors, record];
+    if (!store.sponsorImpact) store.sponsorImpact = {};
+    if (!store.sponsorImpact[record.id]) {
+      store.sponsorImpact[record.id] = {
+        clubBuyers: 0,
+        partsOrders: 0,
+        serviceOrders: 0,
+        purchaseAmount: 0,
+      };
+    }
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || null,
+      actorRole: actor?.roleKey || null,
+      action: previous ? 'sponsorships.brand.update' : 'sponsorships.brand.create',
+      module: 'Patrocinios',
+      entityType: 'club_sponsor',
+      entityId: record.id,
+      metadata: { brandName: record.brandName, amount: record.amount, mode: 'demo' },
+    });
+    saveStore(store);
+    return { ...record, lifecycleStatus: clubSponsorLifecycle(record) };
+  },
+
+  async setClubSponsorStatus({ id, status, reason = '', actor } = {}) {
+    requirePermission(actor, 'sponsorships.manage', 'No tienes permiso para aprobar marcas.');
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      throw new Error('Estado de aprobación no válido.');
+    }
+
+    const store = readStore();
+    const sponsors = Array.isArray(store.clubSponsors) ? store.clubSponsors : [];
+    const index = sponsors.findIndex((sponsor) => sponsor.id === id);
+    if (index === -1) throw new Error('El patrocinio no existe.');
+
+    const previous = sponsors[index];
+    const record = {
+      ...previous,
+      moderationStatus: status,
+      reviewReason: String(reason || '').trim(),
+      reviewedBy: actor?.memberId || null,
+      reviewedAt: nowIso(),
+    };
+    store.clubSponsors = sponsors.map((sponsor, position) =>
+      position === index ? record : sponsor
+    );
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || null,
+      actorRole: actor?.roleKey || null,
+      action: status === 'approved'
+        ? 'sponsorships.brand.approve'
+        : status === 'rejected'
+          ? 'sponsorships.brand.reject'
+          : 'sponsorships.brand.pending',
+      module: 'Patrocinios',
+      entityType: 'club_sponsor',
+      entityId: id,
+      metadata: { brandName: record.brandName, reviewReason: record.reviewReason, mode: 'demo' },
+    });
+    saveStore(store);
+    return { ...record, lifecycleStatus: clubSponsorLifecycle(record) };
+  },
+
+  async getSponsorshipOverview({ actor } = {}) {
+    requirePermission(actor, 'sponsorships.finance', 'No tienes permiso para ver finanzas de patrocinios.');
+    const sponsors = await this.listClubSponsors({ actor });
+    const impact = await this.getSponsorImpactReport({ actor });
+    const lifecycleCounts = (status) => sponsors.filter((sponsor) => sponsor.lifecycleStatus === status).length;
+    const billed = sponsors.filter((sponsor) =>
+      ['active', 'expiring', 'scheduled', 'expired'].includes(sponsor.lifecycleStatus)
+    );
+
+    return {
+      pendingBrands: sponsors.filter((sponsor) => sponsor.moderationStatus === 'pending').length,
+      approvedBrands: sponsors.filter((sponsor) => sponsor.moderationStatus === 'approved').length,
+      activeBrands: lifecycleCounts('active'),
+      expiringBrands: lifecycleCounts('expiring'),
+      expiredBrands: lifecycleCounts('expired'),
+      monthlyRevenue: billed
+        .filter((sponsor) => sponsor.billingCycle === 'monthly')
+        .reduce((sum, sponsor) => sum + Number(sponsor.amount || 0), 0),
+      oneTimeRevenue: billed
+        .filter((sponsor) => sponsor.billingCycle === 'one_time')
+        .reduce((sum, sponsor) => sum + Number(sponsor.amount || 0), 0),
+      totalRevenue: billed.reduce((sum, sponsor) => sum + Number(sponsor.amount || 0), 0),
+      groupsReached: new Set(
+        sponsors
+          .filter((sponsor) => sponsor.groupId && ['active', 'expiring'].includes(sponsor.lifecycleStatus))
+          .map((sponsor) => sponsor.groupId)
+      ).size,
+      buyersReached: impact.reduce((sum, row) => sum + row.clubBuyers, 0),
+      ordersAttributed: impact.reduce((sum, row) => sum + row.totalOrders, 0),
+      purchaseAmount: impact.reduce((sum, row) => sum + row.purchaseAmount, 0),
+    };
+  },
+
+  async getSponsorImpactReport({ actor } = {}) {
+    requirePermission(actor, 'sponsorships.finance', 'No tienes permiso para ver el impacto comercial.');
+    const store = readStore();
+    const sponsors = await this.listClubSponsors({ actor });
+    const metrics = store.sponsorImpact || {};
+
+    return sponsors.map((sponsor) => {
+      const row = metrics[sponsor.id] || {};
+      const partsOrders = Number(row.partsOrders || 0);
+      const serviceOrders = Number(row.serviceOrders || 0);
+      return {
+        sponsorId: sponsor.id,
+        brandName: sponsor.brandName,
+        groupName: sponsor.groupName,
+        moderationStatus: sponsor.moderationStatus,
+        lifecycleStatus: sponsor.lifecycleStatus,
+        clubBuyers: Number(row.clubBuyers || 0),
+        partsOrders,
+        serviceOrders,
+        totalOrders: partsOrders + serviceOrders,
+        purchaseAmount: Number(row.purchaseAmount || 0),
+        amount: Number(sponsor.amount || 0),
+        billingCycle: sponsor.billingCycle,
+      };
+    });
   },
 
   async globalSearch({ query = '', actor } = {}) {

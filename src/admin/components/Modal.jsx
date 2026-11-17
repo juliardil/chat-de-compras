@@ -3,19 +3,30 @@ import { X } from 'lucide-react';
 
 export default function Modal({ open, onClose, title, description, children, footer, size = 'md' }) {
   const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  // `onClose` suele ser una función nueva en cada render del padre. Guardarla
+  // en una ref evita que el efecto se vuelva a ejecutar y robe el foco del
+  // input mientras la persona está escribiendo (p. ej. al teclear un espacio).
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return undefined;
 
     const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current();
     };
 
     document.addEventListener('keydown', onKeyDown);
-    window.setTimeout(() => closeRef.current?.focus(), 0);
+    const focusTimer = window.setTimeout(() => closeRef.current?.focus(), 0);
 
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      window.clearTimeout(focusTimer);
+    };
+  }, [open]);
 
   if (!open) return null;
 

@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import avatarComercio from '../../assets/avatar-comercio.svg';
 import { uploadProfilePhoto } from '../../data/appData';
+import SponsorImpact from '../../components/community/SponsorImpact';
 
 // Perfil del comercio. El nombre, la descripción y los datos de contacto
 // provienen de la sesión real (auth.users.profile.business con InsForge;
@@ -229,6 +230,8 @@ export default function Profile() {
             </div>
           </div>
         </div>
+
+        <SponsorImpact />
 
         {/* Action Buttons */}
         <div className="space-y-3">

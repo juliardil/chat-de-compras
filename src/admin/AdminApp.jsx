@@ -20,6 +20,7 @@ import Moderation from './pages/Moderation';
 import Reviews from './pages/Reviews';
 import Support from './pages/Support';
 import Communications from './pages/Communications';
+import Sponsorships from './pages/Sponsorships';
 import Staff from './pages/Staff';
 import Audit from './pages/Audit';
 import Analytics from './pages/Analytics';
@@ -214,6 +215,14 @@ function AdminRoutes() {
           element={
             <RequirePermission permission="payments.view">
               <Payments />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="patrocinios"
+          element={
+            <RequirePermission permission="sponsorships.view">
+              <Sponsorships />
             </RequirePermission>
           }
         />

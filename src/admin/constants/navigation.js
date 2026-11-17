@@ -142,6 +142,14 @@ export const NAVIGATION_GROUPS = [
         phase: 4,
       },
       { key: 'analytics', label: 'Analítica', path: '/analitica', icon: 'BarChart3', permission: 'analytics.view', phase: 5 },
+      {
+        key: 'sponsorships',
+        label: 'Patrocinios',
+        path: '/patrocinios',
+        icon: 'Handshake',
+        permission: 'sponsorships.view',
+        phase: 5,
+      },
     ],
   },
   {

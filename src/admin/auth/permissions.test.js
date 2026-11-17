@@ -25,6 +25,10 @@ const WORKSHOPS_MIGRATION = path.resolve(
   MIGRATIONS_DIR,
   '20261117050000_workshops-services-b2b.sql'
 );
+const SPONSORSHIPS_MIGRATION = path.resolve(
+  MIGRATIONS_DIR,
+  '20261117170000_clubs-sponsorships-advanced.sql'
+);
 
 const readMigration = (migrationPath) => readFileSync(migrationPath, 'utf8');
 
@@ -122,8 +126,13 @@ describe('groupPermissionsByModule', () => {
 
 describe('consistencia con la migración de Fase 1', () => {
   it('siembra exactamente los permisos del catálogo', () => {
-    // El catálogo se siembra en la migración fundacional, comunidades y talleres.
-    const seeded = [FOUNDATION_MIGRATION, COMMUNITIES_MIGRATION, WORKSHOPS_MIGRATION]
+    // El catálogo se siembra en la fundación, comunidades, talleres y patrocinios.
+    const seeded = [
+      FOUNDATION_MIGRATION,
+      COMMUNITIES_MIGRATION,
+      WORKSHOPS_MIGRATION,
+      SPONSORSHIPS_MIGRATION,
+    ]
       .flatMap((migrationPath) => extractSeededPermissionKeys(readMigration(migrationPath)))
       .sort();
     expect(seeded).toEqual([...ALL_PERMISSION_KEYS].sort());

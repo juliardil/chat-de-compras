@@ -14,6 +14,10 @@ export const PERMISSION_CATALOG = [
   { key: 'communities.view', module: 'Comunidades', label: 'Ver clubes de compradores', sensitive: false },
   { key: 'communities.configure', module: 'Comunidades', label: 'Configurar el mínimo de participantes', sensitive: true },
 
+  { key: 'sponsorships.view', module: 'Patrocinios', label: 'Ver patrocinios de clubes', sensitive: false },
+  { key: 'sponsorships.manage', module: 'Patrocinios', label: 'Administrar tarifas, vigencia y aprobación de marcas', sensitive: true },
+  { key: 'sponsorships.finance', module: 'Patrocinios', label: 'Consultar ingresos e impacto comercial', sensitive: true },
+
   { key: 'workshops.view', module: 'Talleres Verificados', label: 'Ver talleres verificados', sensitive: false },
   { key: 'workshops.verify', module: 'Talleres Verificados', label: 'Activar o revocar verificación de talleres', sensitive: true },
 
@@ -177,6 +181,8 @@ export const ROLE_PERMISSIONS = {
     'analytics.view',
     'workshops.view',
     'workshops.verify',
+    'sponsorships.view',
+    'sponsorships.manage',
   ],
 
   moderator: [
@@ -231,6 +237,8 @@ export const ROLE_PERMISSIONS = {
     'analytics.view',
     'analytics.export',
     'audit.view',
+    'sponsorships.view',
+    'sponsorships.finance',
   ],
 
   finance: [
@@ -241,6 +249,8 @@ export const ROLE_PERMISSIONS = {
     'payments.reconcile',
     'analytics.view',
     'audit.view',
+    'sponsorships.view',
+    'sponsorships.finance',
   ],
 };
 

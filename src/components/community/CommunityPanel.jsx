@@ -9,6 +9,10 @@ import {
   joinGroup,
   leaveGroup,
 } from '../../data/community';
+import ClubIdentity from './ClubIdentity';
+import ClubChat from './ClubChat';
+import ClubEvents from './ClubEvents';
+import ClubSponsors from './ClubSponsors';
 
 const inputClass =
   'w-full rounded-xl border border-[#4B227A]/20 bg-white/80 px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-[#0197AF] focus:ring-2 focus:ring-[#0197AF]/20';
@@ -105,6 +109,8 @@ export default function CommunityPanel() {
               ) : null}
             </div>
 
+            <ClubIdentity group={group} onUpdated={reload} />
+
             <div className="mt-4 rounded-2xl border border-[#4B227A]/15 bg-white/70 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 Código de invitación
@@ -143,6 +149,10 @@ export default function CommunityPanel() {
                   : `Faltan ${missing} ${missing === 1 ? 'miembro' : 'miembros'} para verificar el club.`}
               </p>
             </div>
+
+            <ClubChat />
+            <ClubEvents isOwner={Boolean(group?.is_owner)} />
+            <ClubSponsors />
 
             <Button
               type="button"

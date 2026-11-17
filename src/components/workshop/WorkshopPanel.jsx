@@ -17,6 +17,7 @@ import {
   WORKSHOP_SPECIALTIES,
 } from '../../data/workshop';
 import { useAuth } from '../../context/auth-context';
+import SponsorImpact from '../community/SponsorImpact';
 
 const inputClass =
   'w-full rounded-xl border border-[#4B227A]/20 bg-white/80 px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-[#0197AF] focus:ring-2 focus:ring-[#0197AF]/20';
@@ -319,6 +320,8 @@ export default function WorkshopPanel() {
           </div>
         ) : null}
       </div>
+
+      <SponsorImpact />
     </section>
   );
 }
