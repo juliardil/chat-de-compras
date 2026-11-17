@@ -7,8 +7,7 @@ import {
   History,
   ShieldCheck, 
   LogOut, 
-  ChevronRight, 
-  ChevronDown,
+  ChevronRight,
   Menu,
   Camera,
   CheckCircle
@@ -19,6 +18,9 @@ import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
 import { uploadProfilePhoto } from '../../data/appData';
 
+const BUYER_PATH = '/categories';
+const JOBS_PATH = '/workshop-jobs';
+
 // Perfil del comprador. El nombre y el correo vienen de la sesión real
 // (InsForge cuando está configurado; sesión local en modo demostración). No se
 // muestran estadísticas de compras porque el módulo de pedidos todavía no está
@@ -26,7 +28,7 @@ import { uploadProfilePhoto } from '../../data/appData';
 export default function UserProfile() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, setViewMode } = useAuth();
   const [profileImage, setProfileImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState(null);
@@ -102,6 +104,17 @@ export default function UserProfile() {
     }
   ];
 
+  const changeView = (path, mode) => {
+    if (typeof setViewMode === 'function') setViewMode(mode);
+    setSettingsOpen(false);
+    navigate(path);
+  };
+
+  const handleLogout = () => {
+    setSettingsOpen(false);
+    logout();
+  };
+
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-24">
       {/* Header / Profile Info. El acceso a ajustes vive arriba para no exigir scroll. */}
@@ -115,27 +128,21 @@ export default function UserProfile() {
             onClick={() => setSettingsOpen((open) => !open)}
             aria-expanded={settingsOpen}
             aria-controls="account-settings-menu"
-            aria-label={settingsOpen ? 'Ocultar ajustes de cuenta' : 'Mostrar ajustes de cuenta'}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#4B227A]/20 bg-white/90 px-3 py-2 text-[#4B227A] shadow-sm transition hover:bg-white"
+            aria-label="Menú"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#4B227A]/20 bg-white/90 text-[#4B227A] shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0197AF]/40"
           >
-            <Menu className="w-5 h-5" aria-hidden="true" />
-            <span className="hidden text-[11px] font-bold uppercase tracking-wider sm:inline">
-              Ajustes de cuenta
-            </span>
-            <ChevronDown
-              className={`w-4 h-4 transition-transform ${settingsOpen ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
 
           {settingsOpen ? (
             <div
               id="account-settings-menu"
-              className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-2xl border border-white/40 bg-white/95 shadow-xl backdrop-blur-md"
+              className="absolute right-0 top-full z-30 mt-2 w-72 overflow-hidden rounded-2xl border border-white/40 bg-white/95 shadow-xl backdrop-blur-md"
             >
               {menuItems.map((item, index) => (
                 <button
                   key={item.label}
+                  type="button"
                   onClick={() => {
                     setSettingsOpen(false);
                     navigate(item.path);
@@ -153,6 +160,47 @@ export default function UserProfile() {
                   <ChevronRight className="w-4 h-4 shrink-0 text-gray-500" />
                 </button>
               ))}
+
+              <div className="border-t border-slate-200 bg-[#E7E7E7]/40 px-3 py-3">
+                <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                  Cambiar de vista
+                </p>
+                <nav aria-label="Cambiar de vista" className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    aria-current={location.pathname === JOBS_PATH ? undefined : 'page'}
+                    onClick={() => changeView(BUYER_PATH, 'buyer')}
+                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0197AF]/40 ${
+                      location.pathname === JOBS_PATH
+                        ? 'text-[#4B227A] hover:bg-[#4B227A]/10'
+                        : 'bg-[#4B227A] text-white shadow'
+                    }`}
+                  >
+                    🛒 Compras
+                  </button>
+                  <button
+                    type="button"
+                    aria-current={location.pathname === JOBS_PATH ? 'page' : undefined}
+                    onClick={() => changeView(JOBS_PATH, 'business')}
+                    className={`rounded-xl px-2 py-2 text-xs font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0197AF]/40 ${
+                      location.pathname === JOBS_PATH
+                        ? 'bg-[#4B227A] text-white shadow'
+                        : 'text-[#4B227A] hover:bg-[#4B227A]/10'
+                    }`}
+                  >
+                    🔧 Panel de Trabajo
+                  </button>
+                </nav>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 border-t border-slate-200 px-4 py-3 text-left text-sm font-bold text-[#4B227A] transition hover:bg-[#4B227A]/5"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                Cerrar Sesión
+              </button>
             </div>
           ) : null}
         </div>
@@ -208,17 +256,6 @@ export default function UserProfile() {
 
       {/* Comunidad / Club del comprador (módulo aislado) */}
       <CommunityPanel />
-
-      {/* Actions */}
-      <div className="px-6 mt-6">
-        <button
-          onClick={logout}
-          className="w-full bg-white/80 backdrop-blur-md border border-[#4B227A]/20 text-[#4B227A] font-bold py-4 rounded-3xl flex items-center justify-center gap-2 hover:bg-[#4B227A]/10 transition-colors shadow-sm"
-        >
-          <LogOut className="w-5 h-5" />
-          Cerrar Sesión
-        </button>
-      </div>
 
       <UserBottomNav />
     </div>
