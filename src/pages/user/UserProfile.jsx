@@ -8,11 +8,12 @@ import {
   ShieldCheck, 
   LogOut, 
   ChevronRight, 
+  ChevronDown,
+  Menu,
   Camera,
   CheckCircle
 } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
-import ViewSwitcher from '../../components/layout/ViewSwitcher';
 import CommunityPanel from '../../components/community/CommunityPanel';
 import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
@@ -29,6 +30,7 @@ export default function UserProfile() {
   const [profileImage, setProfileImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef(null);
   const justUpdated = Boolean(location.state?.profileUpdated);
 
@@ -104,8 +106,7 @@ export default function UserProfile() {
     <div className="min-h-screen bg-[#E7E7E7] pb-24">
       {/* Header / Profile Info */}
       <div className="bg-white/80 backdrop-blur-md px-6 pt-12 pb-8 rounded-b-[32px] shadow-sm border-b border-white/30">
-        <ViewSwitcher />
-        <div className="mt-6 flex flex-col items-center">
+        <div className="flex flex-col items-center">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-[#4B227A]/10 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
               {avatarSrc ? (
@@ -157,28 +158,52 @@ export default function UserProfile() {
       {/* Comunidad / Club del comprador (módulo aislado) */}
       <CommunityPanel />
 
-      {/* Menu Section */}
+      {/* Ajustes de cuenta: contraídos por defecto y controlados por ☰ */}
       <div className="px-6 mt-8">
-        <h3 className="text-sm font-bold text-gray-600 uppercase tracking-widest ml-1 mb-4">Ajustes de Cuenta</h3>
-        <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-sm overflow-hidden border border-white/30">
-          {menuItems.map((item, index) => (
-            <button
-              key={index}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center justify-between p-4 hover:bg-white/90 transition-colors ${
-                index !== menuItems.length - 1 ? 'border-b border-white/40' : ''
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`${item.bgColor} p-2.5 rounded-xl border border-white/30`}>
-                  <item.icon className={`w-5 h-5 ${item.color}`} />
+        <button
+          type="button"
+          onClick={() => setSettingsOpen((open) => !open)}
+          aria-expanded={settingsOpen}
+          aria-controls="account-settings-menu"
+          aria-label={settingsOpen ? 'Ocultar ajustes de cuenta' : 'Mostrar ajustes de cuenta'}
+          className="w-full flex items-center justify-between rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 px-4 py-4 shadow-sm hover:bg-white/90 transition-colors"
+        >
+          <span className="flex items-center gap-3">
+            <Menu className="w-5 h-5 text-[#4B227A]" aria-hidden="true" />
+            <span className="text-sm font-bold text-gray-600 uppercase tracking-widest">
+              Ajustes de Cuenta
+            </span>
+          </span>
+          <ChevronDown
+            className={`w-5 h-5 text-gray-500 transition-transform ${settingsOpen ? 'rotate-180' : ''}`}
+            aria-hidden="true"
+          />
+        </button>
+
+        {settingsOpen ? (
+          <div
+            id="account-settings-menu"
+            className="mt-3 bg-white/80 backdrop-blur-md rounded-3xl shadow-sm overflow-hidden border border-white/30"
+          >
+            {menuItems.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => navigate(item.path)}
+                className={`w-full flex items-center justify-between p-4 hover:bg-white/90 transition-colors ${
+                  index !== menuItems.length - 1 ? 'border-b border-white/40' : ''
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`${item.bgColor} p-2.5 rounded-xl border border-white/30`}>
+                    <item.icon className={`w-5 h-5 ${item.color}`} />
+                  </div>
+                  <span className="font-semibold text-gray-800 text-sm">{item.label}</span>
                 </div>
-                <span className="font-semibold text-gray-800 text-sm">{item.label}</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-500" />
-            </button>
-          ))}
-        </div>
+                <ChevronRight className="w-5 h-5 text-gray-500" />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {/* Actions */}
