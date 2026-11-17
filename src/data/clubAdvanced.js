@@ -18,6 +18,7 @@ import {
 
 export const CLUB_ADVANCED_NOTICES = {
   identity: 'No se pudo cargar la identidad de tu club.',
+  members: 'No se pudo cargar la lista de miembros del club.',
   messages: 'No se pudo cargar el chat de tu club.',
   events: 'No se pudieron cargar las actividades del club.',
   sponsors: 'No se pudieron cargar las marcas patrocinadoras.',
@@ -89,6 +90,12 @@ export const uploadClubAvatar = async ({ groupId, file }) => {
 
 const describeUploadError = (error) =>
   error?.message || error?.error || CLUB_ADVANCED_NOTICES.avatar;
+
+// -----------------------------------------------------------------------------
+// Miembros del club
+// -----------------------------------------------------------------------------
+export const fetchClubMembers = () =>
+  runQuery((db) => db.rpc('app_group_members'), CLUB_ADVANCED_NOTICES.members);
 
 // -----------------------------------------------------------------------------
 // Chat interno del club

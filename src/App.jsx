@@ -20,6 +20,7 @@ import Tracking from './pages/user/Tracking';
 import History from './pages/user/History';
 import Closing from './pages/user/Closing';
 import UserProfile from './pages/user/UserProfile';
+import ClubChatPage from './pages/user/ClubChatPage';
 import WorkshopJobsPage from './pages/user/WorkshopJobsPage';
 import Addresses from './pages/user/Addresses';
 import EditUserProfile from './pages/user/EditUserProfile';
@@ -115,6 +116,7 @@ function AppRoutes() {
         <Route path="/history" element={<RequireRole role="user"><History /></RequireRole>} />
         <Route path="/closing/:id" element={<RequireRole role="user"><Closing /></RequireRole>} />
         <Route path="/profile-user" element={<RequireRole role="user"><UserProfile /></RequireRole>} />
+        <Route path="/club-chat" element={<RequireRole role="user"><ClubChatPage /></RequireRole>} />
         <Route
           path="/workshop-jobs"
           element={<RequireRole allowWorkshopBusiness><WorkshopJobsPage /></RequireRole>}

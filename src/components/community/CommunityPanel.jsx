@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { Check, Copy, KeyRound, LogOut, Plus, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Check,
+  ChevronRight,
+  Copy,
+  KeyRound,
+  LogOut,
+  MessageCircle,
+  Plus,
+  Users,
+} from 'lucide-react';
 import Button from '../ui/Button';
 import { DataNotice, EmptyModule, LoadingModule } from '../ui/ModuleState';
 import { useModuleData } from '../../data/useModuleData';
@@ -10,9 +20,8 @@ import {
   leaveGroup,
 } from '../../data/community';
 import ClubIdentity from './ClubIdentity';
-import ClubChat from './ClubChat';
-import ClubEvents from './ClubEvents';
-import ClubSponsors from './ClubSponsors';
+import ClubMembers from './ClubMembers';
+import ClubSponsorAvatars from './ClubSponsorAvatars';
 
 const inputClass =
   'w-full rounded-xl border border-[#4B227A]/20 bg-white/80 px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-[#0197AF] focus:ring-2 focus:ring-[#0197AF]/20';
@@ -25,6 +34,7 @@ const progress = (count, minimum) => {
 // Sección "Mi Comunidad / Club" del perfil comprador.
 // Toda la lectura y escritura pasa por RPCs del módulo de comunidades.
 export default function CommunityPanel() {
+  const navigate = useNavigate();
   const { items, loading, error, notice, reload } = useModuleData(fetchMyGroup, []);
   const group = items[0] || null;
 
@@ -110,6 +120,7 @@ export default function CommunityPanel() {
             </div>
 
             <ClubIdentity group={group} onUpdated={reload} />
+            <ClubSponsorAvatars />
 
             <div className="mt-4 rounded-2xl border border-[#4B227A]/15 bg-white/70 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
@@ -133,8 +144,11 @@ export default function CommunityPanel() {
             <div className="mt-4" aria-label="Progreso de miembros">
               <div className="flex items-center justify-between text-xs font-semibold text-gray-700">
                 <span>Miembros</span>
-                <span aria-live="polite">
-                  {count} / {minimum}
+                <span className="flex items-center gap-2">
+                  <span aria-live="polite">
+                    {count} / {minimum}
+                  </span>
+                  <ClubMembers />
                 </span>
               </div>
               <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#4B227A]/10">
@@ -150,9 +164,22 @@ export default function CommunityPanel() {
               </p>
             </div>
 
-            <ClubChat />
-            <ClubEvents isOwner={Boolean(group?.is_owner)} />
-            <ClubSponsors />
+            <button
+              type="button"
+              onClick={() => navigate('/club-chat')}
+              className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-[#0197AF]/25 bg-gradient-to-r from-white/85 to-[#0197AF]/10 p-3 text-left transition hover:border-[#0197AF]/50 hover:bg-white"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0197AF]/15 text-[#006E7A]">
+                <MessageCircle className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-bold text-gray-800">Chat del club</span>
+                <span className="block text-[11px] text-gray-600">
+                  Abre el canal privado de tu club
+                </span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-[#006E7A]" aria-hidden="true" />
+            </button>
 
             <Button
               type="button"
