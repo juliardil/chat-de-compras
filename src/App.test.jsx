@@ -32,7 +32,8 @@ describe('guardas de ruta por rol', () => {
   it('impide que un usuario entre al panel de comercio', async () => {
     renderAt('/dashboard', { role: 'user', name: 'Julia' });
 
-    expect(await screen.findByRole('heading', { level: 1, name: /automotriz/i })).toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: /cambiar de vista/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /compras/i })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByText(/panel de oportunidades/i)).not.toBeInTheDocument();
   });
 
@@ -40,7 +41,7 @@ describe('guardas de ruta por rol', () => {
     renderAt('/categories', { role: 'commerce', name: 'Comercio Demo' });
 
     expect(await screen.findByText(/panel de oportunidades/i)).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 1, name: /automotriz/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: /cambiar de vista/i })).not.toBeInTheDocument();
   });
 
   it('muestra 404 en una ruta desconocida', async () => {

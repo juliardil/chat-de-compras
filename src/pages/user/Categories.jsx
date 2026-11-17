@@ -3,6 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import UserBottomNav from '../../components/layout/UserBottomNav';
+import ViewSwitcher from '../../components/layout/ViewSwitcher';
 import { Car, Search } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
@@ -15,15 +16,9 @@ export default function Categories() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#00EED0]/10 via-[#E7E7E7] to-[#4B227A]/10">
-      {/* Header */}
+      {/* Header: switcher superior (reemplaza al título "Automotriz") */}
       <header className="px-8 pt-12 pb-4 bg-white/70 backdrop-blur-md border-b border-white/30">
-        <div className="flex justify-between items-center mb-1">
-          <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2">
-            <Car className="w-8 h-8 text-[#006E7A]" />
-            Automotriz
-          </h1>
-        </div>
-        <p className="text-gray-600 text-sm font-medium">Encuentra repuestos y accesorios</p>
+        <ViewSwitcher />
       </header>
 
       {/* Hero Section */}

@@ -12,6 +12,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
+import ViewSwitcher from '../../components/layout/ViewSwitcher';
 import CommunityPanel from '../../components/community/CommunityPanel';
 import WorkshopPanel from '../../components/workshop/WorkshopPanel';
 import SafeImage from '../../components/ui/SafeImage';
@@ -104,7 +105,8 @@ export default function UserProfile() {
     <div className="min-h-screen bg-[#E7E7E7] pb-24">
       {/* Header / Profile Info */}
       <div className="bg-white/80 backdrop-blur-md px-6 pt-12 pb-8 rounded-b-[32px] shadow-sm border-b border-white/30">
-        <div className="flex flex-col items-center">
+        <ViewSwitcher />
+        <div className="mt-6 flex flex-col items-center">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-[#4B227A]/10 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
               {avatarSrc ? (

@@ -1,16 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BadgeCheck, ShoppingCart, Wrench } from 'lucide-react';
-import Button from '../../components/ui/Button';
+import { BadgeCheck, Wrench } from 'lucide-react';
+import ViewSwitcher from '../../components/layout/ViewSwitcher';
 import WorkshopJobsPanel from '../../components/workshop/WorkshopJobsPanel';
 import WorkshopPlateHistory from '../../components/workshop/WorkshopPlateHistory';
 import { useAuth } from '../../context/auth-context';
 
 // Vista de "modo empresa" para un Taller Verificado. No cambia el rol de la
-// cuenta: activa la vista de negocio solo mientras esta pantalla está abierta y
-// ofrece un regreso explícito al modo comprador B2B.
+// cuenta: activa la vista de negocio solo mientras esta pantalla está abierta.
+// El cambio de vista vive en el switcher superior compartido, así que aquí no
+// se repite ningún botón de retorno ni barra inferior de cambio de modo.
 export default function WorkshopJobsPage() {
-  const navigate = useNavigate();
   const { user, workshopVerified, viewMode, setViewMode } = useAuth();
   const setViewModeRef = useRef(setViewMode);
 
@@ -25,17 +24,14 @@ export default function WorkshopJobsPage() {
     };
   }, [user?.role]);
 
-  const goToParts = () => {
-    setViewModeRef.current('buyer');
-    navigate('/categories');
-  };
-
   const canWork = user?.role === 'commerce' || workshopVerified;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#E7E7E7] pb-24">
       <header className="bg-white/80 backdrop-blur-md px-6 pt-12 pb-6 rounded-b-[32px] shadow-sm border-b border-white/30">
-        <div className="flex items-start justify-between gap-3">
+        <ViewSwitcher />
+
+        <div className="mt-5 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#006E7A]">
               Modo Empresa · Taller Verificado
@@ -55,10 +51,6 @@ export default function WorkshopJobsPage() {
             <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" /> Taller Verificado
           </p>
         ) : null}
-
-        <Button type="button" fullWidth onClick={goToParts} className="mt-4">
-          <ShoppingCart className="w-4 h-4" /> 🛒 Comprar Repuestos (Modo Taller B2B)
-        </Button>
       </header>
 
       <main className="px-6 mt-6">
@@ -70,9 +62,6 @@ export default function WorkshopJobsPage() {
             <p className="mt-1 text-xs text-amber-800">
               Cuando el administrador active la verificación podrás cotizar trabajos aquí.
             </p>
-            <Button type="button" variant="secondary" className="mt-4" onClick={goToParts}>
-              Volver a comprar repuestos
-            </Button>
           </div>
         ) : (
           <>
@@ -83,30 +72,6 @@ export default function WorkshopJobsPage() {
           </>
         )}
       </main>
-
-      <nav
-        aria-label="Cambiar de modo"
-        className="fixed bottom-0 left-1/2 z-10 w-full max-w-md -translate-x-1/2 border-t border-[#4B227A]/10 bg-white/95 px-6 py-3 backdrop-blur"
-      >
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            aria-current="page"
-            className="rounded-xl bg-[#4B227A] px-3 py-2.5 text-[11px] font-bold text-white"
-          >
-            <Wrench className="mx-auto mb-1 w-4 h-4" aria-hidden="true" />
-            Panel de Trabajos
-          </button>
-          <button
-            type="button"
-            onClick={goToParts}
-            className="rounded-xl bg-[#4B227A]/10 px-3 py-2.5 text-[11px] font-bold text-[#4B227A]"
-          >
-            <ShoppingCart className="mx-auto mb-1 w-4 h-4" aria-hidden="true" />
-            Comprar Repuestos
-          </button>
-        </div>
-      </nav>
     </div>
   );
 }
