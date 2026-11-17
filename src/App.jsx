@@ -20,6 +20,7 @@ import Tracking from './pages/user/Tracking';
 import History from './pages/user/History';
 import Closing from './pages/user/Closing';
 import UserProfile from './pages/user/UserProfile';
+import WorkshopJobsPage from './pages/user/WorkshopJobsPage';
 import Addresses from './pages/user/Addresses';
 import EditUserProfile from './pages/user/EditUserProfile';
 
@@ -57,20 +58,32 @@ function AuthSplash() {
 }
 
 function HomeRedirect() {
-  const { user, loading } = useAuth();
+  const { user, loading, viewMode, workshopVerified } = useAuth();
 
   if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
+  if (viewMode === 'business' && workshopVerified && user.role !== 'commerce') {
+    return <Navigate to="/workshop-jobs" replace />;
+  }
   return <Navigate to={homeForRole(user.role)} replace />;
 }
 
 // Protege una ruta comprobando que haya sesión y, opcionalmente, el rol.
-function RequireRole({ role, children }) {
-  const { user, loading } = useAuth();
+// `allowWorkshopBusiness` habilita SOLO el panel de trabajos para un comprador
+// con taller verificado, sin abrirle las rutas del panel de comercios.
+function RequireRole({ role, allowWorkshopBusiness = false, children }) {
+  const { user, loading, viewMode, workshopVerified } = useAuth();
 
   if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
-  if (role && user.role !== role) {
+
+  const businessWorkshop =
+    allowWorkshopBusiness &&
+    viewMode === 'business' &&
+    workshopVerified &&
+    user.role !== 'commerce';
+
+  if (role && user.role !== role && !businessWorkshop) {
     return <Navigate to={homeForRole(user.role)} replace />;
   }
 
@@ -102,6 +115,10 @@ function AppRoutes() {
         <Route path="/history" element={<RequireRole role="user"><History /></RequireRole>} />
         <Route path="/closing/:id" element={<RequireRole role="user"><Closing /></RequireRole>} />
         <Route path="/profile-user" element={<RequireRole role="user"><UserProfile /></RequireRole>} />
+        <Route
+          path="/workshop-jobs"
+          element={<RequireRole allowWorkshopBusiness><WorkshopJobsPage /></RequireRole>}
+        />
         <Route path="/addresses" element={<RequireRole role="user"><Addresses /></RequireRole>} />
         <Route path="/edit-user-profile" element={<RequireRole role="user"><EditUserProfile /></RequireRole>} />
 

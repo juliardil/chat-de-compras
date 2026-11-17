@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './auth-context';
 import { insforge, isInsforgeConfigured } from '../lib/insforge';
 import { ensureProfile } from '../data/appData';
+import { fetchMyWorkshop } from '../data/workshop';
 
 // =============================================================================
 // Autenticación de la app (compradores y comercios).
@@ -136,6 +137,30 @@ export const AuthProvider = ({ children }) => {
   // `loading` evita que los guardas redirijan a /welcome antes de tiempo.
   const [loading, setLoading] = useState(isInsforgeConfigured);
 
+  // Un taller verificado conserva su rol de comprador, pero puede activar la
+  // vista de empresa para cotizar servicios. Estos dos valores son de sesión:
+  // no se guardan en localStorage ni cambian el `role` persistido en el backend.
+  const [workshopVerified, setWorkshopVerified] = useState(false);
+  const [viewMode, setViewModeState] = useState('buyer');
+
+  // Lee la credencial del taller desde la RPC aislada del módulo. Si falla, la
+  // app sigue funcionando como comprador: nunca bloquea el inicio de sesión.
+  const refreshWorkshopCapability = useCallback(async () => {
+    if (!isInsforgeConfigured) {
+      setWorkshopVerified(false);
+      return false;
+    }
+    try {
+      const { items } = await fetchMyWorkshop();
+      const verified = Boolean(items?.[0]?.is_verified);
+      setWorkshopVerified(verified);
+      return verified;
+    } catch {
+      setWorkshopVerified(false);
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     if (!isInsforgeConfigured) return undefined;
 
@@ -146,8 +171,14 @@ export const AuthProvider = ({ children }) => {
         if (cancelled) return;
         const nextUser = error ? null : mapInsForgeUser(data?.user);
         setUser(nextUser);
-        // Provisiona el perfil de comprador/comercio si aún no existe.
-        if (nextUser) void ensureProfile();
+        if (nextUser) {
+          // Provisiona el perfil de comprador/comercio si aún no existe.
+          void ensureProfile();
+          if (nextUser.role === 'commerce') setViewModeState('business');
+          await refreshWorkshopCapability();
+        } else {
+          setWorkshopVerified(false);
+        }
       } catch {
         if (!cancelled) setUser(null);
       } finally {
@@ -159,7 +190,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshWorkshopCapability]);
 
   // Guarda el perfil en auth.users.profile fusionando con lo existente ( así
   // la operación es segura tanto si el backend fusiona como si reemplaza).
@@ -189,6 +220,8 @@ export const AuthProvider = ({ children }) => {
         };
         writeStoredSession(demoUser);
         setUser(demoUser);
+        setWorkshopVerified(false);
+        setViewModeState(demoUser.role === 'commerce' ? 'business' : 'buyer');
         navigate(homeFor(demoUser), { replace: true });
         return demoUser;
       }
@@ -203,10 +236,12 @@ export const AuthProvider = ({ children }) => {
       const nextUser = mapInsForgeUser(data.user);
       setUser(nextUser);
       await ensureProfile();
+      await refreshWorkshopCapability();
+      if (nextUser.role === 'commerce') setViewModeState('business');
       navigate(homeFor(nextUser), { replace: true });
       return nextUser;
     },
-    [navigate]
+    [navigate, refreshWorkshopCapability]
   );
 
   const register = useCallback(
@@ -218,6 +253,8 @@ export const AuthProvider = ({ children }) => {
         };
         writeStoredSession(demoUser);
         setUser(demoUser);
+        setWorkshopVerified(false);
+        setViewModeState(demoUser.role === 'commerce' ? 'business' : 'buyer');
         navigate(homeFor(demoUser), { replace: true });
         return { verificationRequired: false };
       }
@@ -233,12 +270,14 @@ export const AuthProvider = ({ children }) => {
 
       const { authUser, profile } = await saveInsforgeProfile({ role, business });
       await ensureProfile();
+      await refreshWorkshopCapability();
+      if (role === 'commerce') setViewModeState('business');
       const nextUser = mapInsForgeUser({ ...authUser, profile });
       setUser(nextUser);
       navigate(homeFor(nextUser), { replace: true });
       return { verificationRequired: false };
     },
-    [navigate]
+    [navigate, refreshWorkshopCapability]
   );
 
   const confirmRegistration = useCallback(
@@ -254,12 +293,14 @@ export const AuthProvider = ({ children }) => {
 
       const { authUser, profile } = await saveInsforgeProfile({ role, business });
       await ensureProfile();
+      await refreshWorkshopCapability();
+      if (role === 'commerce') setViewModeState('business');
       const nextUser = mapInsForgeUser({ ...authUser, profile });
       setUser(nextUser);
       navigate(homeFor(nextUser), { replace: true });
       return nextUser;
     },
-    [navigate]
+    [navigate, refreshWorkshopCapability]
   );
 
   const resendVerificationCode = useCallback(async (email) => {
@@ -307,10 +348,11 @@ export const AuthProvider = ({ children }) => {
     }
 
     await ensureProfile();
+    await refreshWorkshopCapability();
     const nextUser = mapInsForgeUser({ ...authUser, profile });
     setUser(nextUser);
     return nextUser;
-  }, [user]);
+  }, [user, refreshWorkshopCapability]);
 
   const requestPasswordReset = useCallback(async (email) => {
     if (!isInsforgeConfigured) return;
@@ -335,6 +377,8 @@ export const AuthProvider = ({ children }) => {
     if (!isInsforgeConfigured) {
       clearStoredSession();
       setUser(null);
+      setWorkshopVerified(false);
+      setViewModeState('buyer');
       navigate('/login', { replace: true });
       return;
     }
@@ -345,8 +389,24 @@ export const AuthProvider = ({ children }) => {
       // La sesión local se cierra igualmente.
     }
     setUser(null);
+    setWorkshopVerified(false);
+    setViewModeState('buyer');
     navigate('/login', { replace: true });
   }, [navigate]);
+
+  // Cambia la vista activa. Un usuario normal no puede activar el modo empresa:
+  // solo un comercio o un Taller Verificado pueden hacerlo.
+  const setViewMode = useCallback(
+    (next) => {
+      const target = next === 'business' ? 'business' : 'buyer';
+      if (target === 'business' && user?.role !== 'commerce' && !workshopVerified) {
+        return false;
+      }
+      setViewModeState(target);
+      return true;
+    },
+    [user?.role, workshopVerified]
+  );
 
   return (
     <AuthContext.Provider
@@ -354,6 +414,10 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         mode: isInsforgeConfigured ? 'insforge' : 'demo',
+        workshopVerified,
+        viewMode,
+        setViewMode,
+        refreshWorkshopCapability,
         login,
         logout,
         register,

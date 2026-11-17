@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   BadgeDollarSign,
@@ -16,6 +17,7 @@ import {
   saveWorkshop,
   WORKSHOP_SPECIALTIES,
 } from '../../data/workshop';
+import { useAuth } from '../../context/auth-context';
 import WorkshopJobsPanel from './WorkshopJobsPanel';
 import WorkshopPlateHistory from './WorkshopPlateHistory';
 
@@ -32,6 +34,8 @@ const BENEFITS = [
 // Tarjeta "Soy un Taller Mecánico / Negocio" del perfil comprador.
 // Lectura y escritura pasan por las RPC aisladas del módulo de talleres.
 export default function WorkshopPanel() {
+  const navigate = useNavigate();
+  const { setViewMode, refreshWorkshopCapability } = useAuth() || {};
   const { items, loading, error, notice, reload } = useModuleData(fetchMyWorkshop, []);
   const workshop = items[0] || null;
 
@@ -44,6 +48,11 @@ export default function WorkshopPanel() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [activeSection, setActiveSection] = useState('profile');
+
+  const goToJobs = () => {
+    if (typeof setViewMode === 'function') setViewMode('business');
+    navigate('/workshop-jobs');
+  };
 
   const toggleSpecialty = (value) => {
     setSpecialties((previous) =>
@@ -85,6 +94,9 @@ export default function WorkshopPanel() {
       }
       setShowForm(false);
       reload();
+      // Puente Taller -> Empresa: refresca la capacidad de la sesión en cuanto
+      // el registro se guarda (la verificación la concede el admin después).
+      if (typeof refreshWorkshopCapability === 'function') void refreshWorkshopCapability();
     } catch (err) {
       setActionError(err?.message || 'No se pudo completar el registro.');
     } finally {
@@ -221,28 +233,35 @@ export default function WorkshopPanel() {
             </div>
 
             {workshop.is_verified ? (
-              <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Secciones del taller">
-                {[
-                  { key: 'profile', label: 'Mi taller' },
-                  { key: 'jobs', label: 'Trabajos / Instalaciones Disponibles' },
-                  { key: 'history', label: 'Historial por placa' },
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeSection === tab.key}
-                    onClick={() => setActiveSection(tab.key)}
-                    className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
-                      activeSection === tab.key
-                        ? 'bg-[#4B227A] text-white'
-                        : 'bg-[#4B227A]/10 text-[#4B227A] hover:bg-[#4B227A]/15'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Secciones del taller">
+                  {[
+                    { key: 'profile', label: 'Mi taller' },
+                    { key: 'jobs', label: 'Trabajos / Instalaciones Disponibles' },
+                    { key: 'history', label: 'Historial por placa' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeSection === tab.key}
+                      onClick={() => setActiveSection(tab.key)}
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
+                        activeSection === tab.key
+                          ? 'bg-[#4B227A] text-white'
+                          : 'bg-[#4B227A]/10 text-[#4B227A] hover:bg-[#4B227A]/15'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <Button type="button" fullWidth onClick={goToJobs} className="mt-4">
+                  <Wrench className="w-4 h-4" aria-hidden="true" />
+                  🔧 Ir a Panel de Trabajos (Cotizar Servicios)
+                </Button>
+              </>
             ) : null}
 
             {activeSection === 'profile' ? (
