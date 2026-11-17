@@ -104,8 +104,59 @@ export default function UserProfile() {
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-24">
-      {/* Header / Profile Info */}
-      <div className="bg-white/80 backdrop-blur-md px-6 pt-12 pb-8 rounded-b-[32px] shadow-sm border-b border-white/30">
+      {/* Header / Profile Info. El acceso a ajustes vive arriba para no exigir scroll. */}
+      <header
+        aria-label="Encabezado del perfil"
+        className="relative z-10 bg-white/80 backdrop-blur-md px-6 pt-12 pb-8 rounded-b-[32px] shadow-sm border-b border-white/30"
+      >
+        <div className="relative z-20 flex items-start justify-end">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((open) => !open)}
+            aria-expanded={settingsOpen}
+            aria-controls="account-settings-menu"
+            aria-label={settingsOpen ? 'Ocultar ajustes de cuenta' : 'Mostrar ajustes de cuenta'}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#4B227A]/20 bg-white/90 px-3 py-2 text-[#4B227A] shadow-sm transition hover:bg-white"
+          >
+            <Menu className="w-5 h-5" aria-hidden="true" />
+            <span className="hidden text-[11px] font-bold uppercase tracking-wider sm:inline">
+              Ajustes de cuenta
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform ${settingsOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </button>
+
+          {settingsOpen ? (
+            <div
+              id="account-settings-menu"
+              className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-2xl border border-white/40 bg-white/95 shadow-xl backdrop-blur-md"
+            >
+              {menuItems.map((item, index) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    navigate(item.path);
+                  }}
+                  className={`w-full flex items-center justify-between p-3 text-left transition hover:bg-[#4B227A]/5 ${
+                    index !== menuItems.length - 1 ? 'border-b border-slate-100' : ''
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <span className={`${item.bgColor} p-2 rounded-xl border border-white/30`}>
+                      <item.icon className={`w-4 h-4 ${item.color}`} />
+                    </span>
+                    <span className="font-semibold text-gray-800 text-sm">{item.label}</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 shrink-0 text-gray-500" />
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
         <div className="flex flex-col items-center">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-[#4B227A]/10 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
@@ -153,58 +204,10 @@ export default function UserProfile() {
             </p>
           ) : null}
         </div>
-      </div>
+      </header>
 
       {/* Comunidad / Club del comprador (módulo aislado) */}
       <CommunityPanel />
-
-      {/* Ajustes de cuenta: contraídos por defecto y controlados por ☰ */}
-      <div className="px-6 mt-8">
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((open) => !open)}
-          aria-expanded={settingsOpen}
-          aria-controls="account-settings-menu"
-          aria-label={settingsOpen ? 'Ocultar ajustes de cuenta' : 'Mostrar ajustes de cuenta'}
-          className="w-full flex items-center justify-between rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 px-4 py-4 shadow-sm hover:bg-white/90 transition-colors"
-        >
-          <span className="flex items-center gap-3">
-            <Menu className="w-5 h-5 text-[#4B227A]" aria-hidden="true" />
-            <span className="text-sm font-bold text-gray-600 uppercase tracking-widest">
-              Ajustes de Cuenta
-            </span>
-          </span>
-          <ChevronDown
-            className={`w-5 h-5 text-gray-500 transition-transform ${settingsOpen ? 'rotate-180' : ''}`}
-            aria-hidden="true"
-          />
-        </button>
-
-        {settingsOpen ? (
-          <div
-            id="account-settings-menu"
-            className="mt-3 bg-white/80 backdrop-blur-md rounded-3xl shadow-sm overflow-hidden border border-white/30"
-          >
-            {menuItems.map((item, index) => (
-              <button
-                key={index}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center justify-between p-4 hover:bg-white/90 transition-colors ${
-                  index !== menuItems.length - 1 ? 'border-b border-white/40' : ''
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`${item.bgColor} p-2.5 rounded-xl border border-white/30`}>
-                    <item.icon className={`w-5 h-5 ${item.color}`} />
-                  </div>
-                  <span className="font-semibold text-gray-800 text-sm">{item.label}</span>
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-500" />
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
 
       {/* Actions */}
       <div className="px-6 mt-6">
