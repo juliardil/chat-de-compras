@@ -30,6 +30,14 @@ export const NAVIGATION_GROUPS = [
         phase: 4,
       },
       {
+        key: 'workshops',
+        label: 'Talleres Verificados',
+        path: '/talleres',
+        icon: 'Wrench',
+        permission: 'workshops.view',
+        phase: 4,
+      },
+      {
         key: 'commerce',
         label: 'Comercios',
         path: '/comercios',

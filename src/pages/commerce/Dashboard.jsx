@@ -16,26 +16,28 @@ import {
   NOTICES,
 } from '../../data/appData';
 import {
-  TrendingUp,
-  Users,
-  DollarSign,
-  Clock,
+  BadgeCheck,
   Bell,
-  Send,
   CheckCircle2,
-  Eye,
-  X,
-  ChevronRight,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
+  Clock,
+  DollarSign,
+  Eye,
   Flame,
-  Plus,
-  Menu,
-  Settings,
   History,
+  Menu,
   Package,
+  Plus,
+  Send,
+  Settings,
   Store,
+  Tag,
+  TrendingUp,
   User,
+  Users,
+  X,
 } from 'lucide-react';
 
 // Actualización estética Junio 2026
@@ -48,6 +50,31 @@ function DetailField({ label, value }) {
       </span>
       <p className="text-sm font-medium text-gray-800 break-words">{value || 'No indicado'}</p>
     </div>
+  );
+}
+
+// Fase 4 · Insignia B2B del comprador (taller verificado) y aviso de tarifa
+// mayorista. Solo se muestran cuando la RPC devuelve una credencial activa.
+function WorkshopBadge({ badge }) {
+  if (!badge?.isVerified) return null;
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-bold text-green-700"
+      title={`Taller verificado: ${badge.name}`}
+    >
+      <BadgeCheck className="w-3 h-3" aria-hidden="true" />
+      Taller Verificado • Prioridad B2B
+    </span>
+  );
+}
+
+function WholesaleNotice() {
+  return (
+    <p className="flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-2.5 py-1.5 text-[11px] font-semibold text-green-800">
+      <Tag className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+      Tarifa Mayorista / Precio Taller
+    </p>
   );
 }
 
@@ -586,7 +613,13 @@ export default function Dashboard() {
                     ⚡ Datos reales
                   </span>
                   <GroupBadge badge={opp.groupBadge} />
+                  <WorkshopBadge badge={opp.workshopBadge} />
                 </div>
+                {opp.workshopBadge?.isVerified && opp.vehiclePlate ? (
+                  <p className="mt-2 text-[11px] text-gray-600">
+                    Placa del vehículo: <span className="font-bold">{opp.vehiclePlate}</span>
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -600,6 +633,7 @@ export default function Dashboard() {
                       </div>
                     ) : (
                       <>
+                        {opp.workshopBadge?.isVerified ? <WholesaleNotice /> : null}
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
                             Disponibilidad de tus productos
@@ -944,7 +978,19 @@ export default function Dashboard() {
                 </p>
               </div>
               <GroupBadge badge={selectedOpp.groupBadge} />
+              <WorkshopBadge badge={selectedOpp.workshopBadge} />
             </div>
+
+            {selectedOpp.workshopBadge?.isVerified ? (
+              <div className="mb-4 space-y-2">
+                <WholesaleNotice />
+                {selectedOpp.vehiclePlate ? (
+                  <p className="text-xs text-gray-700">
+                    Placa del vehículo: <span className="font-bold">{selectedOpp.vehiclePlate}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="space-y-4 mb-6">
               {selectedOpp.items.length > 0 ? (

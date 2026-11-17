@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertTriangle,
+  BadgeCheck,
+  Clock,
+  MapPin,
   MessageCircle,
   Package,
-  Store,
-  Clock,
-  Tags,
-  AlertTriangle,
-  MapPin,
   Star,
+  Store,
+  Tags,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import UserBottomNav from '../../components/layout/UserBottomNav';
@@ -32,6 +33,7 @@ import {
   selectOfferOption,
   NOTICES,
 } from '../../data/appData';
+import { openWorkshopOfferChat } from '../../data/workshop';
 
 // Sección «Ofertas» del comprador.
 // No crea una segunda lógica de ofertas: reutiliza las mismas consultas
@@ -197,6 +199,18 @@ export default function Offers() {
     setChatError('');
     setOpeningOfferId(offer.id);
 
+    // Propuesta de taller: misma conversación, RPC propia (sin commerce_id).
+    if (offer.isWorkshopProposal) {
+      const proposalChat = await openWorkshopOfferChat(offer.id);
+      setOpeningOfferId(null);
+      if (!proposalChat.items?.[0]) {
+        setChatError(proposalChat.error || proposalChat.notice || NOTICES.chats);
+        return;
+      }
+      navigate(`/chat/${proposalChat.items[0].id}`);
+      return;
+    }
+
     const itemAgreement = offerItemAgreement(chosenItemAgreement(offer));
     const payload = {
       userId: user?.id,
@@ -284,7 +298,14 @@ export default function Offers() {
                         <Store className="w-4 h-4 text-[#006E7A]" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-800 truncate">{offer.store}</p>
+                        <p className="font-semibold text-gray-800 truncate">
+                          {offer.store}
+                          {offer.isWorkshopProposal ? (
+                            <span className="flex items-center gap-1 text-[11px] font-bold text-green-700">
+                              <BadgeCheck className="w-3 h-3" /> Taller Verificado
+                            </span>
+                          ) : null}
+                        </p>
                         <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
                           {offer.distanceLabel ? (
                             <span className="flex items-center gap-1">

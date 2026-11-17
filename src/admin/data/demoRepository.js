@@ -156,6 +156,47 @@ function buildGroupsSeed() {
   };
 }
 
+// Datos de ejemplo del panel de Talleres Verificados (modo demostración).
+function buildWorkshopsSeed() {
+  return {
+    workshops: [
+      {
+        id: 'demo-workshop-1',
+        workshopName: 'Taller Mecánico Reforma',
+        nitOrId: 'RFC-REFM840312',
+        address: 'Av. Reforma 123, Cuauhtémoc, CDMX',
+        phone: '55 1234 5678',
+        specialties: ['Mecánica general', 'Frenos', 'Diagnóstico electrónico'],
+        isVerified: true,
+        createdAt: hoursAgo(24 * 45),
+        ownerName: 'Luis Méndez',
+      },
+      {
+        id: 'demo-workshop-2',
+        workshopName: 'Electro Auto Norte',
+        nitOrId: 'RFC-EANR910715',
+        address: 'Calle 7 No. 42, Sector Norte, Monterrey',
+        phone: '81 2345 6789',
+        specialties: ['Electricidad', 'Aire acondicionado'],
+        isVerified: false,
+        createdAt: hoursAgo(24 * 9),
+        ownerName: 'Iván Castro',
+      },
+      {
+        id: 'demo-workshop-3',
+        workshopName: 'Motos y Suspensión Sur',
+        nitOrId: 'RFC-MYSS770901',
+        address: 'Blvd. Sur 890, Culiacán',
+        phone: '667 112 2334',
+        specialties: ['Motos', 'Suspensión', 'Latonería'],
+        isVerified: true,
+        createdAt: hoursAgo(24 * 3),
+        ownerName: 'Sara Pinto',
+      },
+    ],
+  };
+}
+
 function buildSeed() {
   const members = DEMO_ACCOUNTS.map((account, index) => ({
     id: `demo-member-${index + 1}`,
@@ -179,6 +220,7 @@ function buildSeed() {
     ...phase4,
     ...phase5,
     ...buildGroupsSeed(),
+    ...buildWorkshopsSeed(),
     members,
     invitations: [
       {
@@ -294,6 +336,7 @@ function upgradeStore(stored) {
       : phase5.paymentPayouts,
     groups: Array.isArray(stored.groups) ? stored.groups : buildGroupsSeed().groups,
     groupSettings: stored.groupSettings || buildGroupsSeed().groupSettings,
+    workshops: Array.isArray(stored.workshops) ? stored.workshops : buildWorkshopsSeed().workshops,
     audit: Array.isArray(stored.audit) ? stored.audit : [],
   };
 
@@ -3811,6 +3854,72 @@ export const demoRepository = {
     saveStore(store);
 
     return { minMembers: value, updatedAt };
+  },
+
+  // ---------------------------------------------------------------------------
+  // Talleres Verificados (modo demostración)
+  // ---------------------------------------------------------------------------
+  async listWorkshops({ search = '', actor } = {}) {
+    requirePermission(actor, 'workshops.view', 'No tienes permiso para ver los talleres.');
+
+    const term = String(search || '').trim().toLowerCase();
+    const store = readStore();
+    const workshops = Array.isArray(store.workshops) ? store.workshops : [];
+    return workshops
+      .filter((workshop) => {
+        if (!term) return true;
+        return [
+          workshop.workshopName,
+          workshop.nitOrId,
+          workshop.address,
+          workshop.phone,
+          workshop.ownerName,
+          ...(Array.isArray(workshop.specialties) ? workshop.specialties : []),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .map((workshop) => ({
+        ...workshop,
+        specialties: Array.isArray(workshop.specialties) ? workshop.specialties : [],
+        isVerified: Boolean(workshop.isVerified),
+      }))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+
+  async setWorkshopVerification({ workshopId, isVerified, actor } = {}) {
+    requirePermission(
+      actor,
+      'workshops.verify',
+      'No tienes permiso para cambiar la verificación de talleres.'
+    );
+
+    const store = readStore();
+    const workshops = Array.isArray(store.workshops) ? store.workshops : [];
+    const index = workshops.findIndex((workshop) => workshop.id === workshopId);
+    if (index === -1) throw new Error('El taller no existe.');
+
+    const previous = workshops[index];
+    const next = { ...previous, isVerified: Boolean(isVerified) };
+    store.workshops = workshops.map((workshop, position) =>
+      position === index ? next : workshop
+    );
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || null,
+      actorRole: actor?.roleKey || null,
+      action: isVerified ? 'workshops.verify' : 'workshops.revoke',
+      module: 'Talleres Verificados',
+      entityType: 'workshop_profile',
+      entityId: workshopId,
+      metadata: {
+        workshopName: next.workshopName,
+        previousIsVerified: Boolean(previous.isVerified),
+        mode: 'demo',
+      },
+    });
+    saveStore(store);
+    return next;
   },
 
   async globalSearch({ query = '', actor } = {}) {

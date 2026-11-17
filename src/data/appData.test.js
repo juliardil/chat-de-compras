@@ -445,3 +445,70 @@ describe('segmentación de una solicitud de compra', () => {
     expect(payload).not.toHaveProperty('vehicle_type');
   });
 });
+
+describe('talleres verificados en la capa de datos', () => {
+  it('agrega tipo de servicio, placa y zona solo cuando vienen explícitos', () => {
+    const service = buildPurchaseRequestPayload({
+      title: 'Instalación de frenos',
+      request_type: 'service',
+      vehicle_plate: 'abc1234',
+      service_zone: 'Centro',
+      items: [],
+    });
+
+    expect(service).toMatchObject({
+      request_type: 'service',
+      vehicle_plate: 'abc1234',
+      service_zone: 'Centro',
+    });
+
+    const part = buildPurchaseRequestPayload({ title: 'Repuesto', items: [] });
+    expect(part).not.toHaveProperty('request_type');
+    expect(part).not.toHaveProperty('vehicle_plate');
+    expect(part).not.toHaveProperty('service_zone');
+  });
+
+  it('reconoce una propuesta de taller como oferta reutilizada', () => {
+    const offer = mapOffer({
+      id: 'offer-w-1',
+      request_id: 'req-1',
+      workshop_id: 'workshop-1',
+      workshop_name: 'Taller La Esquina',
+      commerce_name: 'Taller La Esquina',
+      total_amount: 850,
+      currency: 'MXN',
+      labor_amount: 850,
+      estimated_days: 2,
+      items: [],
+    });
+
+    expect(offer).toMatchObject({
+      id: 'offer-w-1',
+      workshopId: 'workshop-1',
+      workshopName: 'Taller La Esquina',
+      isWorkshopProposal: true,
+      laborAmount: 850,
+      estimatedDays: 2,
+      commerceId: null,
+    });
+  });
+
+  it('propaga la insignia B2B y los campos de servicio a la oportunidad', () => {
+    const opportunity = mapOpportunity({
+      id: 'req-2',
+      title: 'Reparación de suspensión',
+      items: [],
+      buyer_workshop: { name: 'Taller Norte', isVerified: true },
+      request_type: 'service',
+      vehicle_plate: 'XYZ987',
+      service_zone: 'Norte',
+    });
+
+    expect(opportunity.workshopBadge).toEqual({ name: 'Taller Norte', isVerified: true });
+    expect(opportunity).toMatchObject({
+      requestType: 'service',
+      vehiclePlate: 'XYZ987',
+      serviceZone: 'Norte',
+    });
+  });
+});

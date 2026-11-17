@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import CommunityPanel from '../../components/community/CommunityPanel';
+import WorkshopPanel from '../../components/workshop/WorkshopPanel';
 import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
 import { uploadProfilePhoto } from '../../data/appData';
@@ -154,6 +155,9 @@ export default function UserProfile() {
 
       {/* Comunidad / Club del comprador (módulo aislado) */}
       <CommunityPanel />
+
+      {/* Taller verificado (módulo aislado) */}
+      <WorkshopPanel />
 
       {/* Menu Section */}
       <div className="px-6 mt-8">

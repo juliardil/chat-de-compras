@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Buyers from './pages/Buyers';
 import Communities from './pages/Communities';
+import Workshops from './pages/Workshops';
 import Commerce from './pages/Commerce';
 import Categories from './pages/Categories';
 import Requests from './pages/Requests';
@@ -93,6 +94,14 @@ function AdminRoutes() {
           element={
             <RequirePermission permission="communities.view">
               <Communities />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="talleres"
+          element={
+            <RequirePermission permission="workshops.view">
+              <Workshops />
             </RequirePermission>
           }
         />

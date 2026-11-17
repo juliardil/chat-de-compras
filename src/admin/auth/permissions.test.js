@@ -21,6 +21,10 @@ const COMMUNITIES_MIGRATION = path.resolve(
   MIGRATIONS_DIR,
   '20261117020000_groups-communities.sql'
 );
+const WORKSHOPS_MIGRATION = path.resolve(
+  MIGRATIONS_DIR,
+  '20261117050000_workshops-services-b2b.sql'
+);
 
 const readMigration = (migrationPath) => readFileSync(migrationPath, 'utf8');
 
@@ -118,8 +122,8 @@ describe('groupPermissionsByModule', () => {
 
 describe('consistencia con la migración de Fase 1', () => {
   it('siembra exactamente los permisos del catálogo', () => {
-    // El catálogo se siembra en la migración fundacional y en la de comunidades.
-    const seeded = [FOUNDATION_MIGRATION, COMMUNITIES_MIGRATION]
+    // El catálogo se siembra en la migración fundacional, comunidades y talleres.
+    const seeded = [FOUNDATION_MIGRATION, COMMUNITIES_MIGRATION, WORKSHOPS_MIGRATION]
       .flatMap((migrationPath) => extractSeededPermissionKeys(readMigration(migrationPath)))
       .sort();
     expect(seeded).toEqual([...ALL_PERMISSION_KEYS].sort());

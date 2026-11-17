@@ -351,4 +351,34 @@ describe('panel de oportunidades del comercio', () => {
     const dialog = await screen.findByRole('dialog', { name: /detalle de la oportunidad/i });
     expect(within(dialog).getByText(/Club Norte · 6 miembros/i)).toBeInTheDocument();
   });
+
+  it('muestra la insignia B2B y la tarifa mayorista al cotizar para un taller', async () => {
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          request_type: 'part',
+          vehicle_plate: 'ABC123',
+          buyer_workshop: { name: 'Taller Norte', isVerified: true },
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+
+    expect(
+      await screen.findByText(/taller verificado • prioridad b2b/i)
+    ).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole('button', { name: /ver detalles/i }));
+    const dialog = await screen.findByRole('dialog', { name: /detalle de la oportunidad/i });
+    expect(within(dialog).getByText(/tarifa mayorista \/ precio taller/i)).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /ofertar ahora/i }));
+    expect(
+      await screen.findAllByText(/tarifa mayorista \/ precio taller/i)
+    ).not.toHaveLength(0);
+  });
 });

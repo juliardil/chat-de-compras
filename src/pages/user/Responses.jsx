@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Star, MessageCircle, MapPin, Package, Check, X as XIcon, Store } from 'lucide-react';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Check,
+  Clock,
+  MapPin,
+  MessageCircle,
+  Package,
+  Star,
+  Store,
+  Wrench,
+  X as XIcon,
+} from 'lucide-react';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import OfferSortBar from '../../components/ui/OfferSortBar';
@@ -21,6 +33,7 @@ import {
   selectOfferOption,
   NOTICES,
 } from '../../data/appData';
+import { openWorkshopOfferChat } from '../../data/workshop';
 import avatarComercio from '../../assets/avatar-comercio.svg';
 
 // Actualización estética Junio 2026
@@ -140,6 +153,21 @@ export default function Responses() {
     setChatError('');
     setOpeningOfferId(offer.id);
 
+    // Las propuestas de taller usan su propia RPC para crear el mismo hilo de
+    // chat, ya que no tienen commerce_id.
+    if (offer.isWorkshopProposal) {
+      const proposalChat = await openWorkshopOfferChat(offer.id);
+      setOpeningOfferId(null);
+      if (!proposalChat.items?.[0]) {
+        setChatError(
+          proposalChat.error || proposalChat.notice || NOTICES.chats
+        );
+        return;
+      }
+      navigate(`/chat/${proposalChat.items[0].id}`);
+      return;
+    }
+
     const itemAgreement = offerItemAgreement(chosenItemAgreement(offer));
     const payload = {
       userId: user?.id,
@@ -204,6 +232,20 @@ export default function Responses() {
             <p className="text-sm text-gray-600">{requestDetail}</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() =>
+            navigate('/request-form', {
+              state: {
+                serviceMode: true,
+                serviceFault: requestDraft?.notes || requestTitle || '',
+              },
+            })
+          }
+          className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl border border-[#0197AF]/40 bg-white/80 px-3 py-2.5 text-sm font-bold text-[#006E7A] transition hover:bg-white"
+        >
+          <Wrench className="w-4 h-4" /> ¿Quién me lo instala / repara?
+        </button>
       </div>
 
       {/* Offers List */}
@@ -225,7 +267,14 @@ export default function Responses() {
               />
               <div className="flex-1">
                 <div className="flex justify-between items-start mb-1">
-                  <h3 className="font-bold text-gray-800">{offer.store}</h3>
+                  <h3 className="font-bold text-gray-800">
+                    {offer.store}
+                    {offer.isWorkshopProposal ? (
+                      <span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-green-700">
+                        <BadgeCheck className="w-3.5 h-3.5" /> Propuesta de Taller Verificado
+                      </span>
+                    ) : null}
+                  </h3>
                   <div className="flex flex-wrap gap-2 justify-end">
                     {offer.items.length > 0 && (
                       <button

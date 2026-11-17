@@ -17,6 +17,12 @@ vi.mock('../../data/appData', async (importOriginal) => {
 
 import { createPurchaseRequest, fetchBuyerProfileId } from '../../data/appData';
 
+vi.mock('../../data/workshop', () => ({
+  fetchMyWorkshop: vi.fn(),
+}));
+
+import { fetchMyWorkshop } from '../../data/workshop';
+
 const renderForm = () =>
   render(
     <AuthContext.Provider value={{ user: { id: 'user-1', role: 'user' } }}>
@@ -44,11 +50,13 @@ describe('publicación de una solicitud', () => {
   beforeEach(() => {
     fetchBuyerProfileId.mockReset();
     createPurchaseRequest.mockReset();
+    fetchMyWorkshop.mockReset();
     fetchBuyerProfileId.mockResolvedValue({
       item: { id: 'buyer-1' },
       error: null,
       notice: null,
     });
+    fetchMyWorkshop.mockResolvedValue({ items: [], error: null, notice: null });
   });
 
   it('muestra la confirmación solo cuando la solicitud se guardó correctamente', async () => {
@@ -129,5 +137,56 @@ describe('publicación de una solicitud', () => {
 
     expect(await screen.findByText('Pantalla de respuestas')).toBeInTheDocument();
     expect(createPurchaseRequest).not.toHaveBeenCalled();
+  });
+
+  it('publica un trabajo de servicio con falla, zona y placa', async () => {
+    createPurchaseRequest.mockResolvedValue({
+      ok: true,
+      data: [{ id: 'req-service' }],
+      error: null,
+    });
+
+    renderForm();
+    await userEvent.click(
+      await screen.findByRole('button', { name: /quién me lo instala \/ repara/i })
+    );
+
+    expect(screen.getByText('Solicitud de servicio')).toBeInTheDocument();
+    await userEvent.type(
+      screen.getByPlaceholderText(/el vehículo hace ruido al frenar/i),
+      'Ruido al frenar, requiero cambiar pastillas'
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/centro, ciudad de méxico/i),
+      'Centro'
+    );
+    await userEvent.type(screen.getByPlaceholderText(/abc1234/i), 'abc123');
+    await fillMinimumFields();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /publicar trabajo para talleres/i })
+    );
+
+    expect(await screen.findByText('Confirmación de publicación')).toBeInTheDocument();
+    expect(createPurchaseRequest).toHaveBeenCalledTimes(1);
+    expect(createPurchaseRequest.mock.calls[0][0]).toMatchObject({
+      request_type: 'service',
+      service_zone: 'Centro',
+      vehicle_plate: 'ABC123',
+      status: 'open',
+    });
+  });
+
+  it('muestra la insignia B2B y permite placa opcional al taller verificado', async () => {
+    fetchMyWorkshop.mockResolvedValue({
+      items: [{ id: 'w-1', is_verified: true }],
+      error: null,
+      notice: null,
+    });
+
+    renderForm();
+
+    expect(await screen.findByText(/taller verificado • prioridad b2b/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/abc1234/i)).toBeInTheDocument();
   });
 });

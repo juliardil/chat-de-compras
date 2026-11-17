@@ -1157,6 +1157,39 @@ export function createInsforgeRepository(insforge) {
       return Array.isArray(data) ? data[0] : data;
     },
 
+    // Talleres Verificados (Fase 4). La RPC valida permisos en servidor.
+    async listWorkshops({ search = '' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_workshops', {
+        p_search: String(search || '').trim() || null,
+      });
+      throwIfError(error, 'No se pudieron cargar los talleres.');
+      return asArray(data).map((row) => ({
+        id: row.id,
+        workshopName: row.workshop_name,
+        nitOrId: row.nit_or_id,
+        address: row.address,
+        phone: row.phone,
+        specialties: Array.isArray(row.specialties) ? row.specialties : [],
+        isVerified: Boolean(row.is_verified),
+        createdAt: row.created_at,
+        ownerName: row.owner_name,
+      }));
+    },
+
+    async setWorkshopVerification({ workshopId, isVerified }) {
+      const { data, error } = await insforge.database.rpc('admin_set_workshop_verification', {
+        p_workshop_id: workshopId,
+        p_is_verified: Boolean(isVerified),
+      });
+      throwIfError(error, 'No se pudo actualizar la verificación del taller.');
+      const row = asArray(data)[0] || {};
+      return {
+        id: row.id || workshopId,
+        workshopName: row.workshop_name,
+        isVerified: Boolean(row.is_verified ?? isVerified),
+      };
+    },
+
     async globalSearch({ query = '' } = {}) {
       const { data, error } = await insforge.database.rpc('admin_global_search', {
         p_query: String(query || '').trim(),

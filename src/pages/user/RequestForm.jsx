@@ -1,12 +1,25 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { createPurchaseRequest, fetchBuyerProfileId } from '../../data/appData';
-import { ArrowLeft, Camera, X, Plus, Trash2, ChevronDown, Car } from 'lucide-react';
+import { fetchMyWorkshop } from '../../data/workshop';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Camera,
+  Car,
+  ChevronDown,
+  ClipboardList,
+  MapPin,
+  Plus,
+  Trash2,
+  Wrench,
+  X,
+} from 'lucide-react';
 
 // Actualización Junio 2026 - Formulario Exclusivo Automotriz
 
@@ -87,6 +100,29 @@ export default function RequestForm() {
   const location = useLocation();
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+
+  // Fases 3/4: modo servicio, placa/zona y credencial B2B del comprador.
+  const [serviceMode, setServiceMode] = useState(Boolean(location.state?.serviceMode));
+  const [serviceFault, setServiceFault] = useState(location.state?.serviceFault || '');
+  const [serviceZone, setServiceZone] = useState('');
+  const [vehiclePlate, setVehiclePlate] = useState('');
+  const [isVerifiedWorkshop, setIsVerifiedWorkshop] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchMyWorkshop()
+      .then((result) => {
+        if (!active) return;
+        const workshop = result.items?.[0];
+        setIsVerifiedWorkshop(Boolean(workshop?.is_verified));
+      })
+      .catch(() => {
+        // La insignia es informativa: un fallo no bloquea la solicitud.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [products, setProducts] = useState([
     { 
@@ -254,16 +290,32 @@ export default function RequestForm() {
     const category = String(primaryProduct.category ?? '').trim();
     const vehicleType = String(primaryProduct.vehicleType ?? '').trim();
 
-    const result = await createPurchaseRequest({
+    const requestPayload = {
       buyer_id: buyer.item.id,
-      title: products[0]?.item || 'Solicitud de compra',
-      description: products[0]?.notes || products[0]?.item || '',
+      title: serviceMode
+        ? `Instalación / reparación: ${products[0]?.item || 'servicio'}`
+        : products[0]?.item || 'Solicitud de compra',
+      description: serviceMode
+        ? serviceFault.trim() || products[0]?.notes || products[0]?.item || ''
+        : products[0]?.notes || products[0]?.item || '',
       category: category || null,
       vehicle_type: vehicleType || null,
       items,
       currency: 'MXN',
       status: 'open',
-    });
+    };
+
+    // Solo se envían los campos nuevos cuando el comprador los usó. Las
+    // solicitudes de repuestos tradicionales conservan su payload exacto.
+    if (serviceMode) {
+      requestPayload.request_type = 'service';
+      if (serviceZone.trim()) requestPayload.service_zone = serviceZone.trim();
+    }
+    if (serviceMode || isVerifiedWorkshop) {
+      if (vehiclePlate.trim()) requestPayload.vehicle_plate = vehiclePlate.trim().toUpperCase();
+    }
+
+    const result = await createPurchaseRequest(requestPayload);
 
     setSubmitting(false);
 
@@ -313,6 +365,120 @@ export default function RequestForm() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
+        {!serviceMode ? (
+          <button
+            type="button"
+            onClick={() => setServiceMode(true)}
+            className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[#0197AF]/30 bg-[#0197AF]/10 px-4 py-3 text-left transition hover:bg-[#0197AF]/15"
+          >
+            <span className="flex items-center gap-3">
+              <Wrench className="w-5 h-5 shrink-0 text-[#006E7A]" />
+              <span>
+                <span className="block text-sm font-bold text-gray-800">
+                  ¿Quién me lo instala / repara?
+                </span>
+                <span className="block text-xs text-gray-600">
+                  Publica un trabajo para talleres verificados
+                </span>
+              </span>
+            </span>
+            <ChevronDown className="w-4 h-4 -rotate-90 shrink-0 text-[#006E7A]" />
+          </button>
+        ) : null}
+
+        {isVerifiedWorkshop ? (
+          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 flex items-start gap-2">
+            <BadgeCheck className="w-4 h-4 shrink-0 mt-0.5 text-green-700" />
+            <p className="text-xs font-semibold text-green-800">
+              Taller Verificado • Prioridad B2B
+              <span className="block font-normal text-green-700">
+                Tu solicitud mostrará tu credencial a las repuesteras. Puedes indicar la placa
+                para controlar tu historial.
+              </span>
+            </p>
+          </div>
+        ) : null}
+
+        {serviceMode ? (
+          <section className="rounded-2xl bg-white/80 backdrop-blur-md p-5 shadow-sm border border-[#00EED0]/30 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-[#006E7A]" />
+                <div>
+                  <h3 className="font-bold text-gray-800">Solicitud de servicio</h3>
+                  <p className="text-xs text-gray-600">
+                    Describe la falla o el repuesto que quieres instalar
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setServiceMode(false)}
+                className="text-xs font-semibold text-[#4B227A] hover:underline"
+              >
+                Volver a repuestos
+              </button>
+            </div>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-gray-800">
+                Descripción de la falla o repuesto a instalar
+              </span>
+              <textarea
+                className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 min-h-[90px]"
+                placeholder="Ej: El vehículo hace ruido al frenar; requiero cambiar pastillas y rectificar discos"
+                value={serviceFault}
+                onChange={(event) => setServiceFault(event.target.value)}
+              />
+            </label>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
+                  <MapPin className="w-3.5 h-3.5 text-[#006E7A]" /> Zona / colonia
+                </span>
+                <input
+                  className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30"
+                  placeholder="Ej. Centro, Ciudad de México"
+                  value={serviceZone}
+                  onChange={(event) => setServiceZone(event.target.value)}
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
+                  <Car className="w-3.5 h-3.5 text-[#006E7A]" /> Placa del vehículo (opcional)
+                </span>
+                <input
+                  className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 uppercase"
+                  placeholder="Ej. ABC1234"
+                  maxLength={15}
+                  value={vehiclePlate}
+                  onChange={(event) => setVehiclePlate(event.target.value.toUpperCase())}
+                />
+              </label>
+            </div>
+
+            <DataNotice>
+              Los talleres verificados podrán enviarte una propuesta con precio de mano de obra,
+              tiempo estimado y notas. Podrás continuar por el chat.
+            </DataNotice>
+          </section>
+        ) : isVerifiedWorkshop ? (
+          <label className="block rounded-2xl bg-white/80 backdrop-blur-md p-4 shadow-sm border border-white/30">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
+              <Car className="w-4 h-4 text-[#006E7A]" /> Placa del vehículo (opcional)
+            </span>
+            <input
+              className="mt-2 w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 uppercase"
+              placeholder="Ej. ABC1234"
+              maxLength={15}
+              value={vehiclePlate}
+              onChange={(event) => setVehiclePlate(event.target.value.toUpperCase())}
+            />
+          </label>
+        ) : null}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           {products.map((product, index) => (
             <div key={product.id} id={`product-${product.id}`} className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
@@ -423,7 +589,11 @@ export default function RequestForm() {
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-white/30 max-w-md mx-auto z-20">
         <Button fullWidth onClick={handleSubmit} disabled={submitting} className="shadow-lg shadow-[#00EED0]/30">
-          {submitting ? 'ENVIANDO…' : `👉 ENVIAR SOLICITUD AUTOMOTRIZ (${products.length})`}
+          {submitting
+            ? 'ENVIANDO…'
+            : serviceMode
+              ? `🔧 PUBLICAR TRABAJO PARA TALLERES (${products.length})`
+              : `👉 ENVIAR SOLICITUD AUTOMOTRIZ (${products.length})`}
         </Button>
       </div>
     </div>

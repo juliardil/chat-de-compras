@@ -14,6 +14,9 @@ export const PERMISSION_CATALOG = [
   { key: 'communities.view', module: 'Comunidades', label: 'Ver clubes de compradores', sensitive: false },
   { key: 'communities.configure', module: 'Comunidades', label: 'Configurar el mínimo de participantes', sensitive: true },
 
+  { key: 'workshops.view', module: 'Talleres Verificados', label: 'Ver talleres verificados', sensitive: false },
+  { key: 'workshops.verify', module: 'Talleres Verificados', label: 'Activar o revocar verificación de talleres', sensitive: true },
+
   { key: 'commerce.view', module: 'Comercios', label: 'Ver comercios', sensitive: false },
   { key: 'commerce.approve', module: 'Comercios', label: 'Aprobar comercios', sensitive: true },
   { key: 'commerce.reject', module: 'Comercios', label: 'Rechazar comercios', sensitive: true },
@@ -172,6 +175,8 @@ export const ROLE_PERMISSIONS = {
     'deliveries.view',
     'reviews.view',
     'analytics.view',
+    'workshops.view',
+    'workshops.verify',
   ],
 
   moderator: [
@@ -194,6 +199,7 @@ export const ROLE_PERMISSIONS = {
     'reviews.moderate',
     'orders.view',
     'support.view',
+    'workshops.view',
   ],
 
   support: [
@@ -209,6 +215,7 @@ export const ROLE_PERMISSIONS = {
     'support.assign',
     'support.reply',
     'support.close',
+    'workshops.view',
   ],
 
   analyst: [

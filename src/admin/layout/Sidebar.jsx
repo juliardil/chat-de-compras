@@ -18,6 +18,7 @@ import {
   Truck,
   UserCog,
   Users,
+  Wrench,
   X,
 } from 'lucide-react';
 import { NAVIGATION_GROUPS } from '../constants/navigation';
@@ -42,6 +43,7 @@ const ICONS = {
   UserCog,
   ScrollText,
   Settings,
+  Wrench,
 };
 
 export default function Sidebar({ collapsed, mobileOpen, onCloseMobile }) {

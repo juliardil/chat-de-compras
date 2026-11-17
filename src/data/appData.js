@@ -624,6 +624,24 @@ export const fetchBuyerOffers = async (userId) => {
 
   if (offers.items.length === 0) return offers;
 
+  // Las propuestas de Taller Verificado son ofertas sin comercio: su nombre
+  // vive en workshop_profiles (RLS permite leer los perfiles verificados).
+  const workshopIds = [...new Set(offers.items.map((offer) => offer.workshop_id).filter(Boolean))];
+  const workshopById = {};
+  if (workshopIds.length > 0) {
+    const workshops = await runQuery(
+      (db) =>
+        db
+          .from('workshop_profiles')
+          .select('id,workshop_name,is_verified')
+          .in('id', workshopIds),
+      NOTICES.offers
+    );
+    workshops.items.forEach((workshop) => {
+      workshopById[workshop.id] = workshop;
+    });
+  }
+
   // Los nombres comerciales, la ubicación y la confiabilidad viven en
   // commerce_profiles / commerce_reviews. Si una consulta no está permitida,
   // se usa un valor neutro (nunca inventado).
@@ -679,19 +697,38 @@ export const fetchBuyerOffers = async (userId) => {
   return {
     items: offers.items.map((offer) => {
       const commerce = commerceById[offer.commerce_id] || {};
+      const workshop = workshopById[offer.workshop_id] || null;
       return {
         ...offer,
-        commerce_name: commerce.trade_name || '',
+        commerce_name: commerce.trade_name || workshop?.workshop_name || '',
         commerce_avatar_url: commerce.avatar_url || null,
         commerce_latitude: commerce.latitude ?? null,
         commerce_longitude: commerce.longitude ?? null,
         commerce_rating: commerce.rating ?? null,
         commerce_rating_count: commerce.rating_count ?? 0,
+        workshop_name: workshop?.workshop_name || null,
       };
     }),
     error: offers.error,
     notice: offers.notice,
   };
+};
+
+// Insignia B2B para el vendedor: solo talleres verificados, sin datos fiscales.
+export const fetchWorkshopBadges = (buyerIds = []) => {
+  if (!isInsforgeConfigured) {
+    return Promise.resolve(emptyResult(NOTICES.demo));
+  }
+
+  const ids = [...new Set((Array.isArray(buyerIds) ? buyerIds : []).filter(Boolean))];
+  if (ids.length === 0) {
+    return Promise.resolve(emptyResult(null));
+  }
+
+  return runQuery(
+    (db) => db.rpc('app_workshop_b2b_badges', { p_buyer_ids: ids }),
+    NOTICES.offers
+  );
 };
 
 export const mapOffer = (row, buyerLocation = null) => {
@@ -777,6 +814,11 @@ export const mapOffer = (row, buyerLocation = null) => {
     id: row.id,
     requestId: row.request_id,
     commerceId: row.commerce_id || null,
+    workshopId: row.workshop_id || null,
+    workshopName: row.workshop_name || null,
+    isWorkshopProposal: Boolean(row.workshop_id),
+    laborAmount: row.labor_amount ?? null,
+    estimatedDays: row.estimated_days ?? null,
     store: row.commerce_name || 'Comercio',
     avatar: row.commerce_avatar_url || null,
     price: formatCurrency(row.total_amount, row.currency),
@@ -1689,7 +1731,7 @@ export const fetchOpenRequests = async (commerceId) => {
         .from('purchase_requests')
         // `buyer_id` se necesita para resolver avatar e insignia del club.
         .select(
-          'id,buyer_id,title,description,items,category,vehicle_type,budget_amount,currency,status,expires_at,created_at'
+          'id,buyer_id,title,description,items,category,vehicle_type,budget_amount,currency,status,expires_at,created_at,request_type,vehicle_plate,service_zone'
         )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
@@ -1708,17 +1750,19 @@ export const fetchOpenRequests = async (commerceId) => {
   ];
   let buyerById = {};
   let badgeByBuyer = {};
+  let workshopBadgeByBuyer = {};
 
   if (buyerIds.length > 0) {
     // RPC acotada: solo id, nombre y avatar de compradores con los que este
     // comercio tiene relación o cuya solicitud abierta puede atender.
-    // Las insignias de club son informativas: un fallo no rompe el tablero.
-    const [buyers, badges] = await Promise.all([
+    // Las insignias de club y B2B son informativas: un fallo no rompe el tablero.
+    const [buyers, badges, workshopBadges] = await Promise.all([
       runQuery(
         (db) => db.rpc('app_buyer_avatars', { p_ids: buyerIds }),
         NOTICES.commerceMetrics
       ),
       fetchGroupBadges(buyerIds),
+      fetchWorkshopBadges(buyerIds),
     ]);
 
     if (!buyers.error) {
@@ -1734,6 +1778,13 @@ export const fetchOpenRequests = async (commerceId) => {
         return acc;
       }, {});
     }
+
+    if (!workshopBadges.error) {
+      workshopBadgeByBuyer = workshopBadges.items.reduce((acc, badge) => {
+        acc[badge.buyer_id] = badge;
+        return acc;
+      }, {});
+    }
   }
 
   return {
@@ -1741,10 +1792,14 @@ export const fetchOpenRequests = async (commerceId) => {
     items: compatibleRequests.map((request) => {
       const buyer = buyerById[request.buyer_id] || {};
       const badge = badgeByBuyer[request.buyer_id] || null;
+      const workshopBadge = workshopBadgeByBuyer[request.buyer_id] || null;
       return {
         ...request,
         buyer_name: buyer.display_name || '',
         buyer_avatar_url: buyer.avatar_url || null,
+        buyer_workshop: workshopBadge
+          ? { name: workshopBadge.workshop_name, isVerified: workshopBadge.is_verified }
+          : null,
         buyer_group: badge
           ? {
               name: badge.group_name,
@@ -1789,6 +1844,10 @@ export const mapOpportunity = (row) => {
     buyerName: row.buyer_name || 'Comprador',
     buyerAvatar: row.buyer_avatar_url || null,
     groupBadge: row.buyer_group || null,
+    workshopBadge: row.buyer_workshop || null,
+    requestType: row.request_type || 'part',
+    vehiclePlate: row.vehicle_plate || null,
+    serviceZone: row.service_zone || null,
     user: row.buyer_name || '',
     rating: null,
     transactions: null,
@@ -1868,6 +1927,25 @@ export const buildPurchaseRequestPayload = (payload = {}) => {
 
   if (vehicleTypeValue) next.vehicle_type = vehicleTypeValue;
   else delete next.vehicle_type;
+
+  // Módulo de talleres: solo se envían cuando vienen explícitos. Las
+  // solicitudes actuales siguen cayendo en el default 'part' del backend.
+  const requestType = normalizeSegmentationText(rest.request_type);
+  if (next.request_type === undefined && requestType) {
+    next.request_type = requestType;
+  }
+  const vehiclePlate = normalizeSegmentationText(rest.vehicle_plate);
+  if (next.vehicle_plate === undefined && vehiclePlate) {
+    next.vehicle_plate = vehiclePlate;
+  } else if (next.vehicle_plate === undefined) {
+    delete next.vehicle_plate;
+  }
+  const serviceZone = normalizeSegmentationText(rest.service_zone);
+  if (next.service_zone === undefined && serviceZone) {
+    next.service_zone = serviceZone;
+  } else if (next.service_zone === undefined) {
+    delete next.service_zone;
+  }
 
   return next;
 };
