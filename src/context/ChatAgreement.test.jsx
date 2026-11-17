@@ -46,6 +46,7 @@ function AgreementProbe() {
   return (
     <div>
       <span data-testid="agreement-brand">{orderInfo.brand}</span>
+      <span data-testid="agreement-item-brands">{orderInfo.itemBrands}</span>
       <span data-testid="agreement-note">{orderInfo.optionNote}</span>
       <span data-testid="agreement-total">{String(orderInfo.total)}</span>
     </div>
@@ -101,6 +102,38 @@ describe('acuerdo inicial del chat', () => {
     expect(await screen.findByTestId('agreement-brand')).toHaveTextContent('Mobil');
     expect(screen.getByTestId('agreement-note')).toHaveTextContent('Entrega inmediata');
     expect(screen.getByTestId('agreement-total')).toHaveTextContent('480');
+  });
+
+  it('muestra todas las marcas elegidas por producto antes del pedido', async () => {
+    harness.thread.selected_offer_option = null;
+    harness.thread.selected_offer_items = [
+      {
+        item_key: 'item-1',
+        item_name: 'Bafles',
+        quantity: 2,
+        id: 'sony',
+        brand: 'Sony',
+        price: 220,
+        note: 'Garantía',
+      },
+      {
+        item_key: 'item-2',
+        item_name: 'GPS',
+        quantity: 1,
+        id: 'garmin',
+        brand: 'Garmin',
+        price: 110,
+        note: '',
+      },
+    ];
+
+    renderAgreement();
+
+    expect(await screen.findByTestId('agreement-item-brands')).toHaveTextContent(
+      'Bafles: Sony · GPS: Garmin'
+    );
+    expect(screen.getByTestId('agreement-note')).toHaveTextContent('Garantía');
+    expect(screen.getByTestId('agreement-total')).toHaveTextContent('550');
   });
 
   it('conserva la marca acordada cuando el hilo ya tiene pedido', async () => {

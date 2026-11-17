@@ -40,6 +40,36 @@ const readSelectedOption = (thread) => {
   };
 };
 
+// Acuerdos por producto guardados en el hilo (o en el snapshot del pedido).
+const readSelectedItemOptions = (value) => {
+  const entries = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object'
+      ? Object.entries(value).map(([itemKey, option]) => ({ item_key: itemKey, ...option }))
+      : [];
+
+  return entries
+    .map((entry) => {
+      const price = Number(entry?.price);
+      const quantity = Number(entry?.quantity) || 1;
+      return {
+        itemKey: String(entry?.item_key ?? entry?.key ?? ''),
+        itemName: String(entry?.item_name ?? entry?.name ?? ''),
+        brand: String(entry?.brand ?? ''),
+        price: Number.isFinite(price) ? price : null,
+        quantity,
+        note: String(entry?.note ?? ''),
+      };
+    })
+    .filter((entry) => entry.brand);
+};
+
+const formatItemBrands = (entries) =>
+  entries
+    .map((entry) => `${entry.itemName || entry.itemKey}: ${entry.brand}`.trim())
+    .filter(Boolean)
+    .join(' · ');
+
 const createMessage = (text, sender) => ({
   id: createId(),
   text,
@@ -162,6 +192,7 @@ export const ChatProvider = ({ children }) => {
     status: null,
     product: '',
     brand: '',
+    itemBrands: '',
     optionNote: '',
   });
 
@@ -242,6 +273,7 @@ export const ChatProvider = ({ children }) => {
         status: null,
         product: '',
         brand: '',
+        itemBrands: '',
         optionNote: '',
       });
       setCounterpart({ id: null, name: '', avatarUrl: null });
@@ -257,24 +289,37 @@ export const ChatProvider = ({ children }) => {
 
     // La opción elegida en la oferta es el acuerdo inicial de la conversación.
     const selected = readSelectedOption(thread);
+    const threadItems = readSelectedItemOptions(thread.selected_offer_items);
+    const agreedItems = threadItems.length > 0 ? threadItems : [];
+    const agreedBrand = formatItemBrands(agreedItems);
+    const agreedNote = agreedItems
+      .map((entry) => entry.note)
+      .filter(Boolean)
+      .join(' · ');
+    const agreedTotal = agreedItems.reduce(
+      (total, entry) => total + (entry.price ?? 0) * entry.quantity,
+      0
+    );
 
     if (!thread.order_id) {
       setOrderInfo({
         id: null,
         commerceId: thread.commerce_id || null,
         number: '',
-        total: selected?.price ?? null,
+        total: agreedItems.length > 0 ? agreedTotal : (selected?.price ?? null),
         currency: 'MXN',
         status: null,
-        product: selected?.brand || '',
-        brand: selected?.brand || '',
-        optionNote: selected?.note || '',
+        product: agreedBrand || selected?.brand || '',
+        brand: agreedBrand || selected?.brand || '',
+        itemBrands: agreedBrand,
+        optionNote: agreedNote || selected?.note || '',
       });
       return;
     }
 
     const orderResult = await fetchOrderById(thread.order_id);
     const order = orderResult.item;
+    const orderItems = readSelectedItemOptions(order?.snapshot?.selectedItemOptions);
 
     setOrderInfo({
       id: thread.order_id,
@@ -284,8 +329,14 @@ export const ChatProvider = ({ children }) => {
       currency: order?.currency || 'MXN',
       status: order?.status || null,
       product: order?.snapshot?.product || '',
-      brand: order?.snapshot?.brand || selected?.brand || '',
-      optionNote: order?.snapshot?.selectedOption?.note || selected?.note || '',
+      brand: order?.snapshot?.brand || agreedBrand || selected?.brand || '',
+      itemBrands: formatItemBrands(orderItems) || agreedBrand,
+      optionNote:
+        order?.snapshot?.selectedOption?.note ||
+        orderItems.map((entry) => entry.note).filter(Boolean).join(' · ') ||
+        agreedNote ||
+        selected?.note ||
+        '',
     });
   }, [connected, userRole]);
 

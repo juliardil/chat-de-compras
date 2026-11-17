@@ -14,10 +14,14 @@ vi.mock('../lib/insforge', () => ({
 
 const {
   DEFAULT_OFFER_BRAND,
+  getOfferEffectiveAmount,
   getSelectedOfferOption,
   mapOffer,
   normalizeBrandOptions,
+  normalizeItemBrandOptions,
+  offerItemAgreement,
   offerOptionAgreement,
+  selectOfferItemBrands,
   selectOfferOption,
 } = await import('./appData');
 
@@ -162,5 +166,108 @@ describe('opciones de marca de una oferta', () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/permisos/i);
+  });
+
+  it('normaliza las marcas guardadas dentro de cada producto', () => {
+    const options = normalizeItemBrandOptions({
+      brand_options: [
+        { id: 'sony', brand: ' Sony ', price: '120', note: 'Garantía' },
+        { id: 'sin-precio', brand: 'Sin precio', price: null },
+      ],
+    });
+
+    expect(options).toEqual([
+      {
+        id: 'sony',
+        brand: 'Sony',
+        price: 120,
+        available: true,
+        isRecommended: false,
+        note: 'Garantía',
+      },
+    ]);
+  });
+
+  it('expone las marcas por producto y calcula el importe con la elección de cada uno', () => {
+    const offer = mapOffer({
+      ...brandRow(),
+      total_amount: 600,
+      items: [
+        {
+          key: 'item-1',
+          name: 'Bafles',
+          quantity: 2,
+          available: true,
+          unitPrice: 250,
+          totalPrice: 500,
+          brand_options: [
+            { id: 'sony', brand: 'Sony', price: 220, available: true, note: 'Recomendada' },
+            { id: 'pioneer', brand: 'Pioneer', price: 240, available: true },
+          ],
+        },
+        {
+          key: 'item-2',
+          name: 'GPS',
+          quantity: 1,
+          available: true,
+          unitPrice: 100,
+          totalPrice: 100,
+          brand_options: [{ id: 'garmin', brand: 'Garmin', price: 110, available: true }],
+        },
+      ],
+      selected_item_options: {
+        'item-1': { id: 'sony', brand: 'Sony', price: 220 },
+        'item-2': { id: 'garmin', brand: 'Garmin', price: 110 },
+      },
+    });
+
+    expect(offer.brandOptionsByItem).toBe(true);
+    expect(offer.brandOptions).toEqual([]);
+    expect(offer.items[0].brandOptions).toHaveLength(2);
+    expect(offer.items[0].selectedOption).toMatchObject({ brand: 'Sony', amount: 440 });
+    expect(offer.items[1].selectedOption).toMatchObject({ brand: 'Garmin', amount: 110 });
+    expect(getOfferEffectiveAmount(offer)).toBe(550);
+  });
+
+  it('convierte las elecciones por producto en el acuerdo desglosado del chat', () => {
+    expect(
+      offerItemAgreement([
+        {
+          item_key: 'item-1',
+          item_name: 'Bafles',
+          quantity: 2,
+          option: normalizeItemBrandOptions({
+            brand_options: [{ id: 'sony', brand: 'Sony', price: 220, note: 'Garantía' }],
+          })[0],
+        },
+      ])
+    ).toEqual([
+      {
+        item_key: 'item-1',
+        item_name: 'Bafles',
+        quantity: 2,
+        id: 'sony',
+        brand: 'Sony',
+        price: 220,
+        available: true,
+        is_recommended: false,
+        note: 'Garantía',
+      },
+    ]);
+  });
+
+  it('guarda todas las marcas elegidas por producto con un solo RPC', async () => {
+    harness.rpc.mockResolvedValue({ data: { ok: true }, error: null });
+
+    const result = await selectOfferItemBrands({
+      offerId: 'offer-1',
+      selections: { 'item-1': 'sony', 'item-2': 'garmin' },
+    });
+
+    expect(result).toEqual({ ok: true, data: { ok: true }, error: null });
+    expect(harness.rpc).toHaveBeenCalledWith('app_select_offer_item_brands', {
+      p_offer_id: 'offer-1',
+      p_selections: { 'item-1': 'sony', 'item-2': 'garmin' },
+    });
   });
 });

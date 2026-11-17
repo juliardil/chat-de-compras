@@ -10,15 +10,16 @@ export default function BrandOptionPicker({
   onSelect,
   busy = false,
   name = 'brand-option',
+  label = 'Opciones de marca',
 }) {
   if (!Array.isArray(options) || options.length === 0) return null;
 
   return (
     <div className="mt-3">
       <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-        Opciones de marca
+        {label}
       </p>
-      <div role="radiogroup" aria-label="Opciones de marca" className="space-y-1.5">
+      <div role="radiogroup" aria-label={label} className="space-y-1.5">
         {options.map((option) => {
           const checked = selectedId === option.id;
           const disabled = option.available === false || busy;

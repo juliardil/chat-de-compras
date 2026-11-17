@@ -12,11 +12,17 @@ vi.mock('../../data/appData', async (importOriginal) => {
     ...actual,
     fetchBuyerOffers: vi.fn(),
     openChatForOffer: vi.fn(),
+    selectOfferItemBrands: vi.fn(),
     selectOfferOption: vi.fn(),
   };
 });
 
-import { fetchBuyerOffers, openChatForOffer, selectOfferOption } from '../../data/appData';
+import {
+  fetchBuyerOffers,
+  openChatForOffer,
+  selectOfferItemBrands,
+  selectOfferOption,
+} from '../../data/appData';
 
 const renderResponses = (user = { id: 'buyer-1', role: 'user' }) =>
   render(
@@ -35,6 +41,8 @@ describe('detalle de ofertas recibidas', () => {
   beforeEach(() => {
     fetchBuyerOffers.mockReset();
     openChatForOffer.mockReset();
+    selectOfferItemBrands.mockReset();
+    selectOfferItemBrands.mockResolvedValue({ ok: true, data: null, error: null });
     selectOfferOption.mockReset();
     selectOfferOption.mockResolvedValue({ ok: true, data: null, error: null });
   });
@@ -201,5 +209,73 @@ describe('detalle de ofertas recibidas', () => {
         note: 'Entrega inmediata',
       },
     });
+  });
+
+  it('selecciona la marca de cada producto y la envía como acuerdo al chat', async () => {
+    openChatForOffer.mockResolvedValue({
+      item: { id: 'thread-items' },
+      error: null,
+      notice: null,
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          id: 'offer-items',
+          request_id: 'req-1',
+          commerce_name: 'Comercio Multi',
+          total_amount: 600,
+          currency: 'MXN',
+          status: 'active',
+          items: [
+            {
+              key: 'item-1',
+              name: 'Bafles',
+              quantity: 2,
+              available: true,
+              unitPrice: 250,
+              totalPrice: 500,
+              brand_options: [
+                { id: 'sony', brand: 'Sony', price: 220, available: true, note: 'Garantía' },
+              ],
+            },
+            {
+              key: 'item-2',
+              name: 'GPS',
+              quantity: 1,
+              available: true,
+              unitPrice: 100,
+              totalPrice: 100,
+              brand_options: [{ id: 'garmin', brand: 'Garmin', price: 110, available: true }],
+            },
+          ],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderResponses();
+
+    expect(await screen.findByText('Marcas para Bafles')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: /Sony/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /Garmin/ }));
+
+    expect(selectOfferItemBrands).toHaveBeenCalledWith({
+      offerId: 'offer-items',
+      selections: { 'item-1': 'sony', 'item-2': 'garmin' },
+    });
+
+    const chatButton = await screen.findByRole('button', { name: /chatear · 2 marcas/i });
+    await userEvent.click(chatButton);
+
+    expect(openChatForOffer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'buyer-1',
+        selectedItemOptions: [
+          expect.objectContaining({ item_key: 'item-1', brand: 'Sony', price: 220 }),
+          expect.objectContaining({ item_key: 'item-2', brand: 'Garmin', price: 110 }),
+        ],
+      })
+    );
   });
 });

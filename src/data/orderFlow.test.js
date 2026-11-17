@@ -198,6 +198,43 @@ describe('pedido creado desde el chat', () => {
     });
   });
 
+  it('aplica la marca elegida por producto al importe y al desglose del pedido', async () => {
+    harness.offer.items = [
+      {
+        key: 'item-1',
+        name: 'Bafles',
+        quantity: 2,
+        available: true,
+        unitPrice: 250,
+        totalPrice: 500,
+        brand_options: [
+          { id: 'sony', brand: 'Sony', price: 220, available: true, note: 'Garantía' },
+        ],
+      },
+    ];
+    harness.offer.selected_item_options = {
+      'item-1': { id: 'sony', brand: 'Sony', price: 220 },
+    };
+
+    const result = await createOrderForChat({ chatId: 'thread-1', shipping });
+
+    expect(result.ok).toBe(true);
+
+    const insert = harness.writes.find(
+      (write) => write.table === 'purchase_orders' && write.operation === 'insert'
+    );
+    const order = insert.payload[0];
+
+    expect(order.total_amount).toBe(440);
+    expect(order.items[0]).toMatchObject({ brand: 'Sony', unitPrice: 220, totalPrice: 440 });
+    expect(order.snapshot).toMatchObject({
+      brand: 'Bafles: Sony',
+      selectedItemOptions: [
+        { item_key: 'item-1', item_name: 'Bafles', brand: 'Sony', total_price: 440 },
+      ],
+    });
+  });
+
   it('recupera la marca acordada desde el hilo si la oferta no trae la elección', async () => {
     harness.threads[0].selected_offer_option = {
       id: 'mobil',

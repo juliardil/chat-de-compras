@@ -141,19 +141,11 @@ describe('panel de oportunidades del comercio', () => {
           available: true,
           unitPrice: 250,
           totalPrice: 500,
-        },
-      ],
-      brand_options: [
-        {
-          id: expect.any(String),
-          brand: 'Opción estándar',
-          price: 500,
-          available: true,
-          is_recommended: true,
-          note: '',
+          brand_options: [],
         },
       ],
     });
+    expect(createOffer.mock.calls[0][0].brand_options).toBeUndefined();
   });
 
   it('excluye los productos marcados como «No lo tengo» y cotiza solo los disponibles', async () => {
@@ -222,45 +214,115 @@ describe('panel de oportunidades del comercio', () => {
     expect(createOffer).not.toHaveBeenCalled();
   });
 
-  it('envía varias opciones de marca con precio, nota y recomendación', async () => {
+  it('guarda las alternativas dentro del producto, colapsadas por defecto', async () => {
     renderDashboard();
 
     await userEvent.click(await screen.findByRole('button', { name: /ofertar ahora/i }));
     await userEvent.type(await screen.findByLabelText('Precio unitario de Bafles'), '250');
 
-    await userEvent.type(screen.getByLabelText('Marca de la opción 1'), 'Mobil');
-    await userEvent.type(screen.getByLabelText('Precio de la opción 1'), '480');
+    expect(screen.queryByLabelText('Marca de Bafles, alternativa 1')).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /cotizar varias marcas para bafles/i })
+    );
+
+    await userEvent.type(screen.getByLabelText('Marca de Bafles, alternativa 1'), 'Pioneer');
+    await userEvent.type(screen.getByLabelText('Precio de Bafles, alternativa 1'), '480');
     await userEvent.type(
-      screen.getByLabelText('Nota de la opción 1'),
+      screen.getByLabelText('Nota de Bafles, alternativa 1'),
       'Mejor rendimiento'
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /agregar marca/i }));
-    await userEvent.type(screen.getByLabelText('Marca de la opción 2'), 'Lubrax');
-    await userEvent.type(screen.getByLabelText('Precio de la opción 2'), '450');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Recomendada' })[1]);
+    await userEvent.click(screen.getByRole('button', { name: /agregar otra marca/i }));
+    await userEvent.type(screen.getByLabelText('Marca de Bafles, alternativa 2'), 'Sony');
+    await userEvent.type(screen.getByLabelText('Precio de Bafles, alternativa 2'), '450');
+    await userEvent.click(
+      screen.getByRole('button', { name: /recomendar alternativa 2 de bafles/i })
+    );
+
+    expect(screen.queryByText('Opciones de marca')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
 
     expect(await screen.findByText('Oferta enviada')).toBeInTheDocument();
-    expect(createOffer).toHaveBeenCalledTimes(1);
-    expect(createOffer.mock.calls[0][0].brand_options).toEqual([
-      {
-        id: expect.any(String),
-        brand: 'Mobil',
-        price: 480,
-        available: true,
-        is_recommended: false,
-        note: 'Mejor rendimiento',
-      },
-      {
-        id: expect.any(String),
-        brand: 'Lubrax',
-        price: 450,
-        available: true,
-        is_recommended: true,
-        note: '',
-      },
-    ]);
+    const payload = createOffer.mock.calls[0][0];
+    expect(payload.brand_options).toBeUndefined();
+    expect(payload.items[0]).toMatchObject({
+      name: 'Bafles',
+      unitPrice: 250,
+      totalPrice: 500,
+      brand_options: [
+        {
+          id: expect.any(String),
+          brand: 'Pioneer',
+          price: 480,
+          available: true,
+          is_recommended: false,
+          note: 'Mejor rendimiento',
+        },
+        {
+          id: expect.any(String),
+          brand: 'Sony',
+          price: 450,
+          available: true,
+          is_recommended: true,
+          note: '',
+        },
+      ],
+    });
+  });
+
+  it('vuelve al precio principal al cerrar el bloque de marcas del producto', async () => {
+    renderDashboard();
+
+    await userEvent.click(await screen.findByRole('button', { name: /ofertar ahora/i }));
+    await userEvent.type(await screen.findByLabelText('Precio unitario de Bafles'), '250');
+    await userEvent.click(
+      screen.getByRole('button', { name: /cotizar varias marcas para bafles/i })
+    );
+    await userEvent.type(screen.getByLabelText('Marca de Bafles, alternativa 1'), 'Bosch');
+    await userEvent.type(screen.getByLabelText('Precio de Bafles, alternativa 1'), '300');
+    await userEvent.click(
+      screen.getByRole('button', { name: /cerrar opciones de marca de bafles/i })
+    );
+
+    expect(screen.queryByLabelText('Marca de Bafles, alternativa 1')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
+
+    expect(await screen.findByText('Oferta enviada')).toBeInTheDocument();
+    expect(createOffer.mock.calls[0][0].items[0].brand_options).toEqual([]);
+    expect(createOffer.mock.calls[0][0].items[0].unitPrice).toBe(250);
+  });
+
+  it('mantiene las alternativas aisladas entre productos de una misma solicitud', async () => {
+    fetchOpenRequests.mockResolvedValue({
+      items: [requestWithTwoItems],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+
+    await userEvent.click(await screen.findByRole('button', { name: /ofertar ahora/i }));
+    await userEvent.type(await screen.findByLabelText('Precio unitario de Bafles'), '100');
+    await userEvent.type(await screen.findByLabelText('Precio unitario de Amplificador'), '200');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /cotizar varias marcas para bafles/i })
+    );
+    await userEvent.type(screen.getByLabelText('Marca de Bafles, alternativa 1'), 'Sony');
+    await userEvent.type(screen.getByLabelText('Precio de Bafles, alternativa 1'), '120');
+
+    expect(
+      screen.queryByLabelText('Marca de Amplificador, alternativa 1')
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
+
+    expect(await screen.findByText('Oferta enviada')).toBeInTheDocument();
+    const items = createOffer.mock.calls[0][0].items;
+    expect(items[0].brand_options).toHaveLength(1);
+    expect(items[1].brand_options).toEqual([]);
   });
 });

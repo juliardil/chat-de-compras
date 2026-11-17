@@ -478,17 +478,57 @@ const finiteNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+const normalizeSingleBrandOption = (option, index = 0) => ({
+  id: String(option?.id ?? `option-${index + 1}`),
+  brand: String(option?.brand ?? '').trim(),
+  price: finiteNumber(option?.price),
+  available: option?.available !== false,
+  isRecommended: Boolean(option?.is_recommended ?? option?.isRecommended),
+  note: String(option?.note ?? '').trim(),
+});
+
+// Las alternativas de una tarjeta de producto viajan en `item.brand_options`
+// y su precio es por unidad (el precio base sigue siendo `unitPrice`).
+export const normalizeItemBrandOptions = (item) => {
+  const rawOptions = Array.isArray(item?.brand_options) ? item.brand_options : [];
+  return rawOptions
+    .map((option, index) => normalizeSingleBrandOption(option, index))
+    .filter((option) => option.brand && option.price !== null && option.price > 0);
+};
+
+// Acepta tanto el mapa guardado en `selected_item_options` como el arreglo que
+// viaja en el hilo de chat (`selected_offer_items`).
+export const normalizeSelectedItemOptions = (value) => {
+  const entries = Array.isArray(value)
+    ? value.map((entry) => [String(entry?.item_key ?? entry?.key ?? ''), entry?.option ?? entry])
+    : value && typeof value === 'object'
+      ? Object.entries(value)
+      : [];
+
+  return entries.reduce((result, [key, option]) => {
+    if (!key || !option || typeof option !== 'object') return result;
+    const normalized = normalizeSingleBrandOption(option);
+    if (!normalized.brand || normalized.price === null) return result;
+    result[key] = normalized;
+    return result;
+  }, {});
+};
+
+const brandOptionMatches = (option, stored) => {
+  const id = stored?.id != null ? String(stored.id) : null;
+  const storedPrice = finiteNumber(stored?.price);
+  return Boolean(
+    (id && option.id === id) ||
+      (option.brand === String(stored?.brand || '').trim() &&
+        storedPrice !== null &&
+        option.price === storedPrice)
+  );
+};
+
 export const normalizeBrandOptions = (row) => {
   const rawOptions = Array.isArray(row?.brand_options) ? row.brand_options : [];
   const options = rawOptions
-    .map((option, index) => ({
-      id: String(option?.id ?? `option-${index + 1}`),
-      brand: String(option?.brand ?? '').trim(),
-      price: finiteNumber(option?.price),
-      available: option?.available !== false,
-      isRecommended: Boolean(option?.is_recommended ?? option?.isRecommended),
-      note: String(option?.note ?? '').trim(),
-    }))
+    .map((option, index) => normalizeSingleBrandOption(option, index))
     .filter((option) => option.brand && option.price !== null);
 
   if (options.length > 0) return options;
@@ -521,21 +561,34 @@ export const offerOptionAgreement = (option) =>
       }
     : null;
 
+// Cada elección por producto se guarda como acuerdo inicial del chat con el
+// contexto del ítem (nombre y cantidad) para que ambas partes vean la misma
+// desglose de marcas.
+export const offerItemAgreement = (entries = []) => {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .map((entry) => {
+      const option = offerOptionAgreement(entry?.option ?? entry);
+      if (!option) return null;
+
+      return {
+        item_key: String(entry?.item_key ?? entry?.key ?? ''),
+        item_name: String(entry?.item_name ?? entry?.name ?? ''),
+        quantity: finiteNumber(entry?.quantity) ?? 1,
+        ...option,
+      };
+    })
+    .filter(Boolean);
+};
+
 export const getSelectedOfferOption = (row, currency = row?.currency) => {
   const stored =
     row?.selected_option && typeof row.selected_option === 'object' ? row.selected_option : null;
   if (!stored) return null;
 
   const options = normalizeBrandOptions(row);
-  const id = stored.id != null ? String(stored.id) : null;
-  const storedPrice = finiteNumber(stored.price);
-  const match = options.find(
-    (option) =>
-      (id && option.id === id) ||
-      (option.brand === String(stored.brand || '').trim() &&
-        storedPrice !== null &&
-        option.price === storedPrice)
-  );
+  const match = options.find((option) => brandOptionMatches(option, stored));
 
   if (!match) return null;
   return { ...match, selectedAt: row?.selected_at || null, currency: currency || 'MXN' };
@@ -653,14 +706,69 @@ export const mapOffer = (row, buyerLocation = null) => {
     row.commerce_longitude
   );
 
-  const brandOptions = normalizeBrandOptions(row).map((option) => ({
-    ...option,
-    priceLabel: formatCurrency(option.price, row.currency),
-  }));
-  const chosen = getSelectedOfferOption(row, row.currency);
+  const hasItemOptions = items.some(
+    (item) => Array.isArray(item?.brand_options) && item.brand_options.length > 0
+  );
+  const storedItemSelections = normalizeSelectedItemOptions(row.selected_item_options);
+
+  // El selector global queda solo para ofertas antiguas que no traen
+  // alternativas por producto. Las nuevas usan un selector dentro de cada ítem.
+  const brandOptions = hasItemOptions
+    ? []
+    : normalizeBrandOptions(row).map((option) => ({
+        ...option,
+        priceLabel: formatCurrency(option.price, row.currency),
+      }));
+  const chosen = hasItemOptions ? null : getSelectedOfferOption(row, row.currency);
   const selectedOption = chosen
     ? { ...chosen, priceLabel: formatCurrency(chosen.price, row.currency) }
     : null;
+
+  const mappedItems = items.map((item, index) => {
+    const available = isAvailable(item);
+    const quantity = toPositiveInteger(item?.quantity ?? item?.cantidad, 1);
+    const unitPrice = Number(item?.unitPrice ?? item?.unit_price);
+    const totalPrice = Number(item?.totalPrice ?? item?.total_price);
+    const itemKey = String(item?.key ?? item?.id ?? `item-${index + 1}`);
+
+    const itemBrandOptions = normalizeItemBrandOptions(item).map((option) => ({
+      ...option,
+      amount: Number((option.price * quantity).toFixed(2)),
+      priceLabel: formatCurrency(option.price, row.currency),
+      amountLabel: formatCurrency(option.price * quantity, row.currency),
+    }));
+    const stored = storedItemSelections[itemKey];
+    const matched = stored
+      ? itemBrandOptions.find((option) => brandOptionMatches(option, stored)) || null
+      : null;
+    const selectedBrandOption = matched
+      ? {
+          ...matched,
+          selectedAt: storedItemSelections[itemKey]?.selected_at || null,
+        }
+      : null;
+
+    return {
+      key: itemKey,
+      name: item?.name || item?.title || item?.description || 'Producto',
+      quantity,
+      status: available ? 'available' : 'missing',
+      unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+      totalPrice: available && Number.isFinite(totalPrice) ? totalPrice : 0,
+      priceLabel:
+        available && Number.isFinite(totalPrice) && totalPrice > 0
+          ? formatCurrency(totalPrice, row.currency)
+          : '',
+      notes: item?.notes || '',
+      brandOptions: itemBrandOptions,
+      selectedOption: selectedBrandOption,
+    };
+  });
+
+  const selectedItemOptions = mappedItems.reduce((result, item) => {
+    if (item.selectedOption) result[item.key] = item.selectedOption;
+    return result;
+  }, {});
 
   return {
     id: row.id,
@@ -681,7 +789,9 @@ export const mapOffer = (row, buyerLocation = null) => {
     conditions: row.conditions || '',
     status: row.status,
     brandOptions,
+    brandOptionsByItem: hasItemOptions,
     selectedOption,
+    selectedItemOptions,
     selectedAt: row.selected_at || null,
     found: availableItems.length,
     total: items.length,
@@ -690,26 +800,33 @@ export const mapOffer = (row, buyerLocation = null) => {
       (total, item) => total + toPositiveInteger(item.quantity ?? item.cantidad, 1),
       0
     ),
-    items: items.map((item) => {
-      const available = isAvailable(item);
-      const quantity = toPositiveInteger(item?.quantity ?? item?.cantidad, 1);
-      const unitPrice = Number(item?.unitPrice ?? item?.unit_price);
-      const totalPrice = Number(item?.totalPrice ?? item?.total_price);
-
-      return {
-        name: item?.name || item?.title || item?.description || 'Producto',
-        quantity,
-        status: available ? 'available' : 'missing',
-        unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
-        totalPrice: available && Number.isFinite(totalPrice) ? totalPrice : 0,
-        priceLabel:
-          available && Number.isFinite(totalPrice) && totalPrice > 0
-            ? formatCurrency(totalPrice, row.currency)
-            : '',
-        notes: item?.notes || '',
-      };
-    }),
+    items: mappedItems,
   };
+};
+
+// Importe que debe mostrar el comprador: usa las marcas elegidas por producto
+// cuando existen y respeta la selección global de las ofertas anteriores.
+export const getOfferEffectiveAmount = (offer) => {
+  const items = Array.isArray(offer?.items) ? offer.items : [];
+  const hasItemOptions = items.some(
+    (item) => Array.isArray(item?.brandOptions) && item.brandOptions.length > 0
+  );
+
+  if (!hasItemOptions) {
+    if (offer?.selectedOption && Number(offer.selectedOption.price) > 0) {
+      return Number(offer.selectedOption.price);
+    }
+    return finiteNumber(offer?.amount) ?? 0;
+  }
+
+  return items.reduce((total, item) => {
+    if (item?.status === 'missing') return total;
+    const quantity = Math.max(1, Number(item?.quantity) || 1);
+    if (item?.selectedOption && Number.isFinite(item.selectedOption.price)) {
+      return total + item.selectedOption.price * quantity;
+    }
+    return total + (finiteNumber(item?.totalPrice) ?? 0);
+  }, 0);
 };
 
 // Guarda la marca elegida por el comprador. La política RLS de purchase_offers
@@ -746,6 +863,53 @@ export const selectOfferOption = async ({ offerId, optionId }) => {
       ok: false,
       data: null,
       error: describeError(error, 'No se pudo guardar la marca elegida.'),
+    };
+  }
+};
+
+// Guarda todas las marcas elegidas por producto en una sola llamada. `selections`
+// es un mapa { item_key: option_id }; el RPC valida pertenencia y disponibilidad.
+export const selectOfferItemBrands = async ({ offerId, selections = {} }) => {
+  if (!isInsforgeConfigured) {
+    return {
+      ok: false,
+      data: null,
+      skipped: true,
+      error: `No se guardó nada: ${NOTICES.demo}`,
+    };
+  }
+  if (!offerId || !selections || typeof selections !== 'object') {
+    return { ok: false, data: null, error: 'No se indicaron las marcas elegidas.' };
+  }
+
+  const payload = Object.entries(selections).reduce((result, [key, value]) => {
+    const optionId = typeof value === 'object' ? value?.id : value;
+    if (key && optionId) result[String(key)] = String(optionId);
+    return result;
+  }, {});
+
+  if (Object.keys(payload).length === 0) {
+    return { ok: false, data: null, error: 'No se indicaron las marcas elegidas.' };
+  }
+
+  try {
+    const { data, error } = await insforge.database.rpc('app_select_offer_item_brands', {
+      p_offer_id: offerId,
+      p_selections: payload,
+    });
+    if (error) {
+      return {
+        ok: false,
+        data: null,
+        error: describeError(error, 'No se pudieron guardar las marcas elegidas.'),
+      };
+    }
+    return { ok: true, data: data ?? null, error: null };
+  } catch (error) {
+    return {
+      ok: false,
+      data: null,
+      error: describeError(error, 'No se pudieron guardar las marcas elegidas.'),
     };
   }
 };
@@ -937,20 +1101,64 @@ export const createOrderForChat = async ({ chatId, shipping }) => {
     NOTICES.orders
   );
 
-  // La marca elegida por el comprador fija el importe del pedido: si la oferta
-  // tiene varias opciones, el precio de la elegida reemplaza al precio base.
+  // Preferimos las elecciones por producto. Las ofertas anteriores siguen
+  // resolviéndose con la opción global guardada en la oferta o en el hilo.
+  const itemSelections = {
+    ...normalizeSelectedItemOptions(offer.selected_item_options),
+    ...normalizeSelectedItemOptions(thread.selected_offer_items),
+  };
   const selectedOption =
     getSelectedOfferOption(offer) ||
     (thread.selected_offer_option
       ? getSelectedOfferOption({ ...offer, selected_option: thread.selected_offer_option })
       : null);
   const offerAmount = finiteNumber(offer.total_amount);
-  const effectiveTotal = selectedOption?.price > 0 ? selectedOption.price : offerAmount ?? 0;
 
   const items = Array.isArray(offer.items) ? offer.items : [];
-  const orderItems = selectedOption
-    ? items.map((item) => ({ ...item, brand: selectedOption.brand }))
-    : items;
+  const selectedItemOptions = [];
+  const orderItems = items.map((item, index) => {
+    const itemKey = String(item?.key ?? item?.id ?? `item-${index + 1}`);
+    const stored = itemSelections[itemKey];
+    const match = stored
+      ? normalizeItemBrandOptions(item).find((option) => brandOptionMatches(option, stored))
+      : null;
+    if (!match) {
+      // Las ofertas sin alternativas por producto conservan la marca global.
+      return Object.keys(itemSelections).length === 0 && selectedOption
+        ? { ...item, brand: selectedOption.brand }
+        : { ...item };
+    }
+
+    const quantity = Math.max(1, Number(item?.quantity ?? 1) || 1);
+    const totalPrice = Number((match.price * quantity).toFixed(2));
+    selectedItemOptions.push({
+      item_key: itemKey,
+      item_name: item?.name || item?.title || item?.description || '',
+      quantity,
+      ...offerOptionAgreement(match),
+      total_price: totalPrice,
+    });
+
+    return {
+      ...item,
+      brand: match.brand,
+      unitPrice: match.price,
+      totalPrice,
+      brand_note: match.note || null,
+    };
+  });
+
+  const hasItemAgreement = selectedItemOptions.length > 0;
+  const effectiveTotal = hasItemAgreement
+    ? orderItems.reduce((total, item) => total + (finiteNumber(item.totalPrice) ?? 0), 0)
+    : selectedOption?.price > 0
+      ? selectedOption.price
+      : (offerAmount ?? 0);
+  const agreedBrand = hasItemAgreement
+    ? selectedItemOptions
+        .map((entry) => `${entry.item_name || entry.item_key}: ${entry.brand}`)
+        .join(' · ')
+    : selectedOption?.brand || '';
   const firstAvailable = items.find((item) => item && item.available !== false) || items[0] || {};
 
   let product =
@@ -974,8 +1182,10 @@ export const createOrderForChat = async ({ chatId, shipping }) => {
     address: formatShippingAddress(normalizedShipping),
     shipping: normalizedShipping,
     placedAt: new Date().toISOString(),
-    // Acuerdo inicial fijado en el chat: marca, precio y nota elegidos.
-    brand: selectedOption?.brand || '',
+    // Acuerdo inicial fijado en el chat: marcas elegidas por producto y, para
+    // ofertas antiguas, la opción global.
+    brand: agreedBrand,
+    selectedItemOptions,
     selectedOption: selectedOption
       ? {
           id: selectedOption.id,
@@ -1300,6 +1510,7 @@ export const ensureChatThread = async ({
   orderId = null,
   offerId = null,
   selectedOption = null,
+  selectedItemOptions = [],
 }) => {
   if (!isInsforgeConfigured) {
     return { item: null, error: null, notice: NOTICES.demo };
@@ -1310,6 +1521,8 @@ export const ensureChatThread = async ({
       'No se pudo identificar al comprador o al comercio de esta conversación.'
     );
   }
+
+  const itemAgreement = offerItemAgreement(selectedItemOptions);
 
   const existing = await runQuery(
     (db) =>
@@ -1336,8 +1549,10 @@ export const ensureChatThread = async ({
     if (offerId && thread.offer_id !== offerId) {
       patch.offer_id = offerId;
       patch.selected_offer_option = selectedOption || null;
-    } else if (selectedOption) {
-      patch.selected_offer_option = selectedOption;
+      patch.selected_offer_items = itemAgreement;
+    } else {
+      if (selectedOption) patch.selected_offer_option = selectedOption;
+      if (itemAgreement.length > 0) patch.selected_offer_items = itemAgreement;
     }
 
     if (Object.keys(patch).length > 0) {
@@ -1363,6 +1578,7 @@ export const ensureChatThread = async ({
           order_id: orderId,
           offer_id: offerId,
           selected_offer_option: selectedOption || null,
+          selected_offer_items: itemAgreement,
           subject: subject || 'Conversación',
           status: 'active',
         },
@@ -1394,7 +1610,13 @@ const fetchChatThreadFromPair = async (buyerId, commerceId) => {
 };
 
 // Abre (o crea) la conversación del comprador con el comercio de una oferta.
-export const openChatForOffer = async ({ userId, offer, subject, selectedOption = null }) => {
+export const openChatForOffer = async ({
+  userId,
+  offer,
+  subject,
+  selectedOption = null,
+  selectedItemOptions = [],
+}) => {
   const guard = requireUserId(userId, NOTICES.chats);
   if (guard) return { ...guard, item: null };
 
@@ -1421,6 +1643,7 @@ export const openChatForOffer = async ({ userId, offer, subject, selectedOption 
     subject: subject || offer.store || 'Conversación',
     offerId: offer.id || null,
     selectedOption,
+    selectedItemOptions,
   });
 };
 

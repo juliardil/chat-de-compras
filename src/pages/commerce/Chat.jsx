@@ -96,7 +96,11 @@ export default function Chat() {
           <p className="font-bold text-gray-800">
             {orderInfo.product || orderInfo.number || 'Sin oferta registrada'}
           </p>
-          {orderInfo.id && orderInfo.brand ? (
+          {orderInfo.itemBrands ? (
+            <p className="text-xs font-semibold text-[#006E7A]">
+              Marcas acordadas: {orderInfo.itemBrands}
+            </p>
+          ) : orderInfo.id && orderInfo.brand ? (
             <p className="text-xs font-semibold text-[#006E7A]">
               Marca acordada: {orderInfo.brand}
             </p>

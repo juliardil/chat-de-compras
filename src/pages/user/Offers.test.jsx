@@ -13,6 +13,7 @@ vi.mock('../../data/appData', async (importOriginal) => {
     fetchBuyerOffers: vi.fn(),
     fetchBuyerRequests: vi.fn(),
     openChatForOffer: vi.fn(),
+    selectOfferItemBrands: vi.fn(),
     selectOfferOption: vi.fn(),
   };
 });
@@ -21,6 +22,7 @@ import {
   fetchBuyerOffers,
   fetchBuyerRequests,
   openChatForOffer,
+  selectOfferItemBrands,
   selectOfferOption,
 } from '../../data/appData';
 
@@ -59,6 +61,41 @@ const multiBrandOffer = () => ({
   ],
 });
 
+const perItemOffer = () => ({
+  ...offer('offer-items', 'req-1', 'Comercio Multi', 600),
+  total_amount: 600,
+  items: [
+    {
+      key: 'item-1',
+      name: 'Bafles',
+      quantity: 2,
+      available: true,
+      unitPrice: 250,
+      totalPrice: 500,
+      brand_options: [
+        {
+          id: 'sony',
+          brand: 'Sony',
+          price: 220,
+          available: true,
+          is_recommended: true,
+          note: 'Garantía',
+        },
+        { id: 'pioneer', brand: 'Pioneer', price: 240, available: true },
+      ],
+    },
+    {
+      key: 'item-2',
+      name: 'GPS',
+      quantity: 1,
+      available: true,
+      unitPrice: 100,
+      totalPrice: 100,
+      brand_options: [{ id: 'garmin', brand: 'Garmin', price: 110, available: true }],
+    },
+  ],
+});
+
 const request = (id, title) => ({
   id,
   title,
@@ -91,6 +128,8 @@ describe('sección Ofertas del comprador', () => {
     fetchBuyerOffers.mockReset();
     fetchBuyerRequests.mockReset();
     openChatForOffer.mockReset();
+    selectOfferItemBrands.mockReset();
+    selectOfferItemBrands.mockResolvedValue({ ok: true, data: null, error: null });
     selectOfferOption.mockReset();
     selectOfferOption.mockResolvedValue({ ok: true, data: null, error: null });
   });
@@ -242,6 +281,54 @@ describe('sección Ofertas del comprador', () => {
       },
     });
     expect(await screen.findByText('Conversación abierta: thread-multi')).toBeInTheDocument();
+  });
+
+  it('permite elegir una marca por producto y abre el chat con el acuerdo desglosado', async () => {
+    openChatForOffer.mockResolvedValue({
+      item: { id: 'thread-items' },
+      error: null,
+      notice: null,
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [perItemOffer()],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Bafles y GPS')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByText('Marcas para Bafles')).toBeInTheDocument();
+    expect(screen.getByText('Marcas para GPS')).toBeInTheDocument();
+    expect(screen.queryByText('Opciones de marca')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: /Pioneer/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /Garmin/ }));
+
+    expect(selectOfferItemBrands).toHaveBeenCalledWith({
+      offerId: 'offer-items',
+      selections: { 'item-1': 'pioneer', 'item-2': 'garmin' },
+    });
+    expect(screen.getAllByText('$590.00').length).toBeGreaterThan(0);
+
+    const chatButton = await screen.findByRole('button', { name: /mensajes · 2 marcas/i });
+    await userEvent.click(chatButton);
+
+    expect(openChatForOffer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'buyer-1',
+        subject: 'Comercio Multi',
+        selectedItemOptions: [
+          expect.objectContaining({ item_key: 'item-1', brand: 'Pioneer', price: 240 }),
+          expect.objectContaining({ item_key: 'item-2', brand: 'Garmin', price: 110 }),
+        ],
+      })
+    );
+    expect(await screen.findByText('Conversación abierta: thread-items')).toBeInTheDocument();
   });
 
   it('revierte la elección si el backend no puede guardarla', async () => {

@@ -11,9 +11,13 @@ import { useModuleData } from '../../data/useModuleData';
 import { sortOffers } from '../../data/offerSort';
 import {
   fetchBuyerOffers,
+  formatCurrency,
+  getOfferEffectiveAmount,
   mapOffer,
+  offerItemAgreement,
   offerOptionAgreement,
   openChatForOffer,
+  selectOfferItemBrands,
   selectOfferOption,
   NOTICES,
 } from '../../data/appData';
@@ -29,6 +33,8 @@ export default function Responses() {
   const [openingOfferId, setOpeningOfferId] = useState(null);
   const [chatError, setChatError] = useState('');
   const [selectedOptions, setSelectedOptions] = useState({});
+  const [selectedItemOptions, setSelectedItemOptions] = useState({});
+  const [selectingItemKey, setSelectingItemKey] = useState(null);
   const [selectingOfferId, setSelectingOfferId] = useState(null);
   const [selectionError, setSelectionError] = useState('');
   const [sortKey, setSortKey] = useState('distance');
@@ -57,6 +63,36 @@ export default function Responses() {
     return offer.brandOptions.find((option) => option.id === id) || null;
   };
 
+  const itemSelectionKey = (offerId, item) => `${offerId}::${item.key}`;
+
+  const selectedForItem = (offer, item) => {
+    const key = itemSelectionKey(offer.id, item);
+    const id = selectedItemOptions[key] ?? item.selectedOption?.id ?? null;
+    return (item.brandOptions || []).find((option) => option.id === id) || null;
+  };
+
+  const withItemSelections = (offer) => ({
+    ...offer,
+    items: offer.items.map((item) => ({
+      ...item,
+      selectedOption: selectedForItem(offer, item),
+    })),
+  });
+
+  const effectivePriceLabel = (offer) =>
+    formatCurrency(getOfferEffectiveAmount(withItemSelections(offer)), offer.currency);
+
+  const chosenItemAgreement = (offer) =>
+    offer.items
+      .filter((item) => (item.brandOptions || []).length > 0)
+      .map((item) => ({
+        item_key: item.key,
+        item_name: item.name,
+        quantity: item.quantity,
+        option: selectedForItem(offer, item),
+      }))
+      .filter((entry) => entry.option);
+
   const handleSelectOption = async (offer, option) => {
     if (selectingOfferId === offer.id || selectedFor(offer)?.id === option.id) return;
 
@@ -74,17 +110,46 @@ export default function Responses() {
     }
   };
 
+  const handleSelectItemOption = async (offer, item, option) => {
+    const key = itemSelectionKey(offer.id, item);
+    if (selectingItemKey === key || selectedForItem(offer, item)?.id === option.id) return;
+
+    const previousId = selectedItemOptions[key] ?? item.selectedOption?.id ?? null;
+    const selections = {};
+    offer.items.forEach((entry) => {
+      if (!(entry.brandOptions || []).length) return;
+      const chosen = entry.key === item.key ? option : selectedForItem(offer, entry);
+      if (chosen) selections[entry.key] = chosen.id;
+    });
+
+    setSelectionError('');
+    setSelectedItemOptions((current) => ({ ...current, [key]: option.id }));
+    setSelectingItemKey(key);
+
+    const result = await selectOfferItemBrands({ offerId: offer.id, selections });
+    setSelectingItemKey(null);
+
+    if (!result.ok) {
+      setSelectedItemOptions((current) => ({ ...current, [key]: previousId }));
+      setSelectionError(result.error || 'No se pudo guardar la marca elegida.');
+    }
+  };
+
   const handleOpenChat = async (offer) => {
     if (openingOfferId) return;
     setChatError('');
     setOpeningOfferId(offer.id);
 
-    const result = await openChatForOffer({
+    const itemAgreement = offerItemAgreement(chosenItemAgreement(offer));
+    const payload = {
       userId: user?.id,
-      offer,
+      offer: withItemSelections(offer),
       subject: offer.store,
       selectedOption: offerOptionAgreement(selectedFor(offer)),
-    });
+    };
+    if (itemAgreement.length > 0) payload.selectedItemOptions = itemAgreement;
+
+    const result = await openChatForOffer(payload);
 
     setOpeningOfferId(null);
 
@@ -206,7 +271,7 @@ export default function Responses() {
                 </div>
 
                 <div className="text-lg font-bold text-[#006E7A] mb-1">
-                  {selectedFor(offer)?.priceLabel || offer.price}
+                  {effectivePriceLabel(offer)}
                 </div>
                 {offer.quantityTotal > 0 ? (
                   <p className="text-xs text-gray-600 mb-2">
@@ -220,34 +285,61 @@ export default function Responses() {
               {offer.conditions || 'Sin condiciones adicionales.'}
             </p>
 
-            <BrandOptionPicker
-              options={offer.brandOptions}
-              selectedId={selectedFor(offer)?.id || null}
-              onSelect={(option) => handleSelectOption(offer, option)}
-              busy={selectingOfferId === offer.id}
-              name={`brand-responses-${offer.id}`}
-            />
+            {!offer.brandOptionsByItem ? (
+              <BrandOptionPicker
+                options={offer.brandOptions}
+                selectedId={selectedFor(offer)?.id || null}
+                onSelect={(option) => handleSelectOption(offer, option)}
+                busy={selectingOfferId === offer.id}
+                name={`brand-responses-${offer.id}`}
+              />
+            ) : null}
 
             {offer.items.length > 0 ? (
-              <ul className="mb-4 space-y-1.5">
-                {offer.items.map((item, index) => (
-                  <li
-                    key={`${offer.id}-offer-item-${index}`}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-white/70 border border-white/30 px-3 py-1.5 text-xs"
-                  >
-                    <span className="min-w-0 break-words text-gray-800">
-                      {item.name} × {item.quantity}
-                    </span>
-                    {item.status === 'available' ? (
-                      <span className="shrink-0 font-bold text-[#006E7A]">
-                        {item.priceLabel || 'Cotizado'}
-                      </span>
-                    ) : (
-                      <span className="shrink-0 font-bold text-[#4B227A]">No disponible</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <div className="mb-4 space-y-1.5">
+                {offer.items.map((item, index) => {
+                  const itemKey = itemSelectionKey(offer.id, item);
+                  const hasBrands = (item.brandOptions || []).length > 0;
+                  const chosen = selectedForItem(offer, item);
+
+                  return (
+                    <div
+                      key={`${offer.id}-offer-item-${index}`}
+                      className="rounded-lg bg-white/70 border border-white/30 px-3 py-1.5 text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 break-words text-gray-800">
+                          {item.name} × {item.quantity}
+                        </span>
+                        {item.status === 'available' ? (
+                          <span className="shrink-0 font-bold text-[#006E7A]">
+                            {item.priceLabel || 'Cotizado'}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 font-bold text-[#4B227A]">No disponible</span>
+                        )}
+                      </div>
+                      {hasBrands ? (
+                        <div className="bg-white/70 rounded-xl px-1">
+                          <BrandOptionPicker
+                            options={item.brandOptions}
+                            selectedId={chosen?.id || null}
+                            onSelect={(option) => handleSelectItemOption(offer, item, option)}
+                            busy={selectingItemKey === itemKey}
+                            name={`brand-responses-${offer.id}-${item.key}`}
+                            label={`Marcas para ${item.name}`}
+                          />
+                          {chosen ? (
+                            <p className="pb-2 text-[11px] text-gray-600 text-right">
+                              Subtotal: <strong>{chosen.amountLabel}</strong>
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
             ) : null}
 
             <Button
@@ -260,9 +352,13 @@ export default function Responses() {
               <MessageCircle className="w-4 h-4" />
               {openingOfferId === offer.id
                 ? 'ABRIENDO…'
-                : selectedFor(offer)
-                  ? `CHATEAR · ${selectedFor(offer).brand}`
-                  : 'CHATEAR'}
+                : chosenItemAgreement(offer).length > 0
+                  ? `CHATEAR · ${chosenItemAgreement(offer).length} ${
+                      chosenItemAgreement(offer).length === 1 ? 'MARCA' : 'MARCAS'
+                    }`
+                  : selectedFor(offer)
+                    ? `CHATEAR · ${selectedFor(offer).brand}`
+                    : 'CHATEAR'}
             </Button>
           </div>
         ))}
