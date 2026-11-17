@@ -101,6 +101,14 @@ export default function Chat() {
           <p className="font-bold text-gray-800">
             {orderInfo.product || orderInfo.number || 'Sin oferta registrada'}
           </p>
+          {orderInfo.id && orderInfo.brand ? (
+            <p className="text-xs font-semibold text-[#006E7A]">
+              Marca acordada: {orderInfo.brand}
+            </p>
+          ) : null}
+          {orderInfo.optionNote ? (
+            <p className="text-[11px] text-gray-600 break-words">{orderInfo.optionNote}</p>
+          ) : null}
         </div>
         <div className="text-right">
           <p className="text-sm font-bold text-[#006E7A]">

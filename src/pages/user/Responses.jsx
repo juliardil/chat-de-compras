@@ -4,11 +4,19 @@ import { ArrowLeft, Clock, Star, MessageCircle, MapPin, Package, Check, X as XIc
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import OfferSortBar from '../../components/ui/OfferSortBar';
+import BrandOptionPicker from '../../components/ui/BrandOptionPicker';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import { sortOffers } from '../../data/offerSort';
-import { fetchBuyerOffers, mapOffer, openChatForOffer, NOTICES } from '../../data/appData';
+import {
+  fetchBuyerOffers,
+  mapOffer,
+  offerOptionAgreement,
+  openChatForOffer,
+  selectOfferOption,
+  NOTICES,
+} from '../../data/appData';
 import avatarComercio from '../../assets/avatar-comercio.svg';
 
 // Actualización estética Junio 2026
@@ -20,6 +28,9 @@ export default function Responses() {
   const [selectedAvailability, setSelectedAvailability] = useState(null);
   const [openingOfferId, setOpeningOfferId] = useState(null);
   const [chatError, setChatError] = useState('');
+  const [selectedOptions, setSelectedOptions] = useState({});
+  const [selectingOfferId, setSelectingOfferId] = useState(null);
+  const [selectionError, setSelectionError] = useState('');
   const [sortKey, setSortKey] = useState('distance');
 
   // La solicitud viene del formulario (datos reales que escribió la persona).
@@ -41,6 +52,28 @@ export default function Responses() {
         .join(' ')
     : 'Las ofertas se muestran al abrir una solicitud publicada.';
 
+  const selectedFor = (offer) => {
+    const id = selectedOptions[offer.id] ?? offer.selectedOption?.id ?? null;
+    return offer.brandOptions.find((option) => option.id === id) || null;
+  };
+
+  const handleSelectOption = async (offer, option) => {
+    if (selectingOfferId === offer.id || selectedFor(offer)?.id === option.id) return;
+
+    const previousId = selectedOptions[offer.id] ?? offer.selectedOption?.id ?? null;
+    setSelectionError('');
+    setSelectedOptions((current) => ({ ...current, [offer.id]: option.id }));
+    setSelectingOfferId(offer.id);
+
+    const result = await selectOfferOption({ offerId: offer.id, optionId: option.id });
+    setSelectingOfferId(null);
+
+    if (!result.ok) {
+      setSelectedOptions((current) => ({ ...current, [offer.id]: previousId }));
+      setSelectionError(result.error || 'No se pudo guardar la marca elegida.');
+    }
+  };
+
   const handleOpenChat = async (offer) => {
     if (openingOfferId) return;
     setChatError('');
@@ -50,6 +83,7 @@ export default function Responses() {
       userId: user?.id,
       offer,
       subject: offer.store,
+      selectedOption: offerOptionAgreement(selectedFor(offer)),
     });
 
     setOpeningOfferId(null);
@@ -85,6 +119,12 @@ export default function Responses() {
       {chatError ? (
         <div className="px-4 pt-4">
           <DataNotice tone="error">{chatError}</DataNotice>
+        </div>
+      ) : null}
+
+      {selectionError ? (
+        <div className="px-4 pt-4">
+          <DataNotice tone="error">{selectionError}</DataNotice>
         </div>
       ) : null}
 
@@ -166,7 +206,7 @@ export default function Responses() {
                 </div>
 
                 <div className="text-lg font-bold text-[#006E7A] mb-1">
-                  {offer.price}
+                  {selectedFor(offer)?.priceLabel || offer.price}
                 </div>
                 {offer.quantityTotal > 0 ? (
                   <p className="text-xs text-gray-600 mb-2">
@@ -179,6 +219,14 @@ export default function Responses() {
             <p className="text-sm text-gray-600 mb-3 line-clamp-2 bg-white/70 p-2 rounded-lg border border-white/30">
               {offer.conditions || 'Sin condiciones adicionales.'}
             </p>
+
+            <BrandOptionPicker
+              options={offer.brandOptions}
+              selectedId={selectedFor(offer)?.id || null}
+              onSelect={(option) => handleSelectOption(offer, option)}
+              busy={selectingOfferId === offer.id}
+              name={`brand-responses-${offer.id}`}
+            />
 
             {offer.items.length > 0 ? (
               <ul className="mb-4 space-y-1.5">
@@ -210,7 +258,11 @@ export default function Responses() {
               className="py-2.5"
             >
               <MessageCircle className="w-4 h-4" />
-              {openingOfferId === offer.id ? 'ABRIENDO…' : 'CHATEAR'}
+              {openingOfferId === offer.id
+                ? 'ABRIENDO…'
+                : selectedFor(offer)
+                  ? `CHATEAR · ${selectedFor(offer).brand}`
+                  : 'CHATEAR'}
             </Button>
           </div>
         ))}

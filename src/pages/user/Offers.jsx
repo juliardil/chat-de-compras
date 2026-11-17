@@ -13,6 +13,7 @@ import {
 import Button from '../../components/ui/Button';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import OfferSortBar from '../../components/ui/OfferSortBar';
+import BrandOptionPicker from '../../components/ui/BrandOptionPicker';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
@@ -22,7 +23,9 @@ import {
   fetchBuyerRequests,
   mapOffer,
   mapRequest,
+  offerOptionAgreement,
   openChatForOffer,
+  selectOfferOption,
   NOTICES,
 } from '../../data/appData';
 
@@ -37,6 +40,9 @@ export default function Offers() {
   const { user } = useAuth();
   const [openingOfferId, setOpeningOfferId] = useState(null);
   const [chatError, setChatError] = useState('');
+  const [selectedOptions, setSelectedOptions] = useState({});
+  const [selectingOfferId, setSelectingOfferId] = useState(null);
+  const [selectionError, setSelectionError] = useState('');
   const [sortKey, setSortKey] = useState('distance');
 
   const { items, extra, loading, error, notice } = useModuleData(async () => {
@@ -100,6 +106,30 @@ export default function Offers() {
   // efecto aunque cada producto haya recibido una sola propuesta.
   const sortedGroups = sortOfferGroups(groups, sortKey);
 
+  // La elección del comprador puede venir ya guardada (recarga) o del radio
+  // que acaba de marcar en esta pantalla.
+  const selectedFor = (offer) => {
+    const id = selectedOptions[offer.id] ?? offer.selectedOption?.id ?? null;
+    return offer.brandOptions.find((option) => option.id === id) || null;
+  };
+
+  const handleSelectOption = async (offer, option) => {
+    if (selectingOfferId === offer.id || selectedFor(offer)?.id === option.id) return;
+
+    const previousId = selectedOptions[offer.id] ?? offer.selectedOption?.id ?? null;
+    setSelectionError('');
+    setSelectedOptions((current) => ({ ...current, [offer.id]: option.id }));
+    setSelectingOfferId(offer.id);
+
+    const result = await selectOfferOption({ offerId: offer.id, optionId: option.id });
+    setSelectingOfferId(null);
+
+    if (!result.ok) {
+      setSelectedOptions((current) => ({ ...current, [offer.id]: previousId }));
+      setSelectionError(result.error || 'No se pudo guardar la marca elegida.');
+    }
+  };
+
   // Abre (o crea) el hilo real entre este comprador y el comercio de la oferta.
   const handleOpenChat = async (offer) => {
     if (openingOfferId) return;
@@ -110,6 +140,7 @@ export default function Offers() {
       userId: user?.id,
       offer,
       subject: offer.store,
+      selectedOption: offerOptionAgreement(selectedFor(offer)),
     });
 
     setOpeningOfferId(null);
@@ -138,6 +169,7 @@ export default function Offers() {
 
       <div className="p-4 flex flex-col gap-4">
         {chatError ? <DataNotice tone="error">{chatError}</DataNotice> : null}
+        {selectionError ? <DataNotice tone="error">{selectionError}</DataNotice> : null}
         {loading ? <LoadingModule label="Cargando ofertas…" /> : null}
 
         {!loading && offers.length > 1 ? (
@@ -222,7 +254,9 @@ export default function Offers() {
                         </div>
                       </div>
                     </div>
-                    <span className="shrink-0 font-bold text-[#006E7A]">{offer.price}</span>
+                    <span className="shrink-0 font-bold text-[#006E7A]">
+                      {selectedFor(offer)?.priceLabel || offer.price}
+                    </span>
                   </div>
 
                   {offer.conditions ? (
@@ -230,6 +264,14 @@ export default function Offers() {
                       {offer.conditions}
                     </p>
                   ) : null}
+
+                  <BrandOptionPicker
+                    options={offer.brandOptions}
+                    selectedId={selectedFor(offer)?.id || null}
+                    onSelect={(option) => handleSelectOption(offer, option)}
+                    busy={selectingOfferId === offer.id}
+                    name={`brand-offers-${offer.id}`}
+                  />
 
                   {offer.items.length > 0 ? (
                     <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -262,7 +304,11 @@ export default function Offers() {
                     className="mt-3 py-2.5 text-sm"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    {openingOfferId === offer.id ? 'Abriendo chat…' : 'Mensajes'}
+                    {openingOfferId === offer.id
+                      ? 'Abriendo chat…'
+                      : selectedFor(offer)
+                        ? `Mensajes · ${selectedFor(offer).brand}`
+                        : 'Mensajes'}
                   </Button>
                 </article>
               ))}

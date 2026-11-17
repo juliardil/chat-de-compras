@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Responses from './Responses';
@@ -10,10 +11,12 @@ vi.mock('../../data/appData', async (importOriginal) => {
   return {
     ...actual,
     fetchBuyerOffers: vi.fn(),
+    openChatForOffer: vi.fn(),
+    selectOfferOption: vi.fn(),
   };
 });
 
-import { fetchBuyerOffers } from '../../data/appData';
+import { fetchBuyerOffers, openChatForOffer, selectOfferOption } from '../../data/appData';
 
 const renderResponses = (user = { id: 'buyer-1', role: 'user' }) =>
   render(
@@ -31,6 +34,9 @@ const renderResponses = (user = { id: 'buyer-1', role: 'user' }) =>
 describe('detalle de ofertas recibidas', () => {
   beforeEach(() => {
     fetchBuyerOffers.mockReset();
+    openChatForOffer.mockReset();
+    selectOfferOption.mockReset();
+    selectOfferOption.mockResolvedValue({ ok: true, data: null, error: null });
   });
 
   it('muestra el desglose por producto con precios y productos no disponibles', async () => {
@@ -124,5 +130,76 @@ describe('detalle de ofertas recibidas', () => {
 
     expect(await screen.findByText('Sin ubicación')).toBeInTheDocument();
     expect(screen.getByText('Sin calificación')).toBeInTheDocument();
+  });
+
+  it('muestra y guarda las opciones de marca antes de abrir el chat', async () => {
+    openChatForOffer.mockResolvedValue({
+      item: { id: 'thread-brand' },
+      error: null,
+      notice: null,
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          id: 'offer-brand',
+          request_id: 'req-1',
+          commerce_name: 'Comercio Multi',
+          total_amount: 500,
+          currency: 'MXN',
+          status: 'active',
+          items: [],
+          brand_options: [
+            {
+              id: 'mobil',
+              brand: 'Mobil',
+              price: 500,
+              available: true,
+              is_recommended: true,
+              note: 'Entrega inmediata',
+            },
+            {
+              id: 'lubrax',
+              brand: 'Lubrax',
+              price: 450,
+              available: true,
+              is_recommended: false,
+              note: 'Precio especial',
+            },
+          ],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderResponses();
+
+    expect(await screen.findByText('Opciones de marca')).toBeInTheDocument();
+    expect(screen.getByText('Entrega inmediata')).toBeInTheDocument();
+    expect(screen.getByText('Precio especial')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: /Mobil/ }));
+
+    expect(selectOfferOption).toHaveBeenCalledWith({
+      offerId: 'offer-brand',
+      optionId: 'mobil',
+    });
+
+    const chatButton = await screen.findByRole('button', { name: /chatear · mobil/i });
+    await userEvent.click(chatButton);
+
+    expect(openChatForOffer).toHaveBeenCalledWith({
+      userId: 'buyer-1',
+      offer: expect.objectContaining({ id: 'offer-brand' }),
+      subject: 'Comercio Multi',
+      selectedOption: {
+        id: 'mobil',
+        brand: 'Mobil',
+        price: 500,
+        available: true,
+        is_recommended: true,
+        note: 'Entrega inmediata',
+      },
+    });
   });
 });

@@ -26,6 +26,20 @@ const createId = () => (
 
 const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+// Opción de marca guardada en el hilo al abrir el chat desde una oferta.
+const readSelectedOption = (thread) => {
+  const stored = thread?.selected_offer_option;
+  if (!stored || typeof stored !== 'object') return null;
+
+  const price = Number(stored.price);
+  return {
+    id: stored.id || null,
+    brand: String(stored.brand || ''),
+    price: Number.isFinite(price) ? price : null,
+    note: String(stored.note || ''),
+  };
+};
+
 const createMessage = (text, sender) => ({
   id: createId(),
   text,
@@ -147,6 +161,8 @@ export const ChatProvider = ({ children }) => {
     currency: 'MXN',
     status: null,
     product: '',
+    brand: '',
+    optionNote: '',
   });
 
   // Nombre y foto de la contraparte para la cabecera del chat.
@@ -225,6 +241,8 @@ export const ChatProvider = ({ children }) => {
         currency: 'MXN',
         status: null,
         product: '',
+        brand: '',
+        optionNote: '',
       });
       setCounterpart({ id: null, name: '', avatarUrl: null });
       return;
@@ -237,15 +255,20 @@ export const ChatProvider = ({ children }) => {
     const counterpartInfo = await fetchChatCounterpart(thread, userRole);
     setCounterpart(counterpartInfo);
 
+    // La opción elegida en la oferta es el acuerdo inicial de la conversación.
+    const selected = readSelectedOption(thread);
+
     if (!thread.order_id) {
       setOrderInfo({
         id: null,
         commerceId: thread.commerce_id || null,
         number: '',
-        total: null,
+        total: selected?.price ?? null,
         currency: 'MXN',
         status: null,
-        product: '',
+        product: selected?.brand || '',
+        brand: selected?.brand || '',
+        optionNote: selected?.note || '',
       });
       return;
     }
@@ -261,6 +284,8 @@ export const ChatProvider = ({ children }) => {
       currency: order?.currency || 'MXN',
       status: order?.status || null,
       product: order?.snapshot?.product || '',
+      brand: order?.snapshot?.brand || selected?.brand || '',
+      optionNote: order?.snapshot?.selectedOption?.note || selected?.note || '',
     });
   }, [connected, userRole]);
 

@@ -464,6 +464,84 @@ export const mapRequest = (row) => ({
 });
 
 // -----------------------------------------------------------------------------
+// Opciones de marca de una oferta
+// -----------------------------------------------------------------------------
+// Las ofertas nuevas guardan un arreglo `brand_options`. Las antiguas solo
+// tenían `total_amount`: se presentan como una única opción por defecto para
+// que la interfaz no cambie de forma (y la selección siga funcionando).
+export const DEFAULT_OFFER_BRAND = 'Opción estándar';
+const LEGACY_OPTION_ID = 'legacy-default';
+
+const finiteNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+export const normalizeBrandOptions = (row) => {
+  const rawOptions = Array.isArray(row?.brand_options) ? row.brand_options : [];
+  const options = rawOptions
+    .map((option, index) => ({
+      id: String(option?.id ?? `option-${index + 1}`),
+      brand: String(option?.brand ?? '').trim(),
+      price: finiteNumber(option?.price),
+      available: option?.available !== false,
+      isRecommended: Boolean(option?.is_recommended ?? option?.isRecommended),
+      note: String(option?.note ?? '').trim(),
+    }))
+    .filter((option) => option.brand && option.price !== null);
+
+  if (options.length > 0) return options;
+
+  const amount = finiteNumber(row?.total_amount);
+  if (amount === null || amount <= 0) return [];
+
+  return [
+    {
+      id: LEGACY_OPTION_ID,
+      brand: DEFAULT_OFFER_BRAND,
+      price: amount,
+      available: true,
+      isRecommended: true,
+      note: '',
+    },
+  ];
+};
+
+// Instantánea que se guarda en el hilo de chat como acuerdo inicial.
+export const offerOptionAgreement = (option) =>
+  option
+    ? {
+        id: option.id,
+        brand: option.brand,
+        price: option.price,
+        available: option.available !== false,
+        is_recommended: Boolean(option.isRecommended),
+        note: option.note || '',
+      }
+    : null;
+
+export const getSelectedOfferOption = (row, currency = row?.currency) => {
+  const stored =
+    row?.selected_option && typeof row.selected_option === 'object' ? row.selected_option : null;
+  if (!stored) return null;
+
+  const options = normalizeBrandOptions(row);
+  const id = stored.id != null ? String(stored.id) : null;
+  const storedPrice = finiteNumber(stored.price);
+  const match = options.find(
+    (option) =>
+      (id && option.id === id) ||
+      (option.brand === String(stored.brand || '').trim() &&
+        storedPrice !== null &&
+        option.price === storedPrice)
+  );
+
+  if (!match) return null;
+  return { ...match, selectedAt: row?.selected_at || null, currency: currency || 'MXN' };
+};
+
+// -----------------------------------------------------------------------------
 // Ofertas recibidas por el comprador
 // -----------------------------------------------------------------------------
 export const fetchBuyerOffers = async (userId) => {
@@ -575,6 +653,15 @@ export const mapOffer = (row, buyerLocation = null) => {
     row.commerce_longitude
   );
 
+  const brandOptions = normalizeBrandOptions(row).map((option) => ({
+    ...option,
+    priceLabel: formatCurrency(option.price, row.currency),
+  }));
+  const chosen = getSelectedOfferOption(row, row.currency);
+  const selectedOption = chosen
+    ? { ...chosen, priceLabel: formatCurrency(chosen.price, row.currency) }
+    : null;
+
   return {
     id: row.id,
     requestId: row.request_id,
@@ -593,6 +680,9 @@ export const mapOffer = (row, buyerLocation = null) => {
     ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
     conditions: row.conditions || '',
     status: row.status,
+    brandOptions,
+    selectedOption,
+    selectedAt: row.selected_at || null,
     found: availableItems.length,
     total: items.length,
     // Solo las unidades que el comercio sí cotizó.
@@ -620,6 +710,44 @@ export const mapOffer = (row, buyerLocation = null) => {
       };
     }),
   };
+};
+
+// Guarda la marca elegida por el comprador. La política RLS de purchase_offers
+// solo deja escribir al comercio, así que se usa el RPC que valida al comprador
+// titular de la solicitud.
+export const selectOfferOption = async ({ offerId, optionId }) => {
+  if (!isInsforgeConfigured) {
+    return {
+      ok: false,
+      data: null,
+      skipped: true,
+      error: `No se guardó nada: ${NOTICES.demo}`,
+    };
+  }
+  if (!offerId || !optionId) {
+    return { ok: false, data: null, error: 'No se indicó la opción elegida.' };
+  }
+
+  try {
+    const { data, error } = await insforge.database.rpc('app_select_offer_option', {
+      p_offer_id: offerId,
+      p_option_id: String(optionId),
+    });
+    if (error) {
+      return {
+        ok: false,
+        data: null,
+        error: describeError(error, 'No se pudo guardar la marca elegida.'),
+      };
+    }
+    return { ok: true, data: data ?? null, error: null };
+  } catch (error) {
+    return {
+      ok: false,
+      data: null,
+      error: describeError(error, 'No se pudo guardar la marca elegida.'),
+    };
+  }
 };
 
 // -----------------------------------------------------------------------------
@@ -809,7 +937,20 @@ export const createOrderForChat = async ({ chatId, shipping }) => {
     NOTICES.orders
   );
 
+  // La marca elegida por el comprador fija el importe del pedido: si la oferta
+  // tiene varias opciones, el precio de la elegida reemplaza al precio base.
+  const selectedOption =
+    getSelectedOfferOption(offer) ||
+    (thread.selected_offer_option
+      ? getSelectedOfferOption({ ...offer, selected_option: thread.selected_offer_option })
+      : null);
+  const offerAmount = finiteNumber(offer.total_amount);
+  const effectiveTotal = selectedOption?.price > 0 ? selectedOption.price : offerAmount ?? 0;
+
   const items = Array.isArray(offer.items) ? offer.items : [];
+  const orderItems = selectedOption
+    ? items.map((item) => ({ ...item, brand: selectedOption.brand }))
+    : items;
   const firstAvailable = items.find((item) => item && item.available !== false) || items[0] || {};
 
   let product =
@@ -833,6 +974,16 @@ export const createOrderForChat = async ({ chatId, shipping }) => {
     address: formatShippingAddress(normalizedShipping),
     shipping: normalizedShipping,
     placedAt: new Date().toISOString(),
+    // Acuerdo inicial fijado en el chat: marca, precio y nota elegidos.
+    brand: selectedOption?.brand || '',
+    selectedOption: selectedOption
+      ? {
+          id: selectedOption.id,
+          brand: selectedOption.brand,
+          price: selectedOption.price,
+          note: selectedOption.note || '',
+        }
+      : null,
   };
 
   let lastError = 'No se pudo registrar el pedido.';
@@ -849,10 +1000,10 @@ export const createOrderForChat = async ({ chatId, shipping }) => {
             buyer_id: thread.buyer_id,
             commerce_id: commerceId,
             status: 'pending',
-            total_amount: offer.total_amount ?? 0,
+            total_amount: Number(effectiveTotal.toFixed(2)),
             currency: offer.currency || 'MXN',
             snapshot,
-            items,
+            items: orderItems,
           },
         ]),
       'No se pudo registrar el pedido.'
@@ -1148,6 +1299,7 @@ export const ensureChatThread = async ({
   subject,
   orderId = null,
   offerId = null,
+  selectedOption = null,
 }) => {
   if (!isInsforgeConfigured) {
     return { item: null, error: null, notice: NOTICES.demo };
@@ -1178,13 +1330,23 @@ export const ensureChatThread = async ({
     // La oferta es el contexto de la compra. Se sincroniza al abrir el chat
     // desde una oferta; si ya había un pedido de otra oferta, la nueva oferta
     // representa una compra nueva (el pedido anterior se conserva intacto).
+    // La opción elegida se guarda también en el hilo para que el acuerdo sea
+    // visible para ambos lados. Si se abre otra oferta sin elección, se limpia.
+    const patch = {};
     if (offerId && thread.offer_id !== offerId) {
+      patch.offer_id = offerId;
+      patch.selected_offer_option = selectedOption || null;
+    } else if (selectedOption) {
+      patch.selected_offer_option = selectedOption;
+    }
+
+    if (Object.keys(patch).length > 0) {
       const updated = await runWrite(
-        (db) => db.from('chat_threads').update({ offer_id: offerId }).eq('id', thread.id),
+        (db) => db.from('chat_threads').update(patch).eq('id', thread.id),
         'No se pudo preparar la compra en esta conversación.'
       );
       if (updated.ok) {
-        return { item: { ...thread, offer_id: offerId }, error: null, notice: null };
+        return { item: { ...thread, ...patch }, error: null, notice: null };
       }
       return { item: thread, error: updated.error, notice: null };
     }
@@ -1200,6 +1362,7 @@ export const ensureChatThread = async ({
           commerce_id: commerceId,
           order_id: orderId,
           offer_id: offerId,
+          selected_offer_option: selectedOption || null,
           subject: subject || 'Conversación',
           status: 'active',
         },
@@ -1231,7 +1394,7 @@ const fetchChatThreadFromPair = async (buyerId, commerceId) => {
 };
 
 // Abre (o crea) la conversación del comprador con el comercio de una oferta.
-export const openChatForOffer = async ({ userId, offer, subject }) => {
+export const openChatForOffer = async ({ userId, offer, subject, selectedOption = null }) => {
   const guard = requireUserId(userId, NOTICES.chats);
   if (guard) return { ...guard, item: null };
 
@@ -1257,6 +1420,7 @@ export const openChatForOffer = async ({ userId, offer, subject }) => {
     commerceId: offer.commerceId,
     subject: subject || offer.store || 'Conversación',
     offerId: offer.id || null,
+    selectedOption,
   });
 };
 

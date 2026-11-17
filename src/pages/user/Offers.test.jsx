@@ -13,10 +13,16 @@ vi.mock('../../data/appData', async (importOriginal) => {
     fetchBuyerOffers: vi.fn(),
     fetchBuyerRequests: vi.fn(),
     openChatForOffer: vi.fn(),
+    selectOfferOption: vi.fn(),
   };
 });
 
-import { fetchBuyerOffers, fetchBuyerRequests, openChatForOffer } from '../../data/appData';
+import {
+  fetchBuyerOffers,
+  fetchBuyerRequests,
+  openChatForOffer,
+  selectOfferOption,
+} from '../../data/appData';
 
 const offer = (id, requestId, store, amount) => ({
   id,
@@ -29,6 +35,28 @@ const offer = (id, requestId, store, amount) => ({
   conditions: 'Pago contra entrega',
   status: 'sent',
   items: [{ name: 'Pastillas', available: true }],
+});
+
+const multiBrandOffer = () => ({
+  ...offer('offer-multi', 'req-1', 'Comercio Multi', 500),
+  brand_options: [
+    {
+      id: 'mobil',
+      brand: 'Mobil',
+      price: 500,
+      available: true,
+      is_recommended: true,
+      note: 'Mejor rendimiento',
+    },
+    {
+      id: 'lubrax',
+      brand: 'Lubrax',
+      price: 450,
+      available: true,
+      is_recommended: false,
+      note: 'Opción económica',
+    },
+  ],
 });
 
 const request = (id, title) => ({
@@ -63,6 +91,8 @@ describe('sección Ofertas del comprador', () => {
     fetchBuyerOffers.mockReset();
     fetchBuyerRequests.mockReset();
     openChatForOffer.mockReset();
+    selectOfferOption.mockReset();
+    selectOfferOption.mockResolvedValue({ ok: true, data: null, error: null });
   });
 
   it('agrupa las ofertas por producto y conserva el comercio de cada oferta', async () => {
@@ -158,8 +188,88 @@ describe('sección Ofertas del comprador', () => {
         store: 'Comercio A',
       }),
       subject: 'Comercio A',
+      selectedOption: null,
     });
     expect(await screen.findByText('Conversación abierta: thread-1')).toBeInTheDocument();
+  });
+
+  it('lista las marcas, guarda la elegida y la fija como acuerdo del chat', async () => {
+    openChatForOffer.mockResolvedValue({
+      item: { id: 'thread-multi' },
+      error: null,
+      notice: null,
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [multiBrandOffer()],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByText('Opciones de marca')).toBeInTheDocument();
+    expect(screen.getByText('Recomendada')).toBeInTheDocument();
+    expect(screen.getByText('Mejor rendimiento')).toBeInTheDocument();
+    expect(screen.getByText('Opción económica')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: /Lubrax/ }));
+
+    expect(selectOfferOption).toHaveBeenCalledWith({
+      offerId: 'offer-multi',
+      optionId: 'lubrax',
+    });
+    expect(screen.getAllByText('$450.00').length).toBeGreaterThan(0);
+
+    const chatButton = await screen.findByRole('button', { name: /mensajes · lubrax/i });
+    await userEvent.click(chatButton);
+
+    expect(openChatForOffer).toHaveBeenCalledWith({
+      userId: 'buyer-1',
+      offer: expect.objectContaining({ id: 'offer-multi' }),
+      subject: 'Comercio Multi',
+      selectedOption: {
+        id: 'lubrax',
+        brand: 'Lubrax',
+        price: 450,
+        available: true,
+        is_recommended: false,
+        note: 'Opción económica',
+      },
+    });
+    expect(await screen.findByText('Conversación abierta: thread-multi')).toBeInTheDocument();
+  });
+
+  it('revierte la elección si el backend no puede guardarla', async () => {
+    selectOfferOption.mockResolvedValue({
+      ok: false,
+      error: 'No tienes permiso para elegir esta opción.',
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [multiBrandOffer()],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    const lubrax = await screen.findByRole('radio', { name: /Lubrax/ });
+    await userEvent.click(lubrax);
+
+    expect(
+      await screen.findByText('No tienes permiso para elegir esta opción.')
+    ).toBeInTheDocument();
+    expect(lubrax).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Mensajes' })).toBeInTheDocument();
   });
 
   it('muestra un aviso si no se puede abrir la conversación', async () => {

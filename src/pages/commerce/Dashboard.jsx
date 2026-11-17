@@ -13,6 +13,7 @@ import {
   mapOpportunity,
   createOffer,
   formatCurrency,
+  DEFAULT_OFFER_BRAND,
   NOTICES,
 } from '../../data/appData';
 import {
@@ -27,6 +28,7 @@ import {
   X,
   ChevronRight,
   Flame,
+  Plus,
   Menu,
   Settings,
   History,
@@ -62,12 +64,27 @@ const startedToday = (value) => {
   );
 };
 
+const createOptionKey = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `brand-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const emptyBrandOption = () => ({
+  key: createOptionKey(),
+  brand: '',
+  price: '',
+  note: '',
+  available: true,
+  isRecommended: false,
+});
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [offeringId, setOfferingId] = useState(null);
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [offerItems, setOfferItems] = useState([]);
+  const [offerOptions, setOfferOptions] = useState([]);
   const [closingMessage, setClosingMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [offerError, setOfferError] = useState('');
@@ -214,6 +231,7 @@ export default function Dashboard() {
         notes: '',
       }))
     );
+    setOfferOptions([emptyBrandOption()]);
     setClosingMessage('');
     setOfferError('');
     setOfferSuccess(false);
@@ -224,6 +242,19 @@ export default function Dashboard() {
       current.map((item) => (item.key === key ? { ...item, ...patch } : item))
     );
   };
+
+  const updateOfferOption = (key, patch) => {
+    setOfferOptions((current) =>
+      current.map((option) => (option.key === key ? { ...option, ...patch } : option))
+    );
+  };
+
+  const addOfferOption = () => setOfferOptions((current) => [...current, emptyBrandOption()]);
+
+  const removeOfferOption = (key) =>
+    setOfferOptions((current) =>
+      current.length > 1 ? current.filter((option) => option.key !== key) : current
+    );
 
   const quotedItems = offerItems.filter((item) => item.available);
   const quotedUnits = quotedItems.reduce((total, item) => total + item.quantity, 0);
@@ -282,6 +313,45 @@ export default function Dashboard() {
       return;
     }
 
+    // Opciones de marca. Si el comercio no completó ninguna, se genera una
+    // opción única con el total cotizado: mantiene el flujo anterior intacto.
+    const hasBrandData = offerOptions.some(
+      (option) =>
+        String(option.brand || '').trim() ||
+        Number(option.price) > 0 ||
+        String(option.note || '').trim()
+    );
+    const brandOptions = hasBrandData
+      ? offerOptions
+          .map((option) => ({
+            id: option.key,
+            brand: String(option.brand || '').trim(),
+            price: Number(option.price),
+            available: option.available !== false,
+            is_recommended: Boolean(option.isRecommended),
+            note: String(option.note || '').trim(),
+          }))
+          .filter((option) => option.brand && option.price > 0)
+      : [
+          {
+            id: createOptionKey(),
+            brand: DEFAULT_OFFER_BRAND,
+            price: Number(totalAmount.toFixed(2)),
+            available: true,
+            is_recommended: true,
+            note: '',
+          },
+        ];
+
+    if (brandOptions.length === 0) {
+      setOfferError('Escribe la marca y el precio de al menos una opción.');
+      return;
+    }
+    if (!brandOptions.some((option) => option.available)) {
+      setOfferError('Marca al menos una opción de marca como disponible.');
+      return;
+    }
+
     setSending(true);
     setOfferError('');
 
@@ -293,6 +363,7 @@ export default function Dashboard() {
       conditions: closingMessage.trim() || null,
       status: 'active',
       items,
+      brand_options: brandOptions,
     });
 
     setSending(false);
@@ -595,6 +666,138 @@ export default function Dashboard() {
                             «No lo tengo».
                           </p>
                         ) : null}
+
+                        <div className="rounded-xl bg-white/60 border border-white/40 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                              Opciones de marca
+                            </p>
+                            <button
+                              type="button"
+                              onClick={addOfferOption}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-[#006E7A] hover:underline"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Agregar marca
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-gray-600 mt-1">
+                            Ofrece varias marcas con su precio. El comprador elegirá una y esa
+                            opción quedará fijada como acuerdo inicial del chat.
+                          </p>
+
+                          <div className="mt-2 space-y-2">
+                            {offerOptions.map((option, index) => (
+                              <div
+                                key={option.key}
+                                className="rounded-lg bg-white/70 border border-white/40 p-2.5 space-y-2"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-bold text-[#006E7A]">
+                                    Opción {index + 1}
+                                  </span>
+                                  {offerOptions.length > 1 ? (
+                                    <button
+                                      type="button"
+                                      aria-label={`Quitar opción ${index + 1}`}
+                                      onClick={() => removeOfferOption(option.key)}
+                                      className="p-1 text-gray-500 hover:text-gray-800 hover:bg-white/70 rounded"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : null}
+                                </div>
+
+                                <input
+                                  type="text"
+                                  aria-label={`Marca de la opción ${index + 1}`}
+                                  className="w-full bg-white/70 border border-[#4B227A]/20 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF]"
+                                  placeholder="Ej. Mobil, Lubrax…"
+                                  value={option.brand}
+                                  onChange={(e) =>
+                                    updateOfferOption(option.key, { brand: e.target.value })
+                                  }
+                                />
+
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    aria-label={`Precio de la opción ${index + 1}`}
+                                    className="w-full bg-white/70 border border-[#4B227A]/20 rounded-lg pl-7 pr-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF]"
+                                    placeholder="Precio total de esta marca"
+                                    value={option.price}
+                                    onChange={(e) =>
+                                      updateOfferOption(option.key, { price: e.target.value })
+                                    }
+                                  />
+                                </div>
+
+                                <input
+                                  type="text"
+                                  aria-label={`Nota de la opción ${index + 1}`}
+                                  className="w-full bg-white/70 border border-[#4B227A]/20 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF]"
+                                  placeholder="Nota o recomendación (opcional)"
+                                  value={option.note}
+                                  onChange={(e) =>
+                                    updateOfferOption(option.key, { note: e.target.value })
+                                  }
+                                />
+
+                                <div className="flex flex-wrap gap-1.5">
+                                  <button
+                                    type="button"
+                                    aria-pressed={option.available}
+                                    onClick={() =>
+                                      updateOfferOption(option.key, { available: true })
+                                    }
+                                    className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                                      option.available
+                                        ? 'bg-[#00EED0]/25 text-[#4B227A] border-[#00EED0]/50'
+                                        : 'bg-white/70 text-gray-600 border-white/40'
+                                    }`}
+                                  >
+                                    Disponible
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-pressed={!option.available}
+                                    onClick={() =>
+                                      updateOfferOption(option.key, { available: false })
+                                    }
+                                    className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                                      !option.available
+                                        ? 'bg-[#4B227A]/20 text-[#4B227A] border-[#4B227A]/40'
+                                        : 'bg-white/70 text-gray-600 border-white/40'
+                                    }`}
+                                  >
+                                    No disponible
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-pressed={option.isRecommended}
+                                    onClick={() =>
+                                      updateOfferOption(option.key, {
+                                        isRecommended: !option.isRecommended,
+                                      })
+                                    }
+                                    className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                                      option.isRecommended
+                                        ? 'bg-[#4B227A]/15 text-[#4B227A] border-[#4B227A]/40'
+                                        : 'bg-white/70 text-gray-600 border-white/40'
+                                    }`}
+                                  >
+                                    Recomendada
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
                         <div className="relative">
                           <textarea

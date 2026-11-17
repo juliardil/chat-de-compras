@@ -143,6 +143,16 @@ describe('panel de oportunidades del comercio', () => {
           totalPrice: 500,
         },
       ],
+      brand_options: [
+        {
+          id: expect.any(String),
+          brand: 'Opción estándar',
+          price: 500,
+          available: true,
+          is_recommended: true,
+          note: '',
+        },
+      ],
     });
   });
 
@@ -210,5 +220,47 @@ describe('panel de oportunidades del comercio', () => {
       await screen.findByText(/marca al menos un producto como «lo tengo»/i)
     ).toBeInTheDocument();
     expect(createOffer).not.toHaveBeenCalled();
+  });
+
+  it('envía varias opciones de marca con precio, nota y recomendación', async () => {
+    renderDashboard();
+
+    await userEvent.click(await screen.findByRole('button', { name: /ofertar ahora/i }));
+    await userEvent.type(await screen.findByLabelText('Precio unitario de Bafles'), '250');
+
+    await userEvent.type(screen.getByLabelText('Marca de la opción 1'), 'Mobil');
+    await userEvent.type(screen.getByLabelText('Precio de la opción 1'), '480');
+    await userEvent.type(
+      screen.getByLabelText('Nota de la opción 1'),
+      'Mejor rendimiento'
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /agregar marca/i }));
+    await userEvent.type(screen.getByLabelText('Marca de la opción 2'), 'Lubrax');
+    await userEvent.type(screen.getByLabelText('Precio de la opción 2'), '450');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Recomendada' })[1]);
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
+
+    expect(await screen.findByText('Oferta enviada')).toBeInTheDocument();
+    expect(createOffer).toHaveBeenCalledTimes(1);
+    expect(createOffer.mock.calls[0][0].brand_options).toEqual([
+      {
+        id: expect.any(String),
+        brand: 'Mobil',
+        price: 480,
+        available: true,
+        is_recommended: false,
+        note: 'Mejor rendimiento',
+      },
+      {
+        id: expect.any(String),
+        brand: 'Lubrax',
+        price: 450,
+        available: true,
+        is_recommended: true,
+        note: '',
+      },
+    ]);
   });
 });

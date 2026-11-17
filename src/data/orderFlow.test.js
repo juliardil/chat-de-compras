@@ -170,6 +170,55 @@ describe('pedido creado desde el chat', () => {
     expect(link.payload).toEqual({ order_id: 'order-1', offer_id: 'offer-1' });
   });
 
+  it('usa la marca elegida por el comprador como importe y acuerdo del pedido', async () => {
+    harness.offer.brand_options = [
+      { id: 'mobil', brand: 'Mobil', price: 480, available: true, is_recommended: true, note: 'Rendimiento' },
+    ];
+    harness.offer.selected_option = { id: 'mobil', brand: 'Mobil', price: 480 };
+
+    const result = await createOrderForChat({ chatId: 'thread-1', shipping });
+
+    expect(result.ok).toBe(true);
+
+    const insert = harness.writes.find(
+      (write) => write.table === 'purchase_orders' && write.operation === 'insert'
+    );
+    const order = insert.payload[0];
+
+    expect(order.total_amount).toBe(480);
+    expect(order.items[0].brand).toBe('Mobil');
+    expect(order.snapshot).toMatchObject({
+      brand: 'Mobil',
+      selectedOption: {
+        id: 'mobil',
+        brand: 'Mobil',
+        price: 480,
+        note: 'Rendimiento',
+      },
+    });
+  });
+
+  it('recupera la marca acordada desde el hilo si la oferta no trae la elección', async () => {
+    harness.threads[0].selected_offer_option = {
+      id: 'mobil',
+      brand: 'Mobil',
+      price: 480,
+      note: 'Rendimiento',
+    };
+    harness.offer.brand_options = [
+      { id: 'mobil', brand: 'Mobil', price: 480, available: true, is_recommended: true, note: 'Rendimiento' },
+    ];
+
+    const result = await createOrderForChat({ chatId: 'thread-1', shipping });
+
+    expect(result.ok).toBe(true);
+
+    const insert = harness.writes.find(
+      (write) => write.table === 'purchase_orders' && write.operation === 'insert'
+    );
+    expect(insert.payload[0].total_amount).toBe(480);
+  });
+
   it('reutiliza el pedido existente en lugar de crear otro', async () => {
     harness.threads[0].order_id = 'order-existente';
 
