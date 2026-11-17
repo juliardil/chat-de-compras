@@ -1082,6 +1082,81 @@ export function createInsforgeRepository(insforge) {
       };
     },
 
+    // -------------------------------------------------------------------------
+    // Comunidades / clubes de compradores
+    // -------------------------------------------------------------------------
+    async listGroups({ search = '' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_groups', {
+        p_search: search.trim() || null,
+      });
+      throwIfError(error, 'No se pudieron cargar los clubes.');
+      return asArray(data).map((row) => ({
+        id: row.id,
+        name: row.name,
+        inviteCode: row.invite_code,
+        createdBy: row.created_by,
+        ownerName: row.owner_name,
+        createdAt: row.created_at,
+        memberCount: Number(row.member_count || 0),
+        minMembers: Number(row.min_members || 0),
+        isVerified: Boolean(row.is_verified),
+      }));
+    },
+
+    async getGroup({ groupId }) {
+      const { data, error } = await insforge.database.rpc('admin_get_group', {
+        p_group_id: groupId,
+      });
+      throwIfError(error, 'No se pudo cargar el club.');
+
+      const rows = asArray(data);
+      const first = rows[0] || {};
+      const members = rows
+        .filter((row) => row.member_user_id)
+        .map((row) => ({
+          userId: row.member_user_id,
+          displayName: row.member_display_name,
+          email: row.member_email,
+          role: row.member_role,
+          joinedAt: row.member_joined_at,
+        }));
+      const memberCount = Number(first.member_count || members.length);
+      const minMembers = Number(first.min_members || 0);
+
+      return {
+        id: first.group_id,
+        name: first.group_name,
+        inviteCode: first.invite_code,
+        createdAt: first.created_at,
+        memberCount,
+        minMembers,
+        isVerified: memberCount >= minMembers,
+        members,
+      };
+    },
+
+    async getGroupSettings({ actor: _actor } = {}) {
+      const { data, error } = await insforge.database
+        .from('group_settings')
+        .select('min_members,updated_at')
+        .eq('id', true)
+        .limit(1);
+      throwIfError(error, 'No se pudo cargar la configuración de clubes.');
+      const row = asArray(data)[0];
+      return {
+        minMembers: Number(row?.min_members || 0),
+        updatedAt: row?.updated_at || null,
+      };
+    },
+
+    async setGroupMinMembers({ minMembers }) {
+      const { data, error } = await insforge.database.rpc('admin_set_group_min_members', {
+        p_min_members: minMembers,
+      });
+      throwIfError(error, 'No se pudo actualizar el mínimo de participantes.');
+      return Array.isArray(data) ? data[0] : data;
+    },
+
     async globalSearch({ query = '' } = {}) {
       const { data, error } = await insforge.database.rpc('admin_global_search', {
         p_query: String(query || '').trim(),

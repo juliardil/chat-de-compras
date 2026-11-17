@@ -12,12 +12,17 @@ import {
   ROLES,
 } from './permissions';
 
-const MIGRATION_PATH = path.resolve(
-  globalThis.process.cwd(),
-  'migrations/20261106000000_admin-foundation.sql'
+const MIGRATIONS_DIR = path.resolve(globalThis.process.cwd(), 'migrations');
+const FOUNDATION_MIGRATION = path.resolve(
+  MIGRATIONS_DIR,
+  '20261106000000_admin-foundation.sql'
+);
+const COMMUNITIES_MIGRATION = path.resolve(
+  MIGRATIONS_DIR,
+  '20261117020000_groups-communities.sql'
 );
 
-const readMigration = () => readFileSync(MIGRATION_PATH, 'utf8');
+const readMigration = (migrationPath) => readFileSync(migrationPath, 'utf8');
 
 const extractSeededPermissionKeys = (sql) => {
   const section = sql.split('insert into public.admin_permissions')[1] || '';
@@ -113,12 +118,15 @@ describe('groupPermissionsByModule', () => {
 
 describe('consistencia con la migración de Fase 1', () => {
   it('siembra exactamente los permisos del catálogo', () => {
-    const seeded = extractSeededPermissionKeys(readMigration()).sort();
+    // El catálogo se siembra en la migración fundacional y en la de comunidades.
+    const seeded = [FOUNDATION_MIGRATION, COMMUNITIES_MIGRATION]
+      .flatMap((migrationPath) => extractSeededPermissionKeys(readMigration(migrationPath)))
+      .sort();
     expect(seeded).toEqual([...ALL_PERMISSION_KEYS].sort());
   });
 
   it('siembra exactamente los roles del catálogo', () => {
-    const seeded = extractSeededRoleKeys(readMigration()).sort();
+    const seeded = extractSeededRoleKeys(readMigration(FOUNDATION_MIGRATION)).sort();
     expect(seeded).toEqual(ROLES.map((role) => role.key).sort());
   });
 });

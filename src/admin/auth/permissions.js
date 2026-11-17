@@ -11,6 +11,9 @@ export const PERMISSION_CATALOG = [
   { key: 'users.block', module: 'Compradores', label: 'Bloquear compradores', sensitive: true },
   { key: 'users.delete', module: 'Compradores', label: 'Anonimizar o eliminar compradores', sensitive: true },
 
+  { key: 'communities.view', module: 'Comunidades', label: 'Ver clubes de compradores', sensitive: false },
+  { key: 'communities.configure', module: 'Comunidades', label: 'Configurar el mínimo de participantes', sensitive: true },
+
   { key: 'commerce.view', module: 'Comercios', label: 'Ver comercios', sensitive: false },
   { key: 'commerce.approve', module: 'Comercios', label: 'Aprobar comercios', sensitive: true },
   { key: 'commerce.reject', module: 'Comercios', label: 'Rechazar comercios', sensitive: true },

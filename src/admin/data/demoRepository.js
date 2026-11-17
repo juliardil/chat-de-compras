@@ -109,6 +109,53 @@ const writeJson = (key, value) => {
   }
 };
 
+// Datos del módulo de comunidades en modo demostración. Solo se usan cuando no
+// hay backend InsForge configurado; nunca se mezclan con datos reales.
+function buildGroupsSeed() {
+  return {
+    groups: [
+      {
+        id: 'demo-group-1',
+        name: 'Club de repuestos del sur',
+        inviteCode: 'DEMO7A2B',
+        createdBy: 'demo-buyer-1',
+        createdAt: hoursAgo(24 * 12),
+        members: [
+          {
+            userId: 'demo-buyer-1',
+            displayName: 'Camila Rojas',
+            email: 'camila.demo@demo.local',
+            role: 'owner',
+            joinedAt: hoursAgo(24 * 12),
+          },
+          {
+            userId: 'demo-buyer-2',
+            displayName: 'Luis Méndez',
+            email: 'luis.demo@demo.local',
+            role: 'member',
+            joinedAt: hoursAgo(24 * 10),
+          },
+          {
+            userId: 'demo-buyer-3',
+            displayName: 'Sara Pinto',
+            email: 'sara.demo@demo.local',
+            role: 'member',
+            joinedAt: hoursAgo(24 * 8),
+          },
+          {
+            userId: 'demo-buyer-4',
+            displayName: 'Iván Castro',
+            email: 'ivan.demo@demo.local',
+            role: 'member',
+            joinedAt: hoursAgo(24 * 6),
+          },
+        ],
+      },
+    ],
+    groupSettings: { minMembers: 5, updatedAt: hoursAgo(24 * 12) },
+  };
+}
+
 function buildSeed() {
   const members = DEMO_ACCOUNTS.map((account, index) => ({
     id: `demo-member-${index + 1}`,
@@ -131,6 +178,7 @@ function buildSeed() {
     ...phase3,
     ...phase4,
     ...phase5,
+    ...buildGroupsSeed(),
     members,
     invitations: [
       {
@@ -244,6 +292,8 @@ function upgradeStore(stored) {
     paymentPayouts: Array.isArray(stored.paymentPayouts)
       ? stored.paymentPayouts
       : phase5.paymentPayouts,
+    groups: Array.isArray(stored.groups) ? stored.groups : buildGroupsSeed().groups,
+    groupSettings: stored.groupSettings || buildGroupsSeed().groupSettings,
     audit: Array.isArray(stored.audit) ? stored.audit : [],
   };
 
@@ -3671,6 +3721,96 @@ export const demoRepository = {
       count: entries.length,
       generatedAt: nowIso(),
     };
+  },
+
+  // ---------------------------------------------------------------------------
+  // Comunidades / clubes de compradores
+  // ---------------------------------------------------------------------------
+  async listGroups({ search = '', actor } = {}) {
+    requirePermission(actor, 'communities.view', 'No tienes permiso para ver los clubes.');
+
+    const store = readStore();
+    const term = search.trim().toLowerCase();
+    const minMembers = store.groupSettings?.minMembers ?? 5;
+    const groups = Array.isArray(store.groups) ? store.groups : [];
+
+    return groups
+      .filter((group) => {
+        if (!term) return true;
+        return [group.name, group.inviteCode, group.createdBy]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .map((group) => {
+        const members = Array.isArray(group.members) ? group.members : [];
+        return {
+          ...group,
+          memberCount: members.length,
+          minMembers,
+          isVerified: members.length >= minMembers,
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+
+  async getGroup({ groupId, actor } = {}) {
+    requirePermission(actor, 'communities.view', 'No tienes permiso para auditar los clubes.');
+
+    const store = readStore();
+    const group = (Array.isArray(store.groups) ? store.groups : []).find(
+      (item) => item.id === groupId
+    );
+    if (!group) throw new Error('El club no existe.');
+
+    const minMembers = store.groupSettings?.minMembers ?? 5;
+    const members = Array.isArray(group.members) ? group.members : [];
+    return {
+      ...group,
+      memberCount: members.length,
+      minMembers,
+      isVerified: members.length >= minMembers,
+      members,
+    };
+  },
+
+  async getGroupSettings({ actor } = {}) {
+    requirePermission(actor, 'communities.view', 'No tienes permiso para ver los clubes.');
+    const store = readStore();
+    const settings = store.groupSettings || buildGroupsSeed().groupSettings;
+    return {
+      minMembers: settings.minMembers ?? 5,
+      updatedAt: settings.updatedAt || null,
+    };
+  },
+
+  async setGroupMinMembers({ minMembers, actor } = {}) {
+    requirePermission(
+      actor,
+      'communities.configure',
+      'No tienes permiso para configurar los clubes.'
+    );
+
+    const value = Number(minMembers);
+    if (!Number.isInteger(value) || value < 1 || value > 1000) {
+      throw new Error('El mínimo de participantes debe estar entre 1 y 1000.');
+    }
+
+    const store = readStore();
+    const updatedAt = nowIso();
+    store.groupSettings = { minMembers: value, updatedAt };
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || null,
+      actorRole: actor?.roleKey || null,
+      action: 'communities.configure_min_members',
+      module: 'Comunidades',
+      entityType: 'group_settings',
+      entityId: 'global',
+      metadata: { minMembers: value, mode: 'demo' },
+    });
+    saveStore(store);
+
+    return { minMembers: value, updatedAt };
   },
 
   async globalSearch({ query = '', actor } = {}) {

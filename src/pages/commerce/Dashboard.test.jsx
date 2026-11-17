@@ -325,4 +325,30 @@ describe('panel de oportunidades del comercio', () => {
     expect(items[0].brand_options).toHaveLength(1);
     expect(items[1].brand_options).toEqual([]);
   });
+
+  it('muestra la insignia del club verificado en la tarjeta y en el detalle', async () => {
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          buyer_group: {
+            name: 'Club Norte',
+            memberCount: 6,
+            minMembers: 5,
+            isVerified: true,
+          },
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+
+    expect(await screen.findAllByText(/Club Norte · 6 miembros/i)).toHaveLength(1);
+
+    await userEvent.click(await screen.findByRole('button', { name: /ver detalles/i }));
+    const dialog = await screen.findByRole('dialog', { name: /detalle de la oportunidad/i });
+    expect(within(dialog).getByText(/Club Norte · 6 miembros/i)).toBeInTheDocument();
+  });
 });

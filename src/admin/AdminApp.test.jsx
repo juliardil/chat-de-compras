@@ -187,4 +187,25 @@ describe('panel administrativo (modo demostración)', () => {
     expect(within(sidebar).queryByRole('link', { name: /^analítica/i })).not.toBeInTheDocument();
     expect(within(sidebar).queryByRole('link', { name: /^pagos/i })).not.toBeInTheDocument();
   });
+
+  it('abre comunidades con el listado de clubes y la auditoría de miembros', async () => {
+    renderAdmin();
+    const user = await loginWithDemoAccount('superadmin@demo.local');
+
+    await screen.findByRole('heading', { level: 1, name: /panel de control/i });
+    const sidebar = screen.getByRole('complementary', { name: /menú administrativo/i });
+
+    await user.click(within(sidebar).getByRole('link', { name: /comunidades/i }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /^comunidades$/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/clubes de demostración/i)).toBeInTheDocument();
+    expect(screen.getByText('Club de repuestos del sur')).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /auditar miembros/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Camila Rojas')).toBeInTheDocument();
+    expect(within(dialog).getByText('Luis Méndez')).toBeInTheDocument();
+  });
 });

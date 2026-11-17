@@ -12,6 +12,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
+import CommunityPanel from '../../components/community/CommunityPanel';
 import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
 import { uploadProfilePhoto } from '../../data/appData';
@@ -150,6 +151,9 @@ export default function UserProfile() {
           ) : null}
         </div>
       </div>
+
+      {/* Comunidad / Club del comprador (módulo aislado) */}
+      <CommunityPanel />
 
       {/* Menu Section */}
       <div className="px-6 mt-8">

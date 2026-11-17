@@ -20,6 +20,7 @@ import {
   filterCompatibleRequests,
   hasCommerceSegmentation,
 } from '../utils/matching';
+import { fetchGroupBadges } from './community';
 
 export const appMode = isInsforgeConfigured ? 'insforge' : 'demo';
 
@@ -130,11 +131,13 @@ const asArray = (payload) => {
   return Array.isArray(payload) ? payload : [payload];
 };
 
-const emptyResult = (notice, error = null) => ({ items: [], error, notice });
+export const emptyResult = (notice, error = null) => ({ items: [], error, notice });
 
 // Ejecuta una consulta de lectura y normaliza la respuesta. `build` recibe el
 // cliente de base de datos y devuelve el builder de la consulta.
-const runQuery = async (build, notice) => {
+// Se exportan para que los módulos nuevos (p. ej. comunidades) reutilicen el
+// mismo contrato de errores sin duplicar la lógica de esta capa.
+export const runQuery = async (build, notice) => {
   if (!isInsforgeConfigured) {
     return emptyResult(NOTICES.demo);
   }
@@ -152,7 +155,7 @@ const runQuery = async (build, notice) => {
 
 // Ejecuta una escritura. Devuelve `{ ok, data, error }` sin lanzar excepciones
 // para que cada pantalla decida qué mostrar.
-const runWrite = async (build, fallback) => {
+export const runWrite = async (build, fallback) => {
   if (!isInsforgeConfigured) {
     return { ok: false, data: null, error: `No se guardó nada: ${NOTICES.demo}` };
   }
@@ -1684,8 +1687,9 @@ export const fetchOpenRequests = async (commerceId) => {
     (db) =>
       db
         .from('purchase_requests')
+        // `buyer_id` se necesita para resolver avatar e insignia del club.
         .select(
-          'id,title,description,items,category,vehicle_type,budget_amount,currency,status,expires_at,created_at'
+          'id,buyer_id,title,description,items,category,vehicle_type,budget_amount,currency,status,expires_at,created_at'
         )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
@@ -1703,18 +1707,30 @@ export const fetchOpenRequests = async (commerceId) => {
     ...new Set(compatibleRequests.map((request) => request.buyer_id).filter(Boolean)),
   ];
   let buyerById = {};
+  let badgeByBuyer = {};
 
   if (buyerIds.length > 0) {
     // RPC acotada: solo id, nombre y avatar de compradores con los que este
     // comercio tiene relación o cuya solicitud abierta puede atender.
-    const buyers = await runQuery(
-      (db) => db.rpc('app_buyer_avatars', { p_ids: buyerIds }),
-      NOTICES.commerceMetrics
-    );
+    // Las insignias de club son informativas: un fallo no rompe el tablero.
+    const [buyers, badges] = await Promise.all([
+      runQuery(
+        (db) => db.rpc('app_buyer_avatars', { p_ids: buyerIds }),
+        NOTICES.commerceMetrics
+      ),
+      fetchGroupBadges(buyerIds),
+    ]);
 
     if (!buyers.error) {
       buyerById = buyers.items.reduce((acc, buyer) => {
         acc[buyer.id] = buyer;
+        return acc;
+      }, {});
+    }
+
+    if (!badges.error) {
+      badgeByBuyer = badges.items.reduce((acc, badge) => {
+        acc[badge.buyer_id] = badge;
         return acc;
       }, {});
     }
@@ -1724,10 +1740,19 @@ export const fetchOpenRequests = async (commerceId) => {
     ...result,
     items: compatibleRequests.map((request) => {
       const buyer = buyerById[request.buyer_id] || {};
+      const badge = badgeByBuyer[request.buyer_id] || null;
       return {
         ...request,
         buyer_name: buyer.display_name || '',
         buyer_avatar_url: buyer.avatar_url || null,
+        buyer_group: badge
+          ? {
+              name: badge.group_name,
+              memberCount: badge.member_count,
+              minMembers: badge.min_members,
+              isVerified: badge.is_verified,
+            }
+          : null,
       };
     }),
   };
@@ -1763,6 +1788,7 @@ export const mapOpportunity = (row) => {
     quantityTotal: items.reduce((total, item) => total + item.quantity, 0),
     buyerName: row.buyer_name || 'Comprador',
     buyerAvatar: row.buyer_avatar_url || null,
+    groupBadge: row.buyer_group || null,
     user: row.buyer_name || '',
     rating: null,
     transactions: null,

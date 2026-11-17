@@ -51,6 +51,22 @@ function DetailField({ label, value }) {
   );
 }
 
+// Insignia del club verificado del comprador. Solo se renderiza cuando la RPC
+// del módulo de comunidades devuelve un club que alcanzó el mínimo de miembros.
+function GroupBadge({ badge }) {
+  if (!badge) return null;
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md bg-[#4B227A]/10 border border-[#4B227A]/25 px-2 py-0.5 text-[10px] font-bold text-[#4B227A]"
+      title={`Club ${badge.name} · ${badge.memberCount} de ${badge.minMembers} miembros requeridos`}
+    >
+      <Users className="w-3 h-3" aria-hidden="true" />
+      {badge.name} · {badge.memberCount} {badge.memberCount === 1 ? 'miembro' : 'miembros'}
+    </span>
+  );
+}
+
 const formatYears = (item) =>
   [item.yearFrom, item.yearTo].filter(Boolean).join(' – ');
 
@@ -569,6 +585,7 @@ export default function Dashboard() {
                   <span className="px-2 py-0.5 bg-gradient-to-r from-[#00EED0]/20 to-[#0197AF]/20 text-[#4B227A] rounded-md text-[9px] font-bold uppercase tracking-widest border border-[#4B227A]/30">
                     ⚡ Datos reales
                   </span>
+                  <GroupBadge badge={opp.groupBadge} />
                 </div>
               </div>
 
@@ -926,6 +943,7 @@ export default function Dashboard() {
                   {selectedOpp.buyerName || 'Comprador'}
                 </p>
               </div>
+              <GroupBadge badge={selectedOpp.groupBadge} />
             </div>
 
             <div className="space-y-4 mb-6">

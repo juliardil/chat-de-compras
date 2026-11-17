@@ -184,6 +184,27 @@ describe('capa de datos de la app', () => {
     expect(opportunity.buyerAvatar).toBe('https://cdn.example.com/juliana.jpg');
   });
 
+  it('propaga la insignia del club verificado en la oportunidad', () => {
+    const opportunity = mapOpportunity({
+      id: 'req-1',
+      title: 'Solicitud con club',
+      items: [],
+      buyer_group: {
+        name: 'Club Norte',
+        memberCount: 6,
+        minMembers: 5,
+        isVerified: true,
+      },
+    });
+
+    expect(opportunity.groupBadge).toEqual({
+      name: 'Club Norte',
+      memberCount: 6,
+      minMembers: 5,
+      isVerified: true,
+    });
+  });
+
   it('mapea ofertas y pedidos usando las columnas snake_case', () => {
     const offer = mapOffer({
       id: 'offer-1',
