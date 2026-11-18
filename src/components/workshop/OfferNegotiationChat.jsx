@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -9,10 +9,7 @@ import {
   MessageCircle,
   Send,
   ShieldCheck,
-  Wifi,
-  WifiOff,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import {
   confirmOfferService,
   fetchOfferNegotiation,
@@ -45,6 +42,8 @@ const normalizeMessage = (message, offerId) => ({
 
 // Vista de chat en tiempo real para UNA oferta. La propiedad de la oferta se
 // valida en el backend: aquí solo se muestra lo que la RPC autoriza.
+// Paleta replicada del chat existente: fondo gris claro, glassmorphism blanco,
+// burbujas turquesa degradado y acentos morado/azul de la identidad Go.Go.
 export default function OfferNegotiationChat() {
   const { offerId } = useParams();
   const navigate = useNavigate();
@@ -199,9 +198,9 @@ export default function OfferNegotiationChat() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B1020] px-6 py-16 text-white">
-        <div className="mx-auto flex max-w-md items-center justify-center gap-2 text-sm text-slate-300">
-          <Loader2 className="h-5 w-5 animate-spin text-[#00EED0]" /> Cargando negociación…
+      <div className="min-h-screen bg-[#E7E7E7] px-6 py-16 text-gray-800">
+        <div className="mx-auto flex max-w-md items-center justify-center gap-2 text-sm text-gray-600">
+          <Loader2 className="h-5 w-5 animate-spin text-[#006E7A]" /> Cargando negociación…
         </div>
       </div>
     );
@@ -209,15 +208,15 @@ export default function OfferNegotiationChat() {
 
   if (error || !offer) {
     return (
-      <div className="min-h-screen bg-[#0B1020] px-6 py-16 text-white">
-        <div className="mx-auto max-w-md rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-center">
-          <p role="alert" className="text-sm text-red-200">
+      <div className="min-h-screen bg-[#E7E7E7] px-6 py-16 text-gray-800">
+        <div className="mx-auto max-w-md rounded-2xl border border-white/30 bg-white/80 p-5 text-center shadow-sm backdrop-blur-md">
+          <p role="alert" className="text-sm text-red-700">
             {error || 'No se pudo abrir la negociación.'}
           </p>
           <button
             type="button"
             onClick={() => navigate('/workshop-jobs/responses')}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#00EED0] px-4 py-2.5 text-xs font-bold text-slate-950"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#00EED0] px-4 py-2.5 text-xs font-bold text-black shadow-[0_0_15px_rgba(0,238,208,0.3)] hover:bg-[#00EED0]/90"
           >
             <ArrowLeft className="h-4 w-4" /> Volver a respuestas
           </button>
@@ -227,54 +226,58 @@ export default function OfferNegotiationChat() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0B1020] text-white">
-      <header className="border-b border-white/10 bg-[#111827] px-5 pb-4 pt-10">
+    <div className="flex min-h-screen flex-col bg-[#E7E7E7] text-gray-800">
+      <header className="border-b border-white/30 bg-white/70 px-4 pb-4 pt-10 shadow-sm backdrop-blur-md">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => navigate('/workshop-jobs/responses')}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+            className="-ml-2 inline-flex items-center gap-2 rounded-full p-2 text-xs font-bold text-gray-800 transition-colors hover:bg-white/80"
           >
-            <ArrowLeft className="h-4 w-4" /> Respuestas
+            <ArrowLeft className="h-5 w-5" /> Respuestas
           </button>
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
               connected
-                ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-                : 'border-white/15 bg-white/5 text-slate-400'
+                ? 'border border-[#00EED0]/40 bg-[#00EED0]/20 text-[#006E7A]'
+                : 'border border-[#4B227A]/30 bg-[#4B227A]/20 text-[#4B227A]'
             }`}
           >
-            {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {connected ? (
+              <span className="h-2 w-2 rounded-full bg-[#00EED0]" />
+            ) : (
+              <Clock className="h-3 w-3" />
+            )}
             {connected ? 'En vivo' : 'Reconectando'}
           </span>
         </div>
 
         <div className="mt-4 min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[#00EED0]">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[#006E7A]">
             Chat de negociación
           </p>
-          <h1 className="mt-1 break-words text-base font-bold">
+          <h1 className="mt-1 break-words text-base font-bold text-gray-800">
             {offer.requestTitle || 'Servicio solicitado'}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="rounded-lg bg-white/5 px-2 py-1 text-slate-300">
+            <span className="rounded-lg border border-white/30 bg-white/70 px-2 py-1 text-gray-600">
               {offer.clientName || 'Cliente'}
             </span>
-            <span className="rounded-lg bg-white/5 px-2 py-1 font-semibold text-[#00EED0]">
+            <span className="rounded-lg border border-white/30 bg-white/70 px-2 py-1 font-semibold text-[#006E7A]">
               {formatCurrency(offer.totalAmount, offer.currency)}
             </span>
             <span
               className={`rounded-lg px-2 py-1 font-semibold ${
                 confirmed
-                  ? 'bg-emerald-400/10 text-emerald-300'
-                  : 'bg-white/5 text-slate-300'
+                  ? 'border border-[#00EED0]/40 bg-[#00EED0]/20 text-[#006E7A]'
+                  : 'border border-white/30 bg-white/70 text-gray-600'
               }`}
             >
               {statusLabel}
             </span>
             {offer.ownerType === 'workshop' ? (
-              <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-slate-300">
-                <ShieldCheck className="h-3 w-3" /> Taller verificado
+              <span className="inline-flex items-center gap-1 rounded-lg border border-white/30 bg-white/70 px-2 py-1 text-gray-600">
+                <ShieldCheck className="h-3 w-3 text-[#4B227A]" /> Taller verificado
               </span>
             ) : null}
           </div>
@@ -284,18 +287,18 @@ export default function OfferNegotiationChat() {
       {actionError ? (
         <p
           role="alert"
-          className="mx-5 mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+          className="mx-4 mt-3 rounded-xl border border-red-300/60 bg-white/80 px-3 py-2 text-xs text-red-700 shadow-sm"
         >
           {actionError}
         </p>
       ) : null}
 
-      <main className="flex-1 px-5 py-5" aria-label="Chat de negociación">
-        <div className="space-y-3">
+      <main className="flex-1 p-4 pb-8" aria-label="Chat de negociación">
+        <div className="flex flex-col gap-4">
           {messages.length === 0 ? (
-            <div className="mx-auto max-w-xs rounded-2xl border border-white/10 bg-white/5 px-4 py-6 text-center">
-              <MessageCircle className="mx-auto h-6 w-6 text-[#00EED0]" />
-              <p className="mt-2 text-xs text-slate-300">
+            <div className="mx-auto max-w-xs rounded-2xl border border-white/30 bg-white/70 px-4 py-6 text-center shadow-sm backdrop-blur-md">
+              <MessageCircle className="mx-auto h-6 w-6 text-[#006E7A]" />
+              <p className="mt-2 text-xs text-gray-600">
                 Inicia la conversación para acordar los detalles del servicio.
               </p>
             </div>
@@ -306,29 +309,37 @@ export default function OfferNegotiationChat() {
             return (
               <div
                 key={message.id}
-                className={`flex ${system ? 'justify-center' : message.isMine ? 'justify-end' : 'justify-start'}`}
+                className={`flex flex-col max-w-[85%] ${
+                  system
+                    ? 'self-center items-center max-w-full'
+                    : message.isMine
+                      ? 'self-end items-end'
+                      : 'self-start items-start'
+                }`}
               >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs shadow-md ${
-                    system
-                      ? 'border border-emerald-400/20 bg-emerald-400/10 text-center text-emerald-200'
-                      : message.isMine
-                        ? 'rounded-br-md bg-[#00EED0] text-slate-950'
-                        : 'rounded-bl-md border border-white/10 bg-[#111827] text-slate-100'
-                  }`}
-                >
-                  {!system ? (
-                    <p className={`mb-1 text-[10px] font-bold ${message.isMine ? 'text-slate-800' : 'text-[#00EED0]'}`}>
-                      {message.senderName || (message.isMine ? 'Tú' : 'Cliente')}
-                    </p>
-                  ) : null}
-                  <p className="whitespace-pre-wrap break-words">{message.body}</p>
-                  {!system ? (
-                    <p className={`mt-1 text-right text-[9px] ${message.isMine ? 'text-slate-700' : 'text-slate-500'}`}>
+                {system ? (
+                  <div className="my-2 rounded-full border border-[#4B227A]/30 bg-[#4B227A]/20 px-4 py-2 text-center text-xs font-bold text-[#4B227A] backdrop-blur-md">
+                    {message.body}
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      className={`whitespace-pre-line break-words rounded-2xl px-4 py-3 text-sm ${
+                        message.isMine
+                          ? 'rounded-br-none bg-gradient-to-r from-[#00EED0] to-[#0197AF] text-black shadow-[0_0_15px_rgba(0,238,208,0.3)]'
+                          : 'rounded-bl-none border border-white/30 bg-white/80 text-gray-800 shadow-sm backdrop-blur-md'
+                      }`}
+                    >
+                      <p className={`mb-1 text-[10px] font-bold ${message.isMine ? 'text-black/70' : 'text-[#006E7A]'}`}>
+                        {message.senderName || (message.isMine ? 'Tú' : 'Cliente')}
+                      </p>
+                      <p className="whitespace-pre-wrap break-words">{message.body}</p>
+                    </div>
+                    <span className="mt-1 px-1 text-[10px] text-gray-600">
                       {formatTime(message.createdAt)}
-                    </p>
-                  ) : null}
-                </div>
+                    </span>
+                  </>
+                )}
               </div>
             );
           })}
@@ -336,10 +347,10 @@ export default function OfferNegotiationChat() {
         </div>
       </main>
 
-      <section className="space-y-3 border-t border-white/10 bg-[#111827] px-5 pb-8 pt-4" aria-label="Acciones de negociación">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-          <label htmlFor="offer-notes" className="flex items-center gap-2 text-[11px] font-bold text-slate-200">
-            <FileText className="h-3.5 w-3.5 text-[#00EED0]" /> Detalles del repuesto / servicio
+      <section className="space-y-3 border-t border-white/30 bg-white/70 px-4 pb-8 pt-4 backdrop-blur-md" aria-label="Acciones de negociación">
+        <div className="rounded-2xl border border-white/30 bg-white/70 p-3 shadow-sm">
+          <label htmlFor="offer-notes" className="flex items-center gap-2 text-[11px] font-bold text-gray-800">
+            <FileText className="h-3.5 w-3.5 text-[#006E7A]" /> Detalles del repuesto / servicio
           </label>
           <textarea
             id="offer-notes"
@@ -348,13 +359,13 @@ export default function OfferNegotiationChat() {
             rows={2}
             maxLength={1000}
             placeholder="Ej. incluye instalación, garantía de 6 meses, refacción OEM…"
-            className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none placeholder:text-slate-500 focus:border-[#00EED0]/50"
+            className="mt-2 w-full resize-none rounded-xl border border-[#4B227A]/30 bg-white/80 px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#0197AF] focus:ring-2 focus:ring-[#0197AF]/20"
           />
           <button
             type="button"
             onClick={handleSaveNotes}
             disabled={savingNotes}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-[11px] font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-50"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[#4B227A]/30 bg-white/70 px-3 py-1.5 text-[11px] font-bold text-[#4B227A] transition hover:bg-white/90 disabled:opacity-50"
           >
             {savingNotes ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
             Guardar detalles
@@ -367,8 +378,8 @@ export default function OfferNegotiationChat() {
           disabled={confirmed || confirming}
           className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold transition disabled:cursor-default ${
             confirmed
-              ? 'border border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-              : 'bg-[#19C6A5] text-slate-950 hover:opacity-90'
+              ? 'border border-[#00EED0]/40 bg-white/80 text-[#006E7A] shadow-sm'
+              : 'bg-[#00EED0] text-black shadow-[0_0_20px_rgba(0,238,208,0.4)] hover:bg-[#00EED0]/90'
           }`}
         >
           {confirming ? (
@@ -381,22 +392,22 @@ export default function OfferNegotiationChat() {
           {confirmed ? 'Servicio / Reserva Confirmada' : 'Confirmar Servicio / Reserva'}
         </button>
 
-        <form onSubmit={handleSend} className="flex items-center gap-2">
+        <form onSubmit={handleSend} className="flex gap-2">
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             maxLength={1000}
             placeholder="Escribe un mensaje…"
             aria-label="Mensaje de negociación"
-            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-white outline-none placeholder:text-slate-500 focus:border-[#00EED0]/50"
+            className="min-w-0 flex-1 rounded-xl border border-[#4B227A]/30 bg-white/80 px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-500 focus:border-[#0197AF] focus:ring-2 focus:ring-[#0197AF]/20"
           />
           <button
             type="submit"
             disabled={!draft.trim() || sending}
             aria-label="Enviar mensaje"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#00EED0] text-slate-950 transition hover:opacity-90 disabled:opacity-40"
+            className="rounded-xl bg-[#00EED0] p-3 text-black shadow-[0_0_15px_rgba(0,238,208,0.3)] transition-colors hover:bg-[#00EED0]/90 disabled:opacity-50"
           >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </button>
         </form>
       </section>
