@@ -18,6 +18,7 @@ const {
   notify,
   session,
   hasPermission,
+  uploadLogo,
 } = vi.hoisted(() => ({
   listSponsorshipRates: vi.fn(),
   saveSponsorshipRate: vi.fn(),
@@ -34,7 +35,10 @@ const {
   // nuevo reiniciaría el callback de carga en cada render.
   session: { memberId: 'admin-1', name: 'Ana Torres', roleKey: 'superadmin' },
   hasPermission: vi.fn(() => true),
+  uploadLogo: vi.fn(),
 }));
+
+vi.mock('../../data/businessLogos', () => ({ uploadLogo }));
 
 vi.mock('../auth/useAdminAuth', () => ({
   useAdminAuth: vi.fn(() => ({
@@ -149,6 +153,7 @@ beforeEach(() => {
   listGroups.mockResolvedValue([{ id: 'group-1', name: 'Club de repuestos del sur' }]);
   listCommerces.mockResolvedValue([{ id: 'commerce-1', businessName: 'Refacciones Express' }]);
   listWorkshops.mockResolvedValue([{ id: 'workshop-1', workshopName: 'Taller Reforma' }]);
+  uploadLogo.mockResolvedValue({ url: 'https://cdn/nueva-marca.png', error: null });
 });
 
 describe('panel admin de Patrocinios', () => {
@@ -201,6 +206,39 @@ describe('panel admin de Patrocinios', () => {
           name: 'Patrocinio Gold',
           amount: 2499,
           actor: expect.objectContaining({ memberId: 'admin-1' }),
+        })
+      );
+    });
+  });
+
+  it('sube el logo de la marca al mismo Storage y lo guarda con el patrocinio', async () => {
+    const user = userEvent.setup();
+    render(<Sponsorships />);
+
+    await user.click(await screen.findByRole('button', { name: /nueva marca/i }));
+    await user.type(screen.getByPlaceholderText('Refacciones Express'), 'Frenos Premium');
+    await user.type(screen.getByLabelText(/costo del patrocinio/i), '1500');
+
+    const fileInput = document.querySelector('#sponsorship-brand-form input[type="file"]');
+    await user.upload(fileInput, new File(['logo'], 'marca.png', { type: 'image/png' }));
+
+    await waitFor(() => {
+      expect(uploadLogo).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'admin-1', scope: 'sponsor' })
+      );
+      expect(screen.getByRole('img', { name: /Frenos Premium/ })).toHaveAttribute(
+        'src',
+        'https://cdn/nueva-marca.png'
+      );
+    });
+
+    await user.click(screen.getByRole('button', { name: /guardar patrocinio/i }));
+
+    await waitFor(() => {
+      expect(saveClubSponsor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandName: 'Frenos Premium',
+          logoUrl: 'https://cdn/nueva-marca.png',
         })
       );
     });

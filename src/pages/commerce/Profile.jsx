@@ -1,13 +1,15 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import { Award, LogOut, Edit2, CheckCircle, Clock, Phone, Instagram, Globe, MapPin } from 'lucide-react';
 import { useAuth } from '../../context/auth-context';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
+import BusinessLogo from '../../components/ui/BusinessLogo';
 import avatarComercio from '../../assets/avatar-comercio.svg';
 import { uploadProfilePhoto } from '../../data/appData';
+import { fetchMyBusinessLogos } from '../../data/businessLogos';
 import SponsorImpact from '../../components/community/SponsorImpact';
 
 // Perfil del comercio. El nombre, la descripción y los datos de contacto
@@ -34,7 +36,18 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState(null);
   const [showMembershipNotice, setShowMembershipNotice] = useState(false);
+  const [businessLogo, setBusinessLogo] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchMyBusinessLogos().then(({ items }) => {
+      if (active) setBusinessLogo(items?.[0]?.commerce_logo_url || null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const avatarSrc = profileImage || user?.avatarUrl || avatarComercio;
 
@@ -132,6 +145,18 @@ export default function Profile() {
           
           <h1 className="text-2xl font-bold text-gray-800 mb-1 text-center">{commerceName}</h1>
           <p className="text-gray-600 text-sm mb-2">{user?.email || '—'}</p>
+
+          {businessLogo ? (
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#0197AF]/20 bg-white/70 px-2.5 py-1">
+              <BusinessLogo
+                src={businessLogo}
+                name={commerceName}
+                label={`Logo de ${commerceName}`}
+                className="h-7 w-7 rounded-lg bg-[#4B227A]/10 text-[10px] font-bold text-[#4B227A]"
+              />
+              <span className="text-[11px] font-bold text-[#006E7A]">Logo de mi comercio</span>
+            </div>
+          ) : null}
 
           {justUpdated ? (
             <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs font-semibold text-green-700">

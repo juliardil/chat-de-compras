@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, ShoppingBag, Users, Wrench } from 'lucide-react';
+import BusinessLogo from '../ui/BusinessLogo';
 import { DataNotice, EmptyModule, LoadingModule } from '../ui/ModuleState';
 import { useModuleData } from '../../data/useModuleData';
 import { fetchSponsorImpact } from '../../data/clubAdvanced';
@@ -79,9 +80,17 @@ export default function SponsorImpact() {
             {items.map((row) => (
               <li key={row.sponsor_id} className="rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-bold text-gray-800">{row.brand_name}</p>
-                    <p className="text-[11px] text-gray-500">{row.group_name || 'Todos los clubes'}</p>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <BusinessLogo
+                      src={row.logo_url}
+                      name={row.brand_name}
+                      label={`Logo de ${row.brand_name}`}
+                      className="h-10 w-10 rounded-xl bg-[#4B227A]/10 text-[11px] font-bold text-[#4B227A]"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-800">{row.brand_name}</p>
+                      <p className="text-[11px] text-gray-500">{row.group_name || 'Todos los clubes'}</p>
+                    </div>
                   </div>
                   <p className="shrink-0 text-xs font-bold text-[#006E7A]">
                     {row.club_buyers} {row.club_buyers === 1 ? 'persona' : 'personas'}
@@ -90,6 +99,12 @@ export default function SponsorImpact() {
                 <p className="mt-1.5 text-[11px] text-gray-600">
                   {row.parts_orders} compras de repuestos · {row.service_orders} servicios contratados
                 </p>
+                {row.benefit || Number(row.discount_percent) > 0 ? (
+                  <p className="mt-1 text-[11px] font-semibold text-[#006E7A]">
+                    {row.benefit || 'Beneficio para miembros'}
+                    {Number(row.discount_percent) > 0 ? ` · ${row.discount_percent}% de descuento` : ''}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>

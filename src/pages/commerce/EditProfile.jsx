@@ -1,13 +1,15 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Phone, Globe, Instagram, Save, FileText, ChevronDown, MapPin, Camera } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import SafeImage from '../../components/ui/SafeImage';
+import WorkshopLogoUpload from '../../components/workshop/WorkshopLogoUpload';
 import avatarComercio from '../../assets/avatar-comercio.svg';
 import { useAuth } from '../../context/auth-context';
 import { uploadProfilePhoto, validateProfilePhoto } from '../../data/appData';
+import { fetchMyBusinessLogos } from '../../data/businessLogos';
 
 // Edición del perfil comercial conectada al backend:
 //  * descripción, horario, teléfono, Instagram y sitio web se guardan en
@@ -36,7 +38,18 @@ export default function EditProfile() {
   const [error, setError] = useState(null);
   const [photo, setPhoto] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
+  const [businessLogo, setBusinessLogo] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchMyBusinessLogos().then(({ items }) => {
+      if (active) setBusinessLogo(items?.[0]?.commerce_logo_url || null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const avatarPreview = photo || user?.avatarUrl || avatarComercio;
 
@@ -231,6 +244,21 @@ export default function EditProfile() {
               <p className="text-xs text-gray-500">JPG, PNG, WEBP o GIF · máx. 5 MB</p>
             </div>
           </div>
+        </div>
+
+        {/* Logo del negocio: mismo Storage y validaciones que «Cambiar foto» */}
+        <div className="bg-white/80 backdrop-blur-md p-5 rounded-xl shadow-sm border border-white/30">
+          <div className="flex items-center gap-2 mb-2 text-[#4B227A] font-bold">
+            <Camera className="w-5 h-5" />
+            <h2>Logo del Negocio</h2>
+          </div>
+          <WorkshopLogoUpload
+            userId={user?.id}
+            scope="commerce"
+            name={business.tradeName || user?.name || 'Mi Comercio'}
+            logoUrl={businessLogo}
+            onSaved={setBusinessLogo}
+          />
         </div>
 
         {/* Descripción */}

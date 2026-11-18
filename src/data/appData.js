@@ -296,6 +296,27 @@ const profilePhotoExtension = (file) => {
   }[file?.type] || 'jpg';
 };
 
+// Subida al MISMO bucket público de avatares. Tanto la foto de perfil como los
+// logos comparten validación, cliente y forma de obtener la URL pública.
+const uploadToAvatars = async (path, file, fallbackMessage) => {
+  try {
+    const bucket = insforge.storage.from(avatarsBucket);
+    const { data, error } = await bucket.upload(path, file);
+    if (error) {
+      return { url: null, key: null, error: describeError(error, fallbackMessage) };
+    }
+
+    const publicUrl = data?.url || bucket.getPublicUrl(path)?.data?.publicUrl || null;
+    if (!publicUrl) {
+      return { url: null, key: null, error: 'La imagen se subió, pero no se obtuvo su URL pública.' };
+    }
+
+    return { url: publicUrl, key: data?.key || path, error: null };
+  } catch (error) {
+    return { url: null, key: null, error: describeError(error, fallbackMessage) };
+  }
+};
+
 // Sube la foto al bucket público y devuelve su URL. En modo demostración se
 // mantiene una URL local para que la vista previa funcione sin backend.
 export const uploadProfilePhoto = async ({ userId, role, file }) => {
@@ -317,34 +338,27 @@ export const uploadProfilePhoto = async ({ userId, role, file }) => {
   const folder = role === 'commerce' ? 'commerce' : 'buyer';
   const path = `${folder}/${userId}/avatar-${Date.now()}.${profilePhotoExtension(file)}`;
 
-  try {
-    const bucket = insforge.storage.from(avatarsBucket);
-    const { data, error } = await bucket.upload(path, file);
-    if (error) {
-      return {
-        url: null,
-        key: null,
-        error: describeError(error, 'No se pudo subir la foto de perfil.'),
-      };
-    }
+  return uploadToAvatars(path, file, 'No se pudo subir la foto de perfil.');
+};
 
-    const publicUrl = data?.url || bucket.getPublicUrl(path)?.data?.publicUrl || null;
-    if (!publicUrl) {
-      return {
-        url: null,
-        key: null,
-        error: 'La foto se subió, pero no se obtuvo su URL pública.',
-      };
-    }
+// Logos de negocios y marcas: mismo bucket, mismas validaciones (JPG/PNG/WEBP/
+// GIF, máx. 5 MB) y mismo contrato de retorno que la foto de perfil.
+export const uploadLogo = async ({ userId, scope, file }) => {
+  const validation = validateProfilePhoto(file);
+  if (validation) return { url: null, key: null, error: validation };
 
-    return { url: publicUrl, key: data?.key || path, error: null };
-  } catch (error) {
-    return {
-      url: null,
-      key: null,
-      error: describeError(error, 'No se pudo subir la foto de perfil.'),
-    };
+  if (!isInsforgeConfigured) {
+    return { url: URL.createObjectURL(file), key: null, error: null, demo: true };
   }
+
+  if (!userId) {
+    return { url: null, key: null, error: 'No hay una sesión activa para subir el logo.' };
+  }
+
+  const safeScope = ['workshop', 'commerce', 'sponsor'].includes(scope) ? scope : 'business';
+  const path = `logos/${safeScope}/${userId}/logo-${Date.now()}.${profilePhotoExtension(file)}`;
+
+  return uploadToAvatars(path, file, 'No se pudo subir el logo.');
 };
 
 // -----------------------------------------------------------------------------
@@ -633,7 +647,7 @@ export const fetchBuyerOffers = async (userId) => {
       (db) =>
         db
           .from('workshop_profiles')
-          .select('id,workshop_name,is_verified')
+          .select('id,workshop_name,is_verified,logo_url')
           .in('id', workshopIds),
       NOTICES.offers
     );
@@ -653,7 +667,7 @@ export const fetchBuyerOffers = async (userId) => {
       (db) =>
         db
           .from('commerce_profiles')
-          .select('id,trade_name,latitude,longitude,avatar_url')
+          .select('id,trade_name,latitude,longitude,avatar_url,logo_url')
           .in('id', commerceIds),
       NOTICES.offers
     );
@@ -702,6 +716,8 @@ export const fetchBuyerOffers = async (userId) => {
         ...offer,
         commerce_name: commerce.trade_name || workshop?.workshop_name || '',
         commerce_avatar_url: commerce.avatar_url || null,
+        commerce_logo_url: commerce.logo_url || null,
+        workshop_logo_url: workshop?.logo_url || null,
         commerce_latitude: commerce.latitude ?? null,
         commerce_longitude: commerce.longitude ?? null,
         commerce_rating: commerce.rating ?? null,
@@ -821,6 +837,7 @@ export const mapOffer = (row, buyerLocation = null) => {
     estimatedDays: row.estimated_days ?? null,
     store: row.commerce_name || 'Comercio',
     avatar: row.commerce_avatar_url || null,
+    logo: row.workshop_logo_url || row.commerce_logo_url || null,
     price: formatCurrency(row.total_amount, row.currency),
     amount: Number.isFinite(amount) ? amount : null,
     currency: row.currency || 'MXN',

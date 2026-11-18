@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BadgeCheck,
   BadgeDollarSign,
@@ -9,7 +9,10 @@ import {
   Wrench,
 } from 'lucide-react';
 import Button from '../ui/Button';
+import BusinessLogo from '../ui/BusinessLogo';
 import { DataNotice, LoadingModule } from '../ui/ModuleState';
+import WorkshopLogoUpload from './WorkshopLogoUpload';
+import { fetchMyBusinessLogos } from '../../data/businessLogos';
 import { useModuleData } from '../../data/useModuleData';
 import {
   fetchMyWorkshop,
@@ -32,7 +35,7 @@ const BENEFITS = [
 // Tarjeta "Soy un Taller Mecánico / Negocio" del perfil comprador.
 // Lectura y escritura pasan por las RPC aisladas del módulo de talleres.
 export default function WorkshopPanel() {
-  const { refreshWorkshopCapability } = useAuth() || {};
+  const { user, refreshWorkshopCapability } = useAuth() || {};
   const { items, loading, error, notice, reload } = useModuleData(fetchMyWorkshop, []);
   const workshop = items[0] || null;
 
@@ -44,6 +47,17 @@ export default function WorkshopPanel() {
   const [specialties, setSpecialties] = useState([]);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [workshopLogo, setWorkshopLogo] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchMyBusinessLogos().then(({ items }) => {
+      if (active) setWorkshopLogo(items?.[0]?.workshop_logo_url || null);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const toggleSpecialty = (value) => {
     setSpecialties((previous) =>
@@ -208,13 +222,21 @@ export default function WorkshopPanel() {
         {!loading && workshop ? (
           <div>
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                  Tu negocio registrado
-                </p>
-                <h4 className="text-lg font-bold text-gray-800 break-words">
-                  {workshop.workshop_name}
-                </h4>
+              <div className="flex min-w-0 items-center gap-3">
+                <BusinessLogo
+                  src={workshopLogo}
+                  name={workshop.workshop_name}
+                  label={`Logo de ${workshop.workshop_name}`}
+                  className="h-14 w-14 rounded-2xl border-2 border-white bg-[#4B227A]/10 text-xs font-bold text-[#4B227A] shadow-sm"
+                />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                    Tu negocio registrado
+                  </p>
+                  <h4 className="text-lg font-bold text-gray-800 break-words">
+                    {workshop.workshop_name}
+                  </h4>
+                </div>
               </div>
               {workshop.is_verified ? (
                 <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2.5 py-1 text-[11px] font-bold text-green-700">
@@ -222,6 +244,14 @@ export default function WorkshopPanel() {
                 </span>
               ) : null}
             </div>
+
+            <WorkshopLogoUpload
+              userId={user?.id}
+              scope="workshop"
+              name={workshop.workshop_name}
+              logoUrl={workshopLogo}
+              onSaved={setWorkshopLogo}
+            />
 
             <div>
             <dl className="mt-4 grid grid-cols-1 gap-3 rounded-2xl border border-[#4B227A]/15 bg-white/70 p-3 sm:grid-cols-2">

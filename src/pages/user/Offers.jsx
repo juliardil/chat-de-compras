@@ -12,6 +12,7 @@ import {
   Tags,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import BusinessLogo from '../../components/ui/BusinessLogo';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import OfferSortBar from '../../components/ui/OfferSortBar';
 import BrandOptionPicker from '../../components/ui/BrandOptionPicker';
@@ -294,9 +295,18 @@ export default function Offers() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-[#0197AF]/15 flex items-center justify-center shrink-0">
-                        <Store className="w-4 h-4 text-[#006E7A]" />
-                      </div>
+                      {offer.logo || offer.avatar ? (
+                        <BusinessLogo
+                          src={offer.logo || offer.avatar}
+                          name={offer.store}
+                          label={`Logo de ${offer.store}`}
+                          className="h-9 w-9 rounded-full border border-white/40 bg-white/70"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-[#0197AF]/15 flex items-center justify-center shrink-0">
+                          <Store className="w-4 h-4 text-[#006E7A]" />
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-800 truncate">
                           {offer.store}

@@ -211,6 +211,8 @@ describe('capa de datos de la app', () => {
       request_id: 'req-1',
       commerce_name: 'Taller Real',
       commerce_avatar_url: 'https://cdn.example.com/taller.jpg',
+      commerce_logo_url: 'https://cdn.example.com/comercio-logo.png',
+      workshop_logo_url: 'https://cdn.example.com/taller-logo.png',
       total_amount: 900,
       currency: 'MXN',
       delivery_days: 2,
@@ -230,6 +232,7 @@ describe('capa de datos de la app', () => {
 
     expect(offer.store).toBe('Taller Real');
     expect(offer.avatar).toBe('https://cdn.example.com/taller.jpg');
+    expect(offer.logo).toBe('https://cdn.example.com/taller-logo.png');
     expect(offer.commerceId).toBeNull();
     expect(offer.found).toBe(1);
     expect(offer.total).toBe(2);
@@ -341,6 +344,16 @@ describe('capa de datos de la app', () => {
     expect(formatDistance(12.4)).toBe('12 km');
     expect(formatDistance(null)).toBe('');
     expect(formatDistance(-3)).toBe('');
+  });
+
+  it('usa el logo del comercio cuando la oferta no viene de un taller', () => {
+    const offer = mapOffer({
+      id: 'offer-commerce',
+      commerce_logo_url: 'https://cdn.example.com/comercio.png',
+      items: [],
+    });
+
+    expect(offer.logo).toBe('https://cdn.example.com/comercio.png');
   });
 
   it('mapea la distancia y la confiabilidad reales de cada oferta', () => {

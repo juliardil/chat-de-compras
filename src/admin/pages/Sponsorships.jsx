@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeDollarSign,
   CalendarDays,
@@ -18,6 +18,7 @@ import KpiCard from '../components/KpiCard';
 import { useToast } from '../components/useToast';
 import { useAdminAuth } from '../auth/useAdminAuth';
 import { adminRepository } from '../data';
+import { uploadLogo } from '../../data/businessLogos';
 import { formatDate } from '../utils/format';
 import {
   BILLING_CYCLE_LABELS,
@@ -110,6 +111,9 @@ export default function Sponsorships() {
   const [rateModalOpen, setRateModalOpen] = useState(false);
   const [sponsorModalOpen, setSponsorModalOpen] = useState(false);
   const [confirming, setConfirming] = useState(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState(null);
+  const logoInputRef = useRef(null);
 
   const confirmModalOpen = Boolean(confirming);
 
@@ -175,6 +179,8 @@ export default function Sponsorships() {
 
   const closeSponsorForm = () => {
     setSponsorForm(EMPTY_SPONSOR);
+    setLogoError(null);
+    setLogoUploading(false);
     setSponsorModalOpen(false);
   };
 
@@ -186,6 +192,8 @@ export default function Sponsorships() {
 
   const openSponsorForm = (sponsor) => {
     setActionError(null);
+    setLogoError(null);
+    setLogoUploading(false);
     if (!sponsor) {
       setSponsorForm(EMPTY_SPONSOR);
       setSponsorModalOpen(true);
@@ -209,6 +217,33 @@ export default function Sponsorships() {
       endsOn: sponsor.endsOn || '',
     });
     setSponsorModalOpen(true);
+  };
+
+  // Logo de marca: mismo bucket (`avatars`) y validaciones que «Cambiar foto».
+  // La URL resultante se guarda con el resto del patrocinio al enviar el form.
+  const handleSponsorLogoChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || logoUploading) return;
+
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const result = await uploadLogo({
+        userId: session?.memberId || session?.email || 'admin',
+        scope: 'sponsor',
+        file,
+      });
+      if (result.error) {
+        setLogoError(result.error);
+        return;
+      }
+      setSponsorForm((form) => ({ ...form, logoUrl: result.url }));
+    } catch (err) {
+      setLogoError(err?.message || 'No se pudo subir el logo de la marca.');
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   const saveRate = async (event) => {
@@ -1032,15 +1067,52 @@ export default function Sponsorships() {
               </select>
             </Field>
           </div>
-          <Field label="URL del logo">
-            <input
-              className={inputClass}
-              value={sponsorForm.logoUrl}
-              onChange={(event) => setSponsorForm((form) => ({ ...form, logoUrl: event.target.value }))}
-              placeholder="https://…"
-              disabled={saving}
-            />
-          </Field>
+          <div>
+            <span className={labelClass}>Logo de la marca</span>
+            <div className="mt-1 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#4B227A]/10 text-[11px] font-bold text-[#4B227A]">
+                {sponsorForm.logoUrl ? (
+                  <img
+                    src={sponsorForm.logoUrl}
+                    alt={`Logo de ${sponsorForm.brandName || 'la marca'}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  String(sponsorForm.brandName || 'M')
+                    .trim()
+                    .slice(0, 2)
+                    .toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={saving || logoUploading}
+                  className="rounded-lg border border-[#4B227A]/25 px-3 py-1.5 text-xs font-semibold text-[#4B227A] transition hover:bg-[#4B227A]/5 disabled:opacity-50"
+                >
+                  {logoUploading
+                    ? 'Subiendo logo…'
+                    : sponsorForm.logoUrl
+                      ? 'Cambiar logo'
+                      : 'Subir logo'}
+                </button>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  JPG, PNG, WEBP o GIF · máx. 5 MB · mismo Storage que «Cambiar foto».
+                </p>
+                {logoError ? (
+                  <p role="alert" className="mt-1 text-[11px] font-semibold text-red-700">{logoError}</p>
+                ) : null}
+              </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleSponsorLogoChange}
+              />
+            </div>
+          </div>
         </form>
       </Modal>
 

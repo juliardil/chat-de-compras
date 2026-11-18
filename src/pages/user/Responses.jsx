@@ -260,8 +260,8 @@ export default function Responses() {
           <div key={offer.id} className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/30">
             <div className="flex gap-4">
               <SafeImage
-                src={offer.avatar}
-                alt={`Foto de ${offer.store}`}
+                src={offer.logo || offer.avatar}
+                alt={`Logo de ${offer.store}`}
                 className="w-20 h-20 rounded-xl object-cover bg-white/70"
                 fallback={avatarComercio}
               />
