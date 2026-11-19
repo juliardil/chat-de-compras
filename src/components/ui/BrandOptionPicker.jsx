@@ -1,5 +1,6 @@
 import React from 'react';
 import { Star } from 'lucide-react';
+import SafeImage from './SafeImage';
 
 // Selector de marcas compartido por «Ofertas» y «Respuestas». Cada opción es un
 // radio real (accesible con teclado y lectores de pantalla); la opción marcada
@@ -42,6 +43,13 @@ export default function BrandOptionPicker({
                 onChange={() => onSelect?.(option)}
                 className="mt-0.5 accent-[#006E7A]"
               />
+              {option.photo ? (
+                <SafeImage
+                  src={option.photo}
+                  alt={`Foto de ${option.brand}`}
+                  className="h-10 w-10 shrink-0 rounded-lg object-cover border border-white/40 bg-white/70"
+                />
+              ) : null}
               <span className="min-w-0 flex-1">
                 <span className="flex items-start justify-between gap-2">
                   <span className="flex flex-wrap items-center gap-1.5 min-w-0">

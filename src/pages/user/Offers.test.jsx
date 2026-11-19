@@ -571,4 +571,72 @@ describe('sección Ofertas del comprador', () => {
       'true'
     );
   });
+
+  it('muestra foto y bono del producto en la tarjeta, el detalle y las opciones de marca', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          ...offer('offer-photo', 'req-1', 'Comercio Foto', 500),
+          bonus: '10% de descuento',
+          items: [
+            {
+              name: 'Pastillas',
+              quantity: 1,
+              available: true,
+              unitPrice: 500,
+              totalPrice: 500,
+              photo: 'https://cdn.example.com/pastillas.jpg',
+              bonus: 'Instalación gratis',
+              brand_options: [
+                {
+                  id: 'bosch',
+                  brand: 'Bosch',
+                  price: 450,
+                  available: true,
+                  photo: 'https://cdn.example.com/bosch.jpg',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByAltText('Producto de Comercio Foto')).toBeInTheDocument();
+    expect(screen.getByText('Bono: 10% de descuento')).toBeInTheDocument();
+    expect(screen.getByAltText('Foto de Pastillas')).toBeInTheDocument();
+    expect(screen.getByText(/Instalación gratis/)).toBeInTheDocument();
+    expect(screen.getByAltText('Foto de Bosch')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /mensajes/i })).toBeInTheDocument();
+  });
+
+  it('muestra la miniatura de una opción de marca en ofertas antiguas', async () => {
+    const withPhoto = multiBrandOffer();
+    withPhoto.brand_options[0].photo = 'https://cdn.example.com/mobil.jpg';
+
+    fetchBuyerOffers.mockResolvedValue({
+      items: [withPhoto],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByAltText('Foto de Mobil')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Mobil/ })).toBeInTheDocument();
+  });
 });

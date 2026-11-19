@@ -15,6 +15,8 @@ import {
   formatCurrency,
   NOTICES,
 } from '../../data/appData';
+import { fetchMyInventory, mapInventoryItem } from '../../data/businessInventory';
+import { autocompleteOfferItem, getOpportunityReadiness } from '../../data/inventoryMatching';
 import {
   BadgeCheck,
   Bell,
@@ -122,6 +124,24 @@ const emptyBrandOption = () => ({
   isRecommended: false,
 });
 
+// Clasificación visual de la tarjeta según el cruce con el inventario.
+const READINESS_STYLES = {
+  ready: 'bg-[#00EED0]/25 text-[#4B227A] border-[#00EED0]/50',
+  partial: 'bg-[#0197AF]/15 text-[#006E7A] border-[#0197AF]/30',
+  manual: 'bg-[#4B227A]/10 text-[#4B227A] border-[#4B227A]/20',
+};
+
+function ReadinessBadge({ items, inventory }) {
+  const readiness = getOpportunityReadiness(items, inventory);
+  return (
+    <span
+      className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest border ${READINESS_STYLES[readiness.status]}`}
+    >
+      {readiness.label}
+    </span>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -136,6 +156,7 @@ export default function Dashboard() {
   const menuRef = useRef(null);
 
   const menuItems = [
+    { icon: Package, label: 'Mi Inventario', path: '/inventory' },
     { icon: Settings, label: 'Ajustes', path: '/niche-config' },
     { icon: History, label: 'Estadísticas', path: '/sales-history' },
     { icon: Bell, label: 'Notificaciones', path: '/notifications' },
@@ -165,13 +186,15 @@ export default function Dashboard() {
           sales: [],
           access: false,
           commerceStatus: commerce.item.status,
+          inventory: [],
         },
       };
     }
 
-    const [requests, sales] = await Promise.all([
+    const [requests, sales, inventory] = await Promise.all([
       fetchOpenRequests(commerce.item.id),
       fetchCommerceSales(commerce.item.id),
+      fetchMyInventory(),
     ]);
 
     return {
@@ -183,11 +206,14 @@ export default function Dashboard() {
         commerceName: commerce.item.trade_name,
         sales: sales.items,
         access: !requests.error && !sales.error,
+        // El inventario es aditivo: si falla, la cotización manual sigue igual.
+        inventory: inventory.items.map(mapInventoryItem),
       },
     };
   }, [user?.id]);
 
   const opportunities = items;
+  const inventory = Array.isArray(extra?.inventory) ? extra.inventory : [];
   const hasAccess = Boolean(extra?.access);
   const sales = Array.isArray(extra?.sales) ? extra.sales : [];
   const completedSales = sales.filter((sale) => ['completed', 'delivered'].includes(sale.status));
@@ -263,19 +289,38 @@ export default function Dashboard() {
 
     setOfferingId(id);
     setOfferItems(
-      source.map((item, index) => ({
-        key: item.key ?? `offer-item-${index}`,
-        name: item.product,
-        quantity: item.quantity,
-        // Por comodidad se parte de «Lo tengo»; el comercio puede marcar
-        // «No lo tengo» en los productos que no maneje.
-        available: true,
-        price: '',
-        notes: '',
-        // Cada producto tiene sus propias alternativas, cerradas por defecto.
-        brandsOpen: false,
-        brandOptions: [],
-      }))
+      source.map((item, index) => {
+        // Autocompletado aditivo: si hay coincidencia en el inventario se
+        // proponen precio, notas, foto, bono y alternativas; el comercio puede
+        // editar todo antes de enviar.
+        const suggestion = autocompleteOfferItem(item, inventory);
+
+        return {
+          key: item.key ?? `offer-item-${index}`,
+          name: item.product,
+          quantity: item.quantity,
+          // Por comodidad se parte de «Lo tengo»; el comercio puede marcar
+          // «No lo tengo» en los productos que no maneje.
+          available: true,
+          price: suggestion.price,
+          notes: suggestion.notes,
+          photo: suggestion.photo,
+          bonus: suggestion.bonus,
+          freshness: suggestion.freshness,
+          readiness: suggestion.readiness,
+          // Las alternativas encontradas se muestran abiertas para revisarlas.
+          brandsOpen: suggestion.alternatives.length > 0,
+          brandOptions: suggestion.alternatives.map((option) => ({
+            key: option.key,
+            brand: option.brand,
+            price: option.price,
+            note: option.note,
+            photo: option.photo,
+            available: option.available !== false,
+            isRecommended: false,
+          })),
+        };
+      })
     );
     setClosingMessage('');
     setOfferError('');
@@ -411,6 +456,7 @@ export default function Dashboard() {
               available: option.available !== false,
               is_recommended: Boolean(option.isRecommended),
               note: String(option.note || '').trim(),
+              ...(option.photo ? { photo: option.photo } : {}),
             }))
             .filter((option) => option.brand && option.price > 0)
         : [];
@@ -426,6 +472,10 @@ export default function Dashboard() {
           ? Number((unitPrice * item.quantity).toFixed(2))
           : 0,
         notes: item.notes.trim() || null,
+        // Campos aditivos para que /offers muestre imagen y bono sin cambiar
+        // la estructura actual de la oferta.
+        ...(item.photo ? { photo: item.photo } : {}),
+        ...(String(item.bonus || '').trim() ? { bonus: String(item.bonus).trim() } : {}),
         brand_options: brandOptions,
       };
     });
@@ -612,6 +662,7 @@ export default function Dashboard() {
                   <span className="px-2 py-0.5 bg-gradient-to-r from-[#00EED0]/20 to-[#0197AF]/20 text-[#4B227A] rounded-md text-[9px] font-bold uppercase tracking-widest border border-[#4B227A]/30">
                     ⚡ Datos reales
                   </span>
+                  <ReadinessBadge items={opp.items} inventory={inventory} />
                   <GroupBadge badge={opp.groupBadge} />
                   <WorkshopBadge badge={opp.workshopBadge} />
                 </div>
@@ -656,6 +707,13 @@ export default function Dashboard() {
                                 <p className="text-xs text-gray-600">
                                   Cantidad solicitada: {item.quantity}
                                 </p>
+                                {item.readiness ? (
+                                  <span
+                                    className={`mt-1 inline-flex px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest border ${READINESS_STYLES[item.readiness.status]}`}
+                                  >
+                                    {item.readiness.label}
+                                  </span>
+                                ) : null}
                               </div>
                               <div
                                 role="group"
@@ -691,6 +749,27 @@ export default function Dashboard() {
 
                             {item.available ? (
                               <div className="mt-3 space-y-2">
+                                {item.photo ? (
+                                  <div className="flex items-center gap-2 rounded-lg bg-white/70 border border-white/40 p-2">
+                                    <SafeImage
+                                      src={item.photo}
+                                      alt={`Foto de ${item.name}`}
+                                      className="h-10 w-10 rounded-lg object-cover border border-white/40"
+                                    />
+                                    <span className="text-[11px] text-gray-600">
+                                      Foto tomada de tu inventario.
+                                    </span>
+                                  </div>
+                                ) : null}
+
+                                {item.freshness &&
+                                ['expiring', 'expired'].includes(item.freshness.status) ? (
+                                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-900">
+                                    Aviso de vigencia: {item.freshness.label}. Confirma el precio
+                                    antes de enviar.
+                                  </p>
+                                ) : null}
+
                                 <div>
                                   <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
                                     Precio unitario
@@ -732,6 +811,23 @@ export default function Dashboard() {
                                     updateOfferItem(item.key, { notes: e.target.value })
                                   }
                                 />
+
+                                {/* Campo destacado: bono, descuento o servicio incluido. */}
+                                <div className="rounded-xl border border-[#00EED0]/40 bg-[#00EED0]/10 p-2.5">
+                                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[#006E7A] mb-1">
+                                    Bono / descuento o servicio incluido
+                                  </label>
+                                  <input
+                                    type="text"
+                                    aria-label={`Bono o servicio incluido de ${item.name}`}
+                                    className="w-full bg-white/80 backdrop-blur-md border border-[#00EED0]/40 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF]"
+                                    placeholder="Ej. Instalación gratis o 10% de descuento"
+                                    value={item.bonus || ''}
+                                    onChange={(e) =>
+                                      updateOfferItem(item.key, { bonus: e.target.value })
+                                    }
+                                  />
+                                </div>
 
                                 <div className="border-t border-white/50 pt-2">
                                   <button

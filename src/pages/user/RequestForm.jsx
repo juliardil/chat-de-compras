@@ -46,6 +46,32 @@ const AUTOMOTIVE_FORM_FIELDS = [
 // Campos mínimos para poder enviar una solicitud.
 const REQUIRED_FIELDS = ['category', 'item', 'vehicleType'];
 
+// Sugerencias suaves: solo rellenan el producto y el comprador puede editarlo.
+const QUICK_SUGGESTIONS = [
+  'Pastillas de freno',
+  'Filtro de aceite',
+  'Batería',
+  'Amortiguadores',
+  'Aceite 5W-30',
+  'Bujías',
+];
+
+// Un solo año para simplificar el formulario. Se guarda en yearFrom y yearTo
+// para conservar la compatibilidad con mapRequestItem y los paneles actuales.
+const VEHICLE_YEARS = Array.from(
+  { length: 46 },
+  (_, index) => String(new Date().getFullYear() + 1 - index)
+);
+
+const PRINCIPAL_FIELD_NAMES = [
+  'category',
+  'item',
+  'vehicleType',
+  'vehicleBrand',
+  'vehicleModel',
+];
+const ADVANCED_FIELD_NAMES = ['reference', 'brand', 'condition', 'notes'];
+
 const normalizeQuantity = (value) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 1) return 1;
@@ -139,12 +165,17 @@ export default function RequestForm() {
       condition: '', 
       quantity: '1', 
       notes: '', 
+      installation: '',
       images: [] 
     }
   ]);
 
   // Errores por producto y campo: { [productId]: { [field]: mensaje } }
   const [errors, setErrors] = useState({});
+
+  // El acordeón nace cerrado para no alargar el formulario; los campos siguen
+  // viajando en `items` aunque el comprador nunca lo abra.
+  const [advancedOpen, setAdvancedOpen] = useState({});
 
   const addProduct = () => {
     setProducts([...products, { 
@@ -161,6 +192,7 @@ export default function RequestForm() {
       condition: '', 
       quantity: '1', 
       notes: '', 
+      installation: '',
       images: [] 
     }]);
   };
@@ -190,6 +222,30 @@ export default function RequestForm() {
       return next;
     });
   };
+
+  // El año único escribe yearFrom y yearTo: el resto de la app sigue leyendo
+  // el mismo contrato de siempre.
+  const updateVehicleYear = (id, value) => {
+    setProducts((current) =>
+      current.map((product) =>
+        product.id === id ? { ...product, yearFrom: value, yearTo: value } : product
+      )
+    );
+
+    setErrors((prev) => {
+      if (!prev[id]?.yearFrom && !prev[id]?.yearTo) return prev;
+      const productErrors = { ...prev[id] };
+      delete productErrors.yearFrom;
+      delete productErrors.yearTo;
+      const next = { ...prev };
+      if (Object.keys(productErrors).length > 0) next[id] = productErrors;
+      else delete next[id];
+      return next;
+    });
+  };
+
+  const toggleAdvanced = (id) =>
+    setAdvancedOpen((current) => ({ ...current, [id]: !current[id] }));
 
   const handleImageUpload = async (id, e) => {
     const file = e.target.files?.[0];
@@ -340,6 +396,76 @@ export default function RequestForm() {
       },
     });
   };
+
+  // Render compartido para no duplicar estilos entre los campos principales y
+  // los del acordeón. Las sugerencias solo acompañan al producto específico.
+  const renderField = (product, field) => (
+    <div key={field.name}>
+      {field.type === 'select' ? (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-800">{field.label}</label>
+          <div className="relative">
+            <select
+              value={product[field.name]}
+              onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
+              className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
+            >
+              <option value="">Selecciona una opción</option>
+              {field.options.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+      ) : field.type === 'textarea' ? (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-800">{field.label}</label>
+          <textarea
+            className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] transition-all placeholder:text-gray-600 min-h-[80px]"
+            placeholder={field.placeholder}
+            value={product[field.name]}
+            onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
+          />
+        </div>
+      ) : (
+        <Input
+          label={field.label}
+          placeholder={field.placeholder}
+          type={field.type}
+          min={field.min}
+          step={field.step}
+          inputMode={field.type === 'number' ? 'numeric' : undefined}
+          value={product[field.name]}
+          onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
+        />
+      )}
+
+      {field.name === 'item' ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {QUICK_SUGGESTIONS.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => updateProduct(product.id, 'item', suggestion)}
+              aria-pressed={product.item === suggestion}
+              className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                product.item === suggestion
+                  ? 'bg-[#00EED0]/20 text-[#4B227A] border-[#00EED0]/40'
+                  : 'bg-white/70 text-gray-700 border-white/40 hover:bg-white'
+              }`}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {errors[product.id]?.[field.name] && (
+        <p className="text-xs text-red-700 mt-1">{errors[product.id][field.name]}</p>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] flex flex-col">
@@ -501,52 +627,100 @@ export default function RequestForm() {
               </div>
 
               <div className="space-y-4">
-                {AUTOMOTIVE_FORM_FIELDS.map((field) => (
-                  <div key={field.name}>
-                    {field.type === 'select' ? (
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
-                        <div className="relative">
-                          <select
-                            value={product[field.name]}
-                            onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
-                            className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
-                          >
-                            <option value="">Selecciona una opción</option>
-                            {field.options.map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                          <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-                    ) : field.type === 'textarea' ? (
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-gray-800">{field.label}</label>
-                        <textarea 
-                          className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] transition-all placeholder:text-gray-600 min-h-[80px]"
-                          placeholder={field.placeholder}
-                          value={product[field.name]}
-                          onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
-                        />
-                      </div>
-                    ) : (
-                      <Input 
-                        label={field.label}
-                        placeholder={field.placeholder}
-                        type={field.type}
-                        min={field.min}
-                        step={field.step}
-                        inputMode={field.type === 'number' ? 'numeric' : undefined}
-                        value={product[field.name]}
-                        onChange={(e) => updateProduct(product.id, field.name, e.target.value)}
-                      />
-                    )}
-                    {errors[product.id]?.[field.name] && (
-                      <p className="text-xs text-red-700 mt-1">{errors[product.id][field.name]}</p>
-                    )}
+                {AUTOMOTIVE_FORM_FIELDS
+                  .filter((field) => PRINCIPAL_FIELD_NAMES.includes(field.name))
+                  .map((field) => renderField(product, field))}
+
+                {/* Año único: escribe yearFrom y yearTo para conservar el
+                    contrato que ya leen los paneles del comercio. */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`year-${product.id}`}
+                    className="text-sm font-medium text-gray-800"
+                  >
+                    Año del vehículo
+                  </label>
+                  <div className="relative">
+                    <select
+                      id={`year-${product.id}`}
+                      value={product.yearFrom || ''}
+                      onChange={(e) => updateVehicleYear(product.id, e.target.value)}
+                      className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
+                    >
+                      <option value="">Selecciona el año</option>
+                      {VEHICLE_YEARS.map((year) => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
-                ))}
+                  {errors[product.id]?.yearTo && (
+                    <p className="text-xs text-red-700">{errors[product.id].yearTo}</p>
+                  )}
+                </div>
+
+                {AUTOMOTIVE_FORM_FIELDS
+                  .filter((field) => field.name === 'quantity')
+                  .map((field) => renderField(product, field))}
+
+                {/* Instalación: opción suave que viaja dentro de `items`. */}
+                <div className="rounded-xl border border-white/40 bg-white/60 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                      <Wrench className="w-3.5 h-3.5 text-[#006E7A]" /> ¿Incluir instalación?
+                    </span>
+                    <div role="group" aria-label="Instalación" className="flex shrink-0 gap-1">
+                      {['Sí', 'No'].map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          aria-pressed={product.installation === option}
+                          onClick={() => updateProduct(product.id, 'installation', option)}
+                          className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-colors ${
+                            product.installation === option
+                              ? 'bg-[#00EED0]/25 text-[#4B227A] border-[#00EED0]/50'
+                              : 'bg-white/70 text-gray-600 border-white/40 hover:bg-white'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-600">
+                    Se envía con el producto para que el negocio cotice mano de obra si hace falta.
+                  </p>
+                </div>
+
+                {/* Detalles avanzados y referencia: cerrados por defecto. */}
+                <div className="rounded-xl border border-white/40 bg-white/60 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleAdvanced(product.id)}
+                    aria-expanded={Boolean(advancedOpen[product.id])}
+                    aria-controls={`advanced-${product.id}`}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left"
+                  >
+                    <span className="text-sm font-semibold text-[#006E7A]">
+                      Detalles avanzados y referencia
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-[#006E7A] transition-transform ${
+                        advancedOpen[product.id] ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  {advancedOpen[product.id] ? (
+                    <div
+                      id={`advanced-${product.id}`}
+                      className="space-y-4 border-t border-white/40 px-3 pb-3 pt-3"
+                    >
+                      {AUTOMOTIVE_FORM_FIELDS
+                        .filter((field) => ADVANCED_FIELD_NAMES.includes(field.name))
+                        .map((field) => renderField(product, field))}
+                    </div>
+                  ) : null}
+                </div>
 
                 {/* Image Upload */}
                 <div className="flex flex-col gap-1.5 pt-2">

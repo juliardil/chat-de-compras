@@ -17,12 +17,21 @@ vi.mock('../../data/appData', async (importOriginal) => {
   };
 });
 
+vi.mock('../../data/businessInventory', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchMyInventory: vi.fn(),
+  };
+});
+
 import {
   createOffer,
   fetchCommerceIdForUser,
   fetchCommerceSales,
   fetchOpenRequests,
 } from '../../data/appData';
+import { fetchMyInventory } from '../../data/businessInventory';
 
 const requestWithItems = {
   id: 'req-1',
@@ -76,6 +85,7 @@ describe('panel de oportunidades del comercio', () => {
     fetchOpenRequests.mockReset();
     fetchCommerceSales.mockReset();
     createOffer.mockReset();
+    fetchMyInventory.mockReset();
 
     fetchCommerceIdForUser.mockResolvedValue({
       item: { id: 'commerce-1', status: 'approved', trade_name: 'Taller Real' },
@@ -88,6 +98,7 @@ describe('panel de oportunidades del comercio', () => {
       notice: null,
     });
     fetchCommerceSales.mockResolvedValue({ items: [], error: null, notice: null });
+    fetchMyInventory.mockResolvedValue({ items: [], error: null, notice: null });
     createOffer.mockResolvedValue({ ok: true, data: [{ id: 'offer-1' }], error: null });
   });
 
@@ -350,6 +361,71 @@ describe('panel de oportunidades del comercio', () => {
     await userEvent.click(await screen.findByRole('button', { name: /ver detalles/i }));
     const dialog = await screen.findByRole('dialog', { name: /detalle de la oportunidad/i });
     expect(within(dialog).getByText(/Club Norte · 6 miembros/i)).toBeInTheDocument();
+  });
+
+  it('autocompleta precio, foto, bono y alternativas desde el inventario', async () => {
+    fetchMyInventory.mockResolvedValue({
+      items: [
+        {
+          id: 'inv-1',
+          name: 'Bafles Sony',
+          sku: 'REF-1',
+          brand: 'Sony',
+          category: 'Audio y Sonido',
+          price: '250',
+          stock: '8',
+          currency: 'MXN',
+          bonus: 'Instalación gratis',
+          photo_url: 'https://cdn.example.com/bafles.jpg',
+          valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          equivalence_group: 'audio',
+          alternatives: [],
+        },
+        {
+          id: 'inv-2',
+          name: 'Bafles Pioneer',
+          sku: 'P-2',
+          brand: 'Pioneer',
+          category: 'Audio y Sonido',
+          price: '240',
+          stock: '2',
+          currency: 'MXN',
+          is_active: true,
+          valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+
+    expect(await screen.findByText('Listo para enviar')).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole('button', { name: /ofertar ahora/i }));
+
+    expect(await screen.findByLabelText('Precio unitario de Bafles')).toHaveValue(250);
+    expect(
+      screen.getByLabelText('Bono o servicio incluido de Bafles')
+    ).toHaveValue('Instalación gratis');
+    expect(screen.getByAltText('Foto de Bafles')).toBeInTheDocument();
+    expect(screen.getByLabelText('Marca de Bafles, alternativa 1')).toHaveValue('Pioneer');
+    expect(screen.getByLabelText('Precio de Bafles, alternativa 1')).toHaveValue(240);
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
+
+    expect(await screen.findByText('Oferta enviada')).toBeInTheDocument();
+    const payload = createOffer.mock.calls[0][0];
+    expect(payload.items[0]).toMatchObject({
+      name: 'Bafles',
+      unitPrice: 250,
+      photo: 'https://cdn.example.com/bafles.jpg',
+      bonus: 'Instalación gratis',
+    });
+    expect(payload.items[0].brand_options[0]).toMatchObject({
+      brand: 'Pioneer',
+      price: 240,
+    });
   });
 
   it('muestra la insignia B2B y la tarifa mayorista al cotizar para un taller', async () => {

@@ -29,6 +29,7 @@ import EditUserProfile from './pages/user/EditUserProfile';
 
 // Commerce Flow
 import Dashboard from './pages/commerce/Dashboard';
+import Inventory from './pages/commerce/Inventory';
 import SalesHistory from './pages/commerce/SalesHistory';
 import Profile from './pages/commerce/Profile';
 import EditProfile from './pages/commerce/EditProfile';
@@ -136,6 +137,7 @@ function AppRoutes() {
 
         {/* Commerce Routes */}
         <Route path="/dashboard" element={<RequireRole role="commerce"><Dashboard /></RequireRole>} />
+        <Route path="/inventory" element={<RequireRole role="commerce"><Inventory /></RequireRole>} />
         <Route path="/sales-history" element={<RequireRole role="commerce"><SalesHistory /></RequireRole>} />
         <Route path="/profile" element={<RequireRole role="commerce"><Profile /></RequireRole>} />
         <Route path="/edit-profile" element={<RequireRole role="commerce"><EditProfile /></RequireRole>} />

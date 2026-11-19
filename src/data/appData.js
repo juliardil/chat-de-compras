@@ -361,6 +361,29 @@ export const uploadLogo = async ({ userId, scope, file }) => {
   return uploadToAvatars(path, file, 'No se pudo subir el logo.');
 };
 
+// Fotos de productos del inventario: mismo bucket público y mismas validaciones
+// que la foto de perfil y los logos. La ruta `inventory/...` mantiene los
+// archivos separados sin crear un storage paralelo ni tocar los existentes.
+export const uploadInventoryPhoto = async ({ userId, file }) => {
+  const validation = validateProfilePhoto(file);
+  if (validation) return { url: null, key: null, error: validation };
+
+  if (!isInsforgeConfigured) {
+    return { url: URL.createObjectURL(file), key: null, error: null, demo: true };
+  }
+
+  if (!userId) {
+    return {
+      url: null,
+      key: null,
+      error: 'No hay una sesión activa para subir la foto del producto.',
+    };
+  }
+
+  const path = `inventory/${userId}/photo-${Date.now()}.${profilePhotoExtension(file)}`;
+  return uploadToAvatars(path, file, 'No se pudo subir la foto del producto.');
+};
+
 // -----------------------------------------------------------------------------
 // Solicitudes del comprador
 // -----------------------------------------------------------------------------
@@ -495,14 +518,20 @@ const finiteNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
-const normalizeSingleBrandOption = (option, index = 0) => ({
-  id: String(option?.id ?? `option-${index + 1}`),
-  brand: String(option?.brand ?? '').trim(),
-  price: finiteNumber(option?.price),
-  available: option?.available !== false,
-  isRecommended: Boolean(option?.is_recommended ?? option?.isRecommended),
-  note: String(option?.note ?? '').trim(),
-});
+const normalizeSingleBrandOption = (option, index = 0) => {
+  const photo = String(option?.photo ?? option?.photo_url ?? '').trim();
+  return {
+    id: String(option?.id ?? `option-${index + 1}`),
+    brand: String(option?.brand ?? '').trim(),
+    price: finiteNumber(option?.price),
+    available: option?.available !== false,
+    isRecommended: Boolean(option?.is_recommended ?? option?.isRecommended),
+    note: String(option?.note ?? '').trim(),
+    // La foto es aditiva: solo aparece cuando la oferta la trae para no
+    // cambiar la forma de las opciones antiguas ni sus acuerdos de chat.
+    ...(photo ? { photo } : {}),
+  };
+};
 
 // Las alternativas de una tarjeta de producto viajan en `item.brand_options`
 // y su precio es por unidad (el precio base sigue siendo `unitPrice`).
@@ -816,6 +845,14 @@ export const mapOffer = (row, buyerLocation = null) => {
           ? formatCurrency(totalPrice, row.currency)
           : '',
       notes: item?.notes || '',
+      // Imagen del producto enviada por la tienda. Es opcional y no altera
+      // las ofertas antiguas que solo traen logo/avatar del negocio.
+      photo:
+        item?.photo ||
+        item?.photo_url ||
+        readItemImages(item)[0] ||
+        null,
+      bonus: String(item?.bonus || '').trim(),
       brandOptions: itemBrandOptions,
       selectedOption: selectedBrandOption,
     };
@@ -850,6 +887,14 @@ export const mapOffer = (row, buyerLocation = null) => {
     ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
     conditions: row.conditions || '',
     status: row.status,
+    // Bono/descuento o servicio incluido a nivel de oferta (aditivo).
+    bonus: String(row.bonus || '').trim(),
+    // Primera imagen de producto disponible para la tarjeta de la oferta.
+    photo:
+      row.photo_url ||
+      row.photo ||
+      mappedItems.find((item) => item.photo)?.photo ||
+      null,
     brandOptions,
     brandOptionsByItem: hasItemOptions,
     selectedOption,

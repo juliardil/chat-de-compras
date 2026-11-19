@@ -189,4 +189,48 @@ describe('publicación de una solicitud', () => {
     expect(await screen.findByText(/taller verificado • prioridad b2b/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/abc1234/i)).toBeInTheDocument();
   });
+
+  it('simplifica el año y conserva marca, modelo, sugerencias, instalación y referencia', async () => {
+    createPurchaseRequest.mockResolvedValue({
+      ok: true,
+      data: [{ id: 'req-3' }],
+      error: null,
+    });
+
+    renderForm();
+
+    await userEvent.selectOptions(await screen.findByLabelText('Año del vehículo'), '2018');
+    await userEvent.click(screen.getByRole('button', { name: 'Batería' }));
+    expect(
+      screen.getByPlaceholderText('Ej: Pastillas de freno, filtro de aceite, batería')
+    ).toHaveValue('Batería');
+
+    await userEvent.type(screen.getByPlaceholderText('Ej: Toyota, Ford, Honda'), 'Toyota');
+    await userEvent.type(screen.getByPlaceholderText('Ej: Corolla, Fiesta, Civic'), 'Corolla');
+    await userEvent.click(screen.getByRole('button', { name: 'Sí' }));
+
+    expect(screen.queryByPlaceholderText('Ej: 04465-02060')).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: /detalles avanzados y referencia/i })
+    );
+    await userEvent.type(screen.getByPlaceholderText('Ej: 04465-02060'), 'REF-9');
+
+    const selects = screen.getAllByRole('combobox');
+    await userEvent.selectOptions(selects[0], 'Frenos');
+    await userEvent.selectOptions(selects[1], 'Auto');
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar solicitud automotriz/i }));
+
+    expect(await screen.findByText('Confirmación de publicación')).toBeInTheDocument();
+    const item = createPurchaseRequest.mock.calls[0][0].items[0];
+    expect(item).toMatchObject({
+      item: 'Batería',
+      yearFrom: '2018',
+      yearTo: '2018',
+      vehicleBrand: 'Toyota',
+      vehicleModel: 'Corolla',
+      installation: 'Sí',
+      reference: 'REF-9',
+    });
+  });
 });

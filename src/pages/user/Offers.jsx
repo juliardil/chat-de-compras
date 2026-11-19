@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import BusinessLogo from '../../components/ui/BusinessLogo';
+import SafeImage from '../../components/ui/SafeImage';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import OfferSortBar from '../../components/ui/OfferSortBar';
 import BrandOptionPicker from '../../components/ui/BrandOptionPicker';
@@ -350,15 +351,30 @@ export default function Offers() {
                         </div>
                       </div>
                     </div>
-                    <span className="shrink-0 font-bold text-[#006E7A]">
-                      {effectivePriceLabel(offer)}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {offer.photo ? (
+                        <SafeImage
+                          src={offer.photo}
+                          alt={`Producto de ${offer.store}`}
+                          className="h-10 w-10 rounded-xl object-cover border border-white/40 bg-white/70"
+                        />
+                      ) : null}
+                      <span className="font-bold text-[#006E7A]">
+                        {effectivePriceLabel(offer)}
+                      </span>
+                    </div>
                   </div>
 
                   {offer.conditions ? (
                     <p className="mt-2 text-sm text-gray-600 line-clamp-2 bg-white/70 p-2 rounded-lg border border-white/30">
                       {offer.conditions}
                     </p>
+                  ) : null}
+
+                  {offer.bonus ? (
+                    <span className="mt-2 inline-flex items-center text-[11px] font-bold text-[#4B227A] bg-[#00EED0]/20 border border-[#00EED0]/30 px-2 py-1 rounded-full">
+                      Bono: {offer.bonus}
+                    </span>
                   ) : null}
 
                   {!offer.brandOptionsByItem ? (
@@ -391,12 +407,22 @@ export default function Offers() {
                               {item.status === 'available' ? null : (
                                 <AlertTriangle className="w-3 h-3" />
                               )}
+                              {item.photo ? (
+                                <SafeImage
+                                  src={item.photo}
+                                  alt={`Foto de ${item.name}`}
+                                  className="h-5 w-5 rounded-full object-cover border border-white/40 bg-white/70"
+                                />
+                              ) : null}
                               {item.name} × {item.quantity}
                               {item.status === 'available'
                                 ? item.priceLabel
                                   ? ` · ${item.priceLabel}`
                                   : ''
                                 : ' (no disponible)'}
+                              {item.bonus ? (
+                                <span className="font-bold text-[#4B227A]"> · {item.bonus}</span>
+                              ) : null}
                             </p>
                             {hasBrands ? (
                               <div className="bg-white/70 rounded-xl px-2">
