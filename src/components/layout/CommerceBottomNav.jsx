@@ -5,16 +5,19 @@ import { LayoutDashboard, MessageSquare, User } from 'lucide-react';
 
 // Actualización estética Junio 2026
 
-export default function CommerceBottomNav() {
+export default function CommerceBottomNav({
+  panelPath = '/dashboard',
+  profilePath = '/profile',
+}) {
   const navigate = useNavigate();
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Panel', path: '/dashboard' },
+    { icon: LayoutDashboard, label: 'Panel', path: panelPath },
     { icon: MessageSquare, label: 'Chat', path: '/chat-list', indicator: true },
-    { icon: User, label: 'Perfil', path: '/profile' },
+    { icon: User, label: 'Perfil', path: profilePath },
   ];
 
   return (

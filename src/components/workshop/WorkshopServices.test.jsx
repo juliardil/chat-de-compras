@@ -109,6 +109,14 @@ describe('bandeja de trabajos del taller verificado', () => {
     });
     expect(await screen.findByText('Chat abierto')).toBeInTheDocument();
   });
+
+  it('muestra solo la pestaña elegida cuando se usa dentro del Panel de Trabajos', async () => {
+    renderWithRouter(<WorkshopJobsPanel activeTab="proposals" embedded />);
+
+    expect(await screen.findByText(/cambio de pastillas/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /enviar propuesta/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Mis propuestas enviadas')).not.toBeInTheDocument();
+  });
 });
 
 describe('historial por placa del taller', () => {

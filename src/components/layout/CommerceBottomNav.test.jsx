@@ -39,4 +39,20 @@ describe('Barra inferior del comercio', () => {
 
     expect(screen.getByText('Ruta actual: /chat-list')).toBeInTheDocument();
   });
+
+  it('acepta rutas propias para el Panel de Trabajos del taller', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/workshop-jobs']}>
+        <CommerceBottomNav panelPath="/workshop-jobs" profilePath="/profile-user" />
+        <PathProbe />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('button', { name: 'Panel' })).toHaveAttribute('aria-current', 'page');
+
+    await user.click(screen.getByRole('button', { name: 'Perfil' }));
+
+    expect(screen.getByText('Ruta actual: /profile-user')).toBeInTheDocument();
+  });
 });

@@ -562,7 +562,10 @@ export default function Inventory() {
         ) : null}
       </div>
 
-      <CommerceBottomNav />
+      <CommerceBottomNav
+        panelPath={user?.role === 'commerce' ? '/dashboard' : '/workshop-jobs'}
+        profilePath={user?.role === 'commerce' ? '/profile' : '/profile-user'}
+      />
     </div>
   );
 }

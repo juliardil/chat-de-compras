@@ -73,19 +73,25 @@ function HomeRedirect() {
 }
 
 // Protege una ruta comprobando que haya sesión y, opcionalmente, el rol.
-// `allowWorkshopBusiness` habilita SOLO el panel de trabajos para un comprador
-// con taller verificado, sin abrirle las rutas del panel de comercios.
-function RequireRole({ role, allowWorkshopBusiness = false, children }) {
+// `allowWorkshopBusiness` habilita el panel en modo empresa; `allowWorkshop`
+// habilita módulos del taller verificado sin depender del viewMode transitorio.
+function RequireRole({
+  role,
+  allowWorkshopBusiness = false,
+  allowWorkshop = false,
+  children,
+}) {
   const { user, loading, viewMode, workshopVerified } = useAuth();
 
   if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
 
+  // `allowWorkshop` habilita módulos del taller (inventario, respuestas) sin
+  // depender del viewMode transitorio: esas rutas siguen protegidas en backend.
   const businessWorkshop =
-    allowWorkshopBusiness &&
-    viewMode === 'business' &&
     workshopVerified &&
-    user.role !== 'commerce';
+    user.role !== 'commerce' &&
+    (allowWorkshop || (allowWorkshopBusiness && viewMode === 'business'));
 
   if (role && user.role !== role && !businessWorkshop) {
     return <Navigate to={homeForRole(user.role)} replace />;
@@ -126,18 +132,21 @@ function AppRoutes() {
         />
         <Route
           path="/workshop-jobs/responses"
-          element={<RequireRole allowWorkshopBusiness><OfferResponsesPage /></RequireRole>}
+          element={<RequireRole allowWorkshop><OfferResponsesPage /></RequireRole>}
         />
         <Route
           path="/workshop-jobs/responses/:offerId"
-          element={<RequireRole allowWorkshopBusiness><OfferNegotiationPage /></RequireRole>}
+          element={<RequireRole allowWorkshop><OfferNegotiationPage /></RequireRole>}
         />
         <Route path="/addresses" element={<RequireRole role="user"><Addresses /></RequireRole>} />
         <Route path="/edit-user-profile" element={<RequireRole role="user"><EditUserProfile /></RequireRole>} />
 
         {/* Commerce Routes */}
         <Route path="/dashboard" element={<RequireRole role="commerce"><Dashboard /></RequireRole>} />
-        <Route path="/inventory" element={<RequireRole role="commerce"><Inventory /></RequireRole>} />
+        <Route
+          path="/inventory"
+          element={<RequireRole role="commerce" allowWorkshop><Inventory /></RequireRole>}
+        />
         <Route path="/sales-history" element={<RequireRole role="commerce"><SalesHistory /></RequireRole>} />
         <Route path="/profile" element={<RequireRole role="commerce"><Profile /></RequireRole>} />
         <Route path="/edit-profile" element={<RequireRole role="commerce"><EditProfile /></RequireRole>} />

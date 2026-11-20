@@ -1,7 +1,17 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BadgeCheck, MessageCircle, Wrench } from 'lucide-react';
+import {
+  BadgeCheck,
+  Car,
+  Menu,
+  MessageCircle,
+  Package,
+  Settings,
+  Wrench,
+  X,
+} from 'lucide-react';
 import ViewSwitcher from '../../components/layout/ViewSwitcher';
+import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import WorkshopJobsPanel from '../../components/workshop/WorkshopJobsPanel';
 import WorkshopPlateHistory from '../../components/workshop/WorkshopPlateHistory';
 import { useAuth } from '../../context/auth-context';
@@ -9,11 +19,16 @@ import { useAuth } from '../../context/auth-context';
 // Vista de "modo empresa" para un Taller Verificado. No cambia el rol de la
 // cuenta: activa la vista de negocio solo mientras esta pantalla está abierta.
 // El cambio de vista vive en el switcher superior compartido, así que aquí no
-// se repite ningún botón de retorno ni barra inferior de cambio de modo.
+// se repite ningún botón de retorno. Los accesos secundarios viven en el menú
+// hamburguesa (mismo estilo que /dashboard) y el chat en la barra inferior.
 export default function WorkshopJobsPage() {
   const { user, workshopVerified, viewMode, setViewMode } = useAuth();
   const navigate = useNavigate();
   const setViewModeRef = useRef(setViewMode);
+  const menuRef = useRef(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('jobs');
+  const [showPlateHistory, setShowPlateHistory] = useState(false);
 
   useEffect(() => {
     setViewModeRef.current = setViewMode;
@@ -26,7 +41,68 @@ export default function WorkshopJobsPage() {
     };
   }, [user?.role]);
 
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMenuOpen]);
+
   const canWork = user?.role === 'commerce' || workshopVerified;
+  const isCommerce = user?.role === 'commerce';
+
+  const menuItems = [
+    { icon: Package, label: 'Mi Inventario', path: '/inventory' },
+    { icon: Car, label: 'Historial por placa', action: 'history' },
+    {
+      icon: Settings,
+      label: 'Ajustes',
+      path: isCommerce ? '/niche-config' : '/edit-user-profile',
+    },
+  ];
+
+  const handleMenuAction = (item) => {
+    setIsMenuOpen(false);
+    if (item.action === 'history') {
+      setShowPlateHistory(true);
+      return;
+    }
+    navigate(item.path);
+  };
+
+  const handleMenuNavigate = (path) => {
+    setIsMenuOpen(false);
+    navigate(path);
+  };
+
+  const tabs = [
+    { id: 'jobs', label: 'Trabajos disponibles' },
+    { id: 'proposals', label: 'Mis propuestas' },
+  ];
+
+  const tabClass = (id) =>
+    `flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0197AF]/40 ${
+      activeTab === id
+        ? 'bg-[#4B227A] text-white shadow'
+        : 'text-[#4B227A] hover:bg-[#4B227A]/10'
+    }`;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-[#E7E7E7] pb-24">
@@ -43,9 +119,55 @@ export default function WorkshopJobsPage() {
               Cotiza instalaciones y reparaciones. Tus respuestas llegan al flujo de ofertas.
             </p>
           </div>
-          <span className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#4B227A]/10 text-[#4B227A]">
-            <Wrench className="w-5 h-5" aria-hidden="true" />
-          </span>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#4B227A]/10 text-[#4B227A]">
+              <Wrench className="w-5 h-5" aria-hidden="true" />
+            </span>
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen((open) => !open)}
+                aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+                aria-expanded={isMenuOpen}
+                aria-haspopup="menu"
+                className="p-2 bg-white/60 backdrop-blur-md rounded-full hover:bg-white/80 transition-colors border border-white/30"
+              >
+                {isMenuOpen
+                  ? <X className="w-5 h-5 text-gray-700" />
+                  : <Menu className="w-5 h-5 text-gray-700" />}
+              </button>
+
+              {isMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-2 w-52 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 overflow-hidden z-50"
+                >
+                  {menuItems.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleMenuAction(item)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:bg-white transition-colors border-b border-white/40 last:border-b-0"
+                    >
+                      <item.icon className="w-4 h-4 text-[#006E7A]" aria-hidden="true" />
+                      <span className="flex-1">{item.label}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => handleMenuNavigate('/workshop-jobs/responses')}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-gray-800 hover:bg-white transition-colors border-t border-[#4B227A]/10"
+                  >
+                    <MessageCircle className="w-4 h-4 text-[#006E7A]" aria-hidden="true" />
+                    <span className="flex-1">Respuestas de mis ofertas</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {workshopVerified || viewMode === 'business' ? (
@@ -67,33 +189,61 @@ export default function WorkshopJobsPage() {
           </div>
         ) : (
           <>
-            <WorkshopJobsPanel />
-            <div className="mt-6">
-              <WorkshopPlateHistory />
+            <div
+              role="tablist"
+              aria-label="Secciones del Panel de Trabajos"
+              className="flex gap-2 rounded-2xl border border-white/40 bg-white/70 p-1 shadow-sm"
+            >
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={tabClass(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            {/* Acceso destacado al final del Panel de Trabajo. */}
-            <button
-              type="button"
-              onClick={() => navigate('/workshop-jobs/responses')}
-              className="mt-6 w-full rounded-2xl border border-[#00EED0]/30 bg-[#0B1020] px-5 py-4 text-left text-white shadow-[0_0_24px_rgba(0,238,208,0.12)] transition hover:border-[#00EED0]/60 hover:shadow-[0_0_30px_rgba(0,238,208,0.25)]"
-            >
-              <span className="flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00EED0]/15 text-[#00EED0]">
-                  <MessageCircle className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold">Respuestas de mis ofertas</span>
-                  <span className="mt-0.5 block text-[11px] text-slate-300">
-                    Abre la bandeja de chat para negociar y confirmar servicios.
-                  </span>
-                </span>
-                <span aria-hidden="true" className="text-[#00EED0]">→</span>
-              </span>
-            </button>
+            <div className="mt-5" role="tabpanel" aria-label={tabs.find((tab) => tab.id === activeTab)?.label}>
+              <WorkshopJobsPanel activeTab={activeTab} embedded />
+            </div>
           </>
         )}
       </main>
+
+      <CommerceBottomNav
+        panelPath={isCommerce ? '/dashboard' : '/workshop-jobs'}
+        profilePath={isCommerce ? '/profile' : '/profile-user'}
+      />
+
+      {showPlateHistory ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowPlateHistory(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Historial por placa"
+            className="bg-white/90 backdrop-blur-md w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-6 shadow-xl relative animate-in zoom-in-95 duration-200 border border-white/30"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Cerrar historial por placa"
+              onClick={() => setShowPlateHistory(false)}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <WorkshopPlateHistory />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
