@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, Package, User } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, User } from 'lucide-react';
 
 // Actualización estética Junio 2026
 
@@ -13,7 +13,6 @@ export default function CommerceBottomNav() {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Panel', path: '/dashboard' },
-    { icon: Package, label: 'Inventario', path: '/inventory' },
     { icon: MessageSquare, label: 'Chat', path: '/chat-list', indicator: true },
     { icon: User, label: 'Perfil', path: '/profile' },
   ];
