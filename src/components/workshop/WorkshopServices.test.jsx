@@ -59,6 +59,7 @@ beforeEach(() => {
         vehicle_plate: 'ABC123',
         service_zone: 'Centro',
         specialty: 'Frenos',
+        service_modality: 'Servicio a domicilio',
         client_name: 'Camila',
         client_is_club_member: true,
       },
@@ -117,6 +118,9 @@ describe('bandeja de trabajos del taller verificado', () => {
     expect(screen.getByText(/cliente de club/i)).toBeInTheDocument();
     expect(screen.getByText(/abc123/i)).toBeInTheDocument();
     expect(screen.getByText('Frenos')).toBeInTheDocument();
+    expect(screen.getByText('Servicio a domicilio')).toBeInTheDocument();
+    const jobCard = (await screen.findAllByText(/cambio de pastillas/i))[0].closest('article');
+    expect(jobCard).toHaveClass('border-[#00EED0]');
 
     await user.click(screen.getByRole('button', { name: /enviar propuesta/i }));
     await user.type(screen.getByLabelText(/precio de mano de obra/i), '850');
@@ -136,6 +140,31 @@ describe('bandeja de trabajos del taller verificado', () => {
       'Propuesta enviada. El cliente la verá junto a sus ofertas'
     );
     expect(banner.closest('[role="note"]')).toHaveClass('bg-[#0197AF]/10');
+  });
+
+  it('muestra la modalidad Visita al taller con el badge suave y sin acento de domicilio', async () => {
+    fetchAvailableServiceJobs.mockResolvedValue({
+      items: [
+        {
+          id: 'job-2',
+          title: 'Revisión en taller',
+          description: 'Diagnóstico electrónico',
+          specialty: 'Diagnóstico electrónico',
+          service_modality: 'Visita al taller',
+          client_name: 'Camila',
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderWithRouter(<WorkshopJobsPanel />);
+
+    expect(await screen.findByText('Visita al taller')).toBeInTheDocument();
+    expect(screen.queryByText('Servicio a domicilio')).not.toBeInTheDocument();
+    const jobCard = screen.getByText('Revisión en taller').closest('article');
+    expect(jobCard).toHaveClass('border-[#4B227A]/15');
+    expect(jobCard).not.toHaveClass('border-[#00EED0]');
   });
 
   it('abre un chat flotante compacto desde Mis propuestas sin salir del panel', async () => {

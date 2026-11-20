@@ -168,6 +168,10 @@ describe('publicación de una solicitud', () => {
 
     // La descripción sugiere Frenos; el selector queda visible y editable.
     expect(screen.getByRole('combobox', { name: 'Especialidad requerida' })).toHaveValue('Frenos');
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Modalidad de atención' }),
+      'Servicio a domicilio'
+    );
 
     await userEvent.click(
       screen.getByRole('button', { name: /publicar trabajo para talleres/i })
@@ -178,6 +182,7 @@ describe('publicación de una solicitud', () => {
     expect(createPurchaseRequest.mock.calls[0][0]).toMatchObject({
       request_type: 'service',
       specialty: 'Frenos',
+      service_modality: 'Servicio a domicilio',
       title: 'Instalación / reparación: Frenos',
       service_zone: 'Centro',
       vehicle_plate: 'ABC123',
@@ -192,6 +197,8 @@ describe('publicación de una solicitud', () => {
     );
 
     expect(screen.getByText('Solicitud de servicio')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Especialidad requerida' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Modalidad de atención' })).toBeInTheDocument();
     expect(screen.queryByText('Producto Automotriz')).not.toBeInTheDocument();
     expect(
       screen.queryByPlaceholderText('Ej: Pastillas de freno, filtro de aceite, batería')
@@ -217,6 +224,26 @@ describe('publicación de una solicitud', () => {
     expect(createPurchaseRequest).not.toHaveBeenCalled();
     expect(fetchBuyerProfileId).not.toHaveBeenCalled();
     expect(screen.queryByText('Confirmación de publicación')).not.toBeInTheDocument();
+  });
+
+  it('bloquea la publicación si falta la modalidad de atención', async () => {
+    renderForm();
+    await userEvent.click(
+      await screen.findByRole('button', { name: /quién me lo instala \/ repara/i })
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/el vehículo hace ruido al frenar/i),
+      'Ruido al frenar'
+    );
+    expect(screen.getByRole('combobox', { name: 'Especialidad requerida' })).toHaveValue('Frenos');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /publicar trabajo para talleres/i })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/elegir la modalidad de atención/i);
+    expect(createPurchaseRequest).not.toHaveBeenCalled();
+    expect(fetchBuyerProfileId).not.toHaveBeenCalled();
   });
 
   it('no adivina la especialidad cuando la descripción menciona varias', async () => {
@@ -259,6 +286,10 @@ describe('publicación de una solicitud', () => {
     await userEvent.type(description, ' y revisar discos');
 
     expect(specialty).toHaveValue('Electricidad');
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Modalidad de atención' }),
+      'Visita al taller'
+    );
     await userEvent.click(
       screen.getByRole('button', { name: /publicar trabajo para talleres/i })
     );
@@ -267,6 +298,7 @@ describe('publicación de una solicitud', () => {
     expect(createPurchaseRequest.mock.calls[0][0]).toMatchObject({
       request_type: 'service',
       specialty: 'Electricidad',
+      service_modality: 'Visita al taller',
     });
   });
 

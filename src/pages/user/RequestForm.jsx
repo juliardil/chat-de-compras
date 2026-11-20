@@ -11,6 +11,7 @@ import {
   findSpecialtyMatches,
   suggestServiceSpecialty,
 } from '../../data/serviceSpecialties';
+import { SERVICE_MODALITIES } from '../../data/serviceModalities';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -144,6 +145,7 @@ export default function RequestForm() {
     () => suggestServiceSpecialty(location.state?.serviceFault || '') || ''
   );
   const [specialtyManuallySet, setSpecialtyManuallySet] = useState(false);
+  const [serviceModality, setServiceModality] = useState('');
   const [submitError, setSubmitError] = useState(null);
 
   const handleServiceFaultChange = (event) => {
@@ -297,12 +299,15 @@ export default function RequestForm() {
     // Regla obligatoria del trabajo de servicio: sin especialidad no se publica
     // y no se llama al backend, para no enviar una solicitud que ningún taller
     // podría recibir por especialidad.
-    if (serviceMode && !serviceSpecialty) {
+    if (serviceMode && (!serviceSpecialty || !serviceModality)) {
+      const missingSpecialty = !serviceSpecialty;
       setSubmitError(
-        'Debes elegir la especialidad requerida para dirigir el trabajo a los talleres que la prestan.'
+        missingSpecialty
+          ? 'Debes elegir la especialidad requerida para dirigir el trabajo a los talleres que la prestan.'
+          : 'Debes elegir la modalidad de atención: Servicio a domicilio o Visita al taller.'
       );
       document
-        .getElementById('service-specialty')
+        .getElementById(missingSpecialty ? 'service-specialty' : 'service-modality')
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -407,6 +412,7 @@ export default function RequestForm() {
       // La columna nueva viaja a app_available_service_jobs(): solo los
       // talleres con esta especialidad verán el trabajo en /workshop-jobs.
       requestPayload.specialty = serviceSpecialty;
+      requestPayload.service_modality = serviceModality;
       if (serviceZone.trim()) requestPayload.service_zone = serviceZone.trim();
     }
     if (serviceMode || isVerifiedWorkshop) {
@@ -641,7 +647,40 @@ export default function RequestForm() {
                   Elige la especialidad para dirigir el trabajo a los talleres que la prestan.
                 </p>
               ) : null}
-              {submitError ? (
+              {submitError && !serviceSpecialty ? (
+                <p role="alert" className="text-xs text-red-700">{submitError}</p>
+              ) : null}
+            </label>
+
+            <label className="flex flex-col gap-1.5" htmlFor="service-modality">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
+                <MapPin className="w-3.5 h-3.5 text-[#006E7A]" /> Modalidad de atención
+                <span className="text-red-600">*</span>
+              </span>
+              <div className="relative">
+                <select
+                  id="service-modality"
+                  aria-label="Modalidad de atención"
+                  value={serviceModality}
+                  onChange={(event) => {
+                    setServiceModality(event.target.value);
+                    setSubmitError(null);
+                  }}
+                  className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
+                >
+                  <option value="">Selecciona una modalidad</option>
+                  {SERVICE_MODALITIES.map((modality) => (
+                    <option key={modality} value={modality}>{modality}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+              {!serviceModality ? (
+                <p className="text-xs text-gray-600">
+                  Indica si acudimos a tu domicilio o si tú visitas el taller.
+                </p>
+              ) : null}
+              {submitError && serviceSpecialty && !serviceModality ? (
                 <p role="alert" className="text-xs text-red-700">{submitError}</p>
               ) : null}
             </label>

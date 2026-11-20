@@ -5,9 +5,11 @@ import {
   CheckCircle2,
   Clock,
   ClipboardList,
+  Home,
   MapPin,
   MessageCircle,
   Send,
+  Store,
   Users,
   Wrench,
 } from 'lucide-react';
@@ -31,6 +33,8 @@ const formatMoney = (value) =>
     currency: 'MXN',
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
+
+const isHomeService = (job) => job?.service_modality === 'Servicio a domicilio';
 
 // Bandeja "Trabajos / Instalaciones Disponibles" del taller verificado.
 // Las propuestas son ofertas reutilizadas y el chat es el hilo de siempre.
@@ -142,7 +146,11 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
             {jobs.items.map((job) => (
               <article
                 key={job.id}
-                className="rounded-2xl border border-[#4B227A]/15 bg-white/70 p-3"
+                className={`rounded-2xl border p-3 ${
+                  isHomeService(job)
+                    ? 'border-[#00EED0] bg-[#00EED0]/10 ring-1 ring-[#00EED0]/30'
+                    : 'border-[#4B227A]/15 bg-white/70'
+                }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -173,6 +181,17 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
                     <span className="inline-flex items-center gap-1 rounded-md bg-[#0197AF]/10 px-2 py-1 text-[#006E7A]">
                       <Wrench className="w-3 h-3" /> {job.specialty}
                     </span>
+                  ) : null}
+                  {job.service_modality ? (
+                    isHomeService(job) ? (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-[#00EED0]/50 bg-[#00EED0]/25 px-2 py-1 font-bold text-[#4B227A]">
+                        <Home className="w-3 h-3" /> Servicio a domicilio
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
+                        <Store className="w-3 h-3" /> Visita al taller
+                      </span>
+                    )
                   ) : null}
                   <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
                     {job.client_name || 'Comprador'}

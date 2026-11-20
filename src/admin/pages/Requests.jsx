@@ -6,9 +6,12 @@ import {
   ClipboardList,
   Eye,
   EyeOff,
+  Home,
   RotateCcw,
   Search,
   ShieldCheck,
+  Store,
+  Wrench,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
@@ -29,6 +32,8 @@ import {
   requestActionPermission,
 } from '../constants/phase3';
 import { formatDate, formatDateTime, formatRelative } from '../utils/format';
+import { WORKSHOP_SPECIALTIES } from '../../data/workshop';
+import { SERVICE_MODALITIES } from '../../data/serviceModalities';
 
 const ACTION_ICONS = {
   hide: EyeOff,
@@ -36,6 +41,34 @@ const ACTION_ICONS = {
   close: Check,
   cancel: Ban,
 };
+
+function ServiceSpecialtyBadge({ value, emptyLabel = '—' }) {
+  if (!value) return <span className="text-slate-400">{emptyLabel}</span>;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#4B227A]/10 px-2 py-1 text-[11px] font-semibold text-[#4B227A] ring-1 ring-inset ring-[#4B227A]/20">
+      <Wrench className="h-3 w-3" aria-hidden="true" />
+      {value}
+    </span>
+  );
+}
+
+function ServiceModalityBadge({ value, emptyLabel = '—' }) {
+  if (!value) return <span className="text-slate-400">{emptyLabel}</span>;
+  const isHome = value === 'Servicio a domicilio';
+  const Icon = isHome ? Home : Store;
+  const toneClasses = isHome
+    ? 'bg-[#4B227A]/10 text-[#4B227A] ring-[#4B227A]/20'
+    : 'bg-slate-100 text-slate-600 ring-slate-200';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ring-1 ring-inset ${toneClasses}`}
+    >
+      <Icon className="h-3 w-3" aria-hidden="true" />
+      {value}
+    </span>
+  );
+}
 
 function buildActions(request, hasPermission) {
   return (REQUEST_TRANSITIONS[request.status] || [])
@@ -101,6 +134,16 @@ function RequestDetail({ request }) {
           </dd>
         </div>
       </dl>
+
+      <div className="rounded-xl bg-slate-50 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Detalles del servicio
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <ServiceSpecialtyBadge value={request.specialty} emptyLabel="Sin especialidad" />
+          <ServiceModalityBadge value={request.serviceModality} emptyLabel="Sin modalidad de atención" />
+        </div>
+      </div>
 
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Ítems solicitados</p>
@@ -213,6 +256,8 @@ export default function Requests() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get('q') || '');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [specialtyFilter, setSpecialtyFilter] = useState('all');
+  const [modalityFilter, setModalityFilter] = useState('all');
   const [detailTarget, setDetailTarget] = useState(null);
   const [actionTarget, setActionTarget] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -249,12 +294,14 @@ export default function Requests() {
 
     return state.requests.filter((request) => {
       if (statusFilter !== 'all' && request.status !== statusFilter) return false;
+      if (specialtyFilter !== 'all' && request.specialty !== specialtyFilter) return false;
+      if (modalityFilter !== 'all' && request.serviceModality !== modalityFilter) return false;
       if (!term) return true;
-      return [request.title, request.description, request.buyerName, request.categoryName]
+      return [request.title, request.description, request.buyerName, request.categoryName, request.specialty, request.serviceModality]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term));
     });
-  }, [state.requests, search, statusFilter]);
+  }, [state.requests, search, statusFilter, specialtyFilter, modalityFilter]);
 
   const openDetail = async (request) => {
     setDetailTarget(request);
@@ -339,7 +386,7 @@ export default function Requests() {
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar título, comprador o categoría…"
+                  placeholder="Buscar título, comprador, categoría o especialidad…"
                   aria-label="Buscar solicitudes"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#4B227A] focus:bg-white focus:ring-2 focus:ring-[#4B227A]/15 sm:w-72"
                 />
@@ -357,16 +404,44 @@ export default function Requests() {
                   </option>
                 ))}
               </select>
+              <select
+                value={specialtyFilter}
+                onChange={(event) => setSpecialtyFilter(event.target.value)}
+                aria-label="Filtrar solicitudes por especialidad"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#4B227A] focus:bg-white focus:ring-2 focus:ring-[#4B227A]/15"
+              >
+                <option value="all">Todas las especialidades</option>
+                {WORKSHOP_SPECIALTIES.map((specialty) => (
+                  <option key={specialty} value={specialty}>
+                    {specialty}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={modalityFilter}
+                onChange={(event) => setModalityFilter(event.target.value)}
+                aria-label="Filtrar solicitudes por modalidad"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-[#4B227A] focus:bg-white focus:ring-2 focus:ring-[#4B227A]/15"
+              >
+                <option value="all">Todas las modalidades</option>
+                {SERVICE_MODALITIES.map((modality) => (
+                  <option key={modality} value={modality}>
+                    {modality}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
           {filtered.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] text-left">
+              <table className="w-full min-w-[1180px] text-left">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] uppercase tracking-wider text-slate-500">
                     <th scope="col" className="px-5 py-2.5 font-semibold">Solicitud</th>
                     <th scope="col" className="px-5 py-2.5 font-semibold">Categoría</th>
+                    <th scope="col" className="px-5 py-2.5 font-semibold">Especialidad</th>
+                    <th scope="col" className="px-5 py-2.5 font-semibold">Modalidad</th>
                     <th scope="col" className="px-5 py-2.5 font-semibold">Presupuesto</th>
                     <th scope="col" className="px-5 py-2.5 font-semibold">Ofertas</th>
                     <th scope="col" className="px-5 py-2.5 font-semibold">Estado</th>
@@ -394,6 +469,12 @@ export default function Requests() {
                         </td>
                         <td className="px-5 py-3.5 text-sm text-slate-600">
                           {request.categoryName || '—'}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <ServiceSpecialtyBadge value={request.specialty} />
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <ServiceModalityBadge value={request.serviceModality} />
                         </td>
                         <td className="px-5 py-3.5 text-sm text-slate-600">
                           {request.budgetAmount != null

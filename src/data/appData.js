@@ -2013,6 +2013,9 @@ export const buildPurchaseRequestPayload = (payload = {}) => {
   const specialty = normalizeSegmentationText(rest.specialty);
   if (specialty) next.specialty = specialty;
   else delete next.specialty;
+  const serviceModality = normalizeSegmentationText(rest.service_modality);
+  if (serviceModality) next.service_modality = serviceModality;
+  else delete next.service_modality;
 
   return next;
 };
