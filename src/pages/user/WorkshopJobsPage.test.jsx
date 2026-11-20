@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 describe('Panel de Trabajos del Taller Verificado', () => {
-  it('mantiene el encabezado, la pestaña inicial y la barra inferior fija', () => {
+  it('mantiene el encabezado y la pestaña inicial sin barra inferior', () => {
     renderPage();
 
     expect(screen.getByText('Bandeja de trabajos (jobs)')).toBeInTheDocument();
@@ -55,9 +55,9 @@ describe('Panel de Trabajos del Taller Verificado', () => {
     );
     expect(setViewMode).toHaveBeenCalledWith('business');
 
-    expect(screen.getByRole('button', { name: 'Panel' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /chat/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Perfil' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Panel' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^chat$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Perfil' })).not.toBeInTheDocument();
     expect(screen.queryByText('Contenido del historial por placa')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /respuestas de mis ofertas/i })).not.toBeInTheDocument();
   });
@@ -131,15 +131,6 @@ describe('Panel de Trabajos del Taller Verificado', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Respuestas de mis ofertas' }));
 
     expect(await screen.findByRole('heading', { name: 'Respuestas de mis ofertas' })).toBeInTheDocument();
-  });
-
-  it('abre el chat desde la barra inferior sin hacer scroll', async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(screen.getByRole('button', { name: /chat/i }));
-
-    expect(await screen.findByRole('heading', { name: 'Bandeja de chat' })).toBeInTheDocument();
   });
 
   it('vuelve al modo comprador desde el switcher sin accesos duplicados', async () => {

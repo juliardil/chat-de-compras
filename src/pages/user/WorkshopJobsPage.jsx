@@ -11,7 +11,6 @@ import {
   X,
 } from 'lucide-react';
 import ViewSwitcher from '../../components/layout/ViewSwitcher';
-import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import WorkshopJobsPanel from '../../components/workshop/WorkshopJobsPanel';
 import WorkshopPlateHistory from '../../components/workshop/WorkshopPlateHistory';
 import { useAuth } from '../../context/auth-context';
@@ -19,8 +18,9 @@ import { useAuth } from '../../context/auth-context';
 // Vista de "modo empresa" para un Taller Verificado. No cambia el rol de la
 // cuenta: activa la vista de negocio solo mientras esta pantalla está abierta.
 // El cambio de vista vive en el switcher superior compartido, así que aquí no
-// se repite ningún botón de retorno. Los accesos secundarios viven en el menú
-// hamburguesa (mismo estilo que /dashboard) y el chat en la barra inferior.
+// se repite ningún botón de retorno ni barra inferior: los accesos secundarios
+// viven en el menú hamburguesa (mismo estilo que /dashboard) y el chat de cada
+// propuesta se abre como bottom-sheet sin salir de esta pantalla.
 export default function WorkshopJobsPage() {
   const { user, workshopVerified, viewMode, setViewMode } = useAuth();
   const navigate = useNavigate();
@@ -105,7 +105,7 @@ export default function WorkshopJobsPage() {
     }`;
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-[#E7E7E7] pb-24">
+    <div className="max-w-md mx-auto min-h-screen bg-[#E7E7E7] pb-10">
       <header className="bg-white/80 backdrop-blur-md px-6 pt-12 pb-6 rounded-b-[32px] shadow-sm border-b border-white/30">
         <ViewSwitcher />
 
@@ -214,11 +214,6 @@ export default function WorkshopJobsPage() {
           </>
         )}
       </main>
-
-      <CommerceBottomNav
-        panelPath={isCommerce ? '/dashboard' : '/workshop-jobs'}
-        profilePath={isCommerce ? '/profile' : '/profile-user'}
-      />
 
       {showPlateHistory ? (
         <div

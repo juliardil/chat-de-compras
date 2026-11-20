@@ -14,6 +14,22 @@ vi.mock('../../data/workshop', () => ({
   fetchWorkshopPlateHistory: vi.fn(),
 }));
 
+const {
+  fetchOfferNegotiation,
+  sendOfferNegotiationMessage,
+  subscribeOfferNegotiation,
+} = vi.hoisted(() => ({
+  fetchOfferNegotiation: vi.fn(),
+  sendOfferNegotiationMessage: vi.fn(),
+  subscribeOfferNegotiation: vi.fn(),
+}));
+
+vi.mock('../../data/offerResponses', () => ({
+  fetchOfferNegotiation,
+  sendOfferNegotiationMessage,
+  subscribeOfferNegotiation,
+}));
+
 import {
   fetchAvailableServiceJobs,
   fetchMyServiceProposals,
@@ -64,6 +80,26 @@ beforeEach(() => {
   });
   createServiceProposal.mockResolvedValue({ ok: true, error: null });
   openWorkshopOfferChat.mockResolvedValue({ items: [{ id: 'thread-1' }], error: null });
+  fetchOfferNegotiation.mockResolvedValue({
+    items: [
+      {
+        id: 'm-1',
+        senderType: 'buyer',
+        senderName: 'juliana',
+        body: '¿Incluye instalación?',
+        createdAt: '2026-11-17T12:00:00Z',
+        isMine: false,
+      },
+    ],
+    extra: {
+      offerId: 'offer-1',
+      requestTitle: 'Cambio de pastillas',
+      clientName: 'juliana',
+    },
+    error: null,
+  });
+  sendOfferNegotiationMessage.mockResolvedValue({ ok: true, data: [], error: null });
+  subscribeOfferNegotiation.mockReturnValue(() => {});
   fetchWorkshopPlateHistory.mockResolvedValue({
     items: [{ id: 'req-1', title: 'Cambio de pastillas', vehicle_plate: 'ABC123', request_type: 'service', status: 'open', offer_count: 1 }],
     error: null,
@@ -94,10 +130,13 @@ describe('bandeja de trabajos del taller verificado', () => {
         notes: 'Incluye pastillas delanteras',
       });
     });
-    expect(await screen.findByText(/propuesta enviada/i)).toBeInTheDocument();
+    const banner = await screen.findByText(
+      'Propuesta enviada. El cliente la verá junto a sus ofertas'
+    );
+    expect(banner.closest('[role="note"]')).toHaveClass('bg-[#0197AF]/10');
   });
 
-  it('abre el mismo chat de la oferta desde Mis propuestas', async () => {
+  it('abre un chat flotante compacto desde Mis propuestas sin salir del panel', async () => {
     const user = userEvent.setup();
     renderWithRouter(<WorkshopJobsPanel />);
 
@@ -107,7 +146,14 @@ describe('bandeja de trabajos del taller verificado', () => {
     await waitFor(() => {
       expect(openWorkshopOfferChat).toHaveBeenCalledWith('offer-1');
     });
-    expect(await screen.findByText('Chat abierto')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Chat con juliana' })).toBeInTheDocument();
+    expect(await screen.findByText('¿Incluye instalación?')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Escribe un mensaje...')).toBeInTheDocument();
+    expect(screen.queryByText('Chat abierto')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cerrar chat' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Chat con juliana' })).not.toBeInTheDocument();
   });
 
   it('muestra solo la pestaña elegida cuando se usa dentro del Panel de Trabajos', async () => {

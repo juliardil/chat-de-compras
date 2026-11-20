@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   Car,
@@ -12,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import Button from '../ui/Button';
+import CompactOfferChat from './CompactOfferChat';
 import { DataNotice, EmptyModule, LoadingModule } from '../ui/ModuleState';
 import { useModuleData } from '../../data/useModuleData';
 import {
@@ -34,7 +34,6 @@ const formatMoney = (value) =>
 // Bandeja "Trabajos / Instalaciones Disponibles" del taller verificado.
 // Las propuestas son ofertas reutilizadas y el chat es el hilo de siempre.
 export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false }) {
-  const navigate = useNavigate();
   const jobs = useModuleData(fetchAvailableServiceJobs, []);
   const proposals = useModuleData(fetchMyServiceProposals, []);
 
@@ -46,6 +45,7 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
   const [actionError, setActionError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
   const [chatError, setChatError] = useState(null);
+  const [chatSheet, setChatSheet] = useState(null);
 
   // Por defecto se muestran ambos bloques (uso independiente del componente).
   // El Panel de Trabajos pasa `embedded` y elige qué pestaña pintar.
@@ -79,7 +79,7 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
         setActionError(result.error);
         return;
       }
-      setActionSuccess('Propuesta enviada. El cliente la verá junto a sus ofertas.');
+      setActionSuccess('Propuesta enviada. El cliente la verá junto a sus ofertas');
       setQuotingJobId(null);
       jobs.reload();
       proposals.reload();
@@ -92,13 +92,16 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
 
   const handleOpenChat = async (proposal) => {
     setChatError(null);
+    // La RPC crea/reutiliza el hilo compartido; la corrección SQL garantiza
+    // que su `returning id` esté calificado y ya no sea ambiguo.
     const result = await openWorkshopOfferChat(proposal.id);
-    const thread = result.items?.[0];
-    if (!thread) {
+    if (result.error || !result.items?.[0]) {
       setChatError(result.error || result.notice || 'No se pudo abrir la conversación.');
       return;
     }
-    navigate(`/chat/${thread.id}`);
+    // Se abre el bottom-sheet con la oferta: la misma lógica de negociación
+    // del chat completo, sin navegar fuera del Panel de Trabajos.
+    setChatSheet({ offerId: proposal.id, clientName: proposal.client_name || null });
   };
 
   return (
@@ -114,7 +117,9 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
       ) : null}
 
       {actionError ? <DataNotice tone="error" className="mb-3">{actionError}</DataNotice> : null}
-      {actionSuccess ? <DataNotice className="mb-3">{actionSuccess}</DataNotice> : null}
+      {actionSuccess ? (
+        <DataNotice tone="info" className="mb-3">{actionSuccess}</DataNotice>
+      ) : null}
       {chatError ? <DataNotice tone="error" className="mb-3">{chatError}</DataNotice> : null}
 
       {showJobs ? (
@@ -278,6 +283,14 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
           <BadgeCheck className="w-3.5 h-3.5 text-green-600" />
           Tus propuestas llegan al comprador dentro del flujo de ofertas y chat existente.
         </p>
+      ) : null}
+
+      {chatSheet ? (
+        <CompactOfferChat
+          offerId={chatSheet.offerId}
+          clientName={chatSheet.clientName}
+          onClose={() => setChatSheet(null)}
+        />
       ) : null}
     </section>
   );
