@@ -2008,6 +2008,11 @@ export const buildPurchaseRequestPayload = (payload = {}) => {
   } else if (next.service_zone === undefined) {
     delete next.service_zone;
   }
+  // Especialidad del trabajo de servicio: la RPC de /workshop-jobs la usa para
+  // mostrárselo solo a los talleres que la tienen en su perfil.
+  const specialty = normalizeSegmentationText(rest.specialty);
+  if (specialty) next.specialty = specialty;
+  else delete next.specialty;
 
   return next;
 };

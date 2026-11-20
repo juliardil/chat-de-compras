@@ -117,6 +117,8 @@ function AppRoutes() {
         {/* User Routes */}
         <Route path="/categories" element={<RequireRole role="user"><Categories /></RequireRole>} />
         <Route path="/request" element={<RequireRole role="user"><RequestForm /></RequireRole>} />
+        {/* Alias usado por /responses al crear un trabajo de servicio. */}
+        <Route path="/request-form" element={<RequireRole role="user"><RequestForm /></RequireRole>} />
         <Route path="/request-success" element={<RequireRole role="user"><RequestSuccess /></RequireRole>} />
         <Route path="/responses" element={<RequireRole role="user"><Responses /></RequireRole>} />
         <Route path="/offers" element={<RequireRole role="user"><Offers /></RequireRole>} />

@@ -6,7 +6,11 @@ import Button from '../../components/ui/Button';
 import { DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { createPurchaseRequest, fetchBuyerProfileId } from '../../data/appData';
-import { fetchMyWorkshop } from '../../data/workshop';
+import { fetchMyWorkshop, WORKSHOP_SPECIALTIES } from '../../data/workshop';
+import {
+  findSpecialtyMatches,
+  suggestServiceSpecialty,
+} from '../../data/serviceSpecialties';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -133,6 +137,24 @@ export default function RequestForm() {
   const [serviceZone, setServiceZone] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [isVerifiedWorkshop, setIsVerifiedWorkshop] = useState(false);
+
+  // La especialidad se sugiere desde la descripción, pero el selector siempre
+  // queda visible y una elección manual nunca se sobrescribe automáticamente.
+  const [serviceSpecialty, setServiceSpecialty] = useState(
+    () => suggestServiceSpecialty(location.state?.serviceFault || '') || ''
+  );
+  const [specialtyManuallySet, setSpecialtyManuallySet] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  const handleServiceFaultChange = (event) => {
+    const description = event.target.value;
+    setServiceFault(description);
+    if (specialtyManuallySet) return;
+    setServiceSpecialty(suggestServiceSpecialty(description) || '');
+  };
+
+  const specialtyMatches = findSpecialtyMatches(serviceFault);
+  const isAmbiguousSpecialty = specialtyMatches.length > 1;
 
   useEffect(() => {
     let active = true;
@@ -272,41 +294,58 @@ export default function RequestForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const nextErrors = {};
+    // Regla obligatoria del trabajo de servicio: sin especialidad no se publica
+    // y no se llama al backend, para no enviar una solicitud que ningún taller
+    // podría recibir por especialidad.
+    if (serviceMode && !serviceSpecialty) {
+      setSubmitError(
+        'Debes elegir la especialidad requerida para dirigir el trabajo a los talleres que la prestan.'
+      );
+      document
+        .getElementById('service-specialty')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setSubmitError(null);
 
-    products.forEach((product) => {
-      const productErrors = {};
+    // En modo servicio no se valida el bloque de producto: no se renderiza.
+    if (!serviceMode) {
+      const nextErrors = {};
 
-      REQUIRED_FIELDS.forEach((field) => {
-        if (!String(product[field] || '').trim()) {
-          productErrors[field] = 'Este campo es obligatorio.';
+      products.forEach((product) => {
+        const productErrors = {};
+
+        REQUIRED_FIELDS.forEach((field) => {
+          if (!String(product[field] || '').trim()) {
+            productErrors[field] = 'Este campo es obligatorio.';
+          }
+        });
+
+        if (product.yearFrom && product.yearTo && Number(product.yearFrom) > Number(product.yearTo)) {
+          productErrors.yearTo = 'El año final no puede ser menor al año inicial.';
+        }
+
+        if (
+          product.quantity !== '' &&
+          (!Number.isFinite(Number(product.quantity)) || Number(product.quantity) < 1)
+        ) {
+          productErrors.quantity = 'La cantidad debe ser al menos 1.';
+        }
+
+        if (Object.keys(productErrors).length > 0) {
+          nextErrors[product.id] = productErrors;
         }
       });
 
-      if (product.yearFrom && product.yearTo && Number(product.yearFrom) > Number(product.yearTo)) {
-        productErrors.yearTo = 'El año final no puede ser menor al año inicial.';
+      setErrors(nextErrors);
+
+      const firstInvalidId = Object.keys(nextErrors)[0];
+      if (firstInvalidId) {
+        document
+          .getElementById(`product-${firstInvalidId}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
       }
-
-      if (
-        product.quantity !== '' &&
-        (!Number.isFinite(Number(product.quantity)) || Number(product.quantity) < 1)
-      ) {
-        productErrors.quantity = 'La cantidad debe ser al menos 1.';
-      }
-
-      if (Object.keys(productErrors).length > 0) {
-        nextErrors[product.id] = productErrors;
-      }
-    });
-
-    setErrors(nextErrors);
-
-    const firstInvalidId = Object.keys(nextErrors)[0];
-    if (firstInvalidId) {
-      document
-        .getElementById(`product-${firstInvalidId}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
     }
 
     setSubmitting(true);
@@ -349,10 +388,10 @@ export default function RequestForm() {
     const requestPayload = {
       buyer_id: buyer.item.id,
       title: serviceMode
-        ? `Instalación / reparación: ${products[0]?.item || 'servicio'}`
+        ? `Instalación / reparación: ${serviceSpecialty || 'servicio'}`
         : products[0]?.item || 'Solicitud de compra',
       description: serviceMode
-        ? serviceFault.trim() || products[0]?.notes || products[0]?.item || ''
+        ? serviceFault.trim() || serviceSpecialty
         : products[0]?.notes || products[0]?.item || '',
       category: category || null,
       vehicle_type: vehicleType || null,
@@ -365,6 +404,9 @@ export default function RequestForm() {
     // solicitudes de repuestos tradicionales conservan su payload exacto.
     if (serviceMode) {
       requestPayload.request_type = 'service';
+      // La columna nueva viaja a app_available_service_jobs(): solo los
+      // talleres con esta especialidad verán el trabajo en /workshop-jobs.
+      requestPayload.specialty = serviceSpecialty;
       if (serviceZone.trim()) requestPayload.service_zone = serviceZone.trim();
     }
     if (serviceMode || isVerifiedWorkshop) {
@@ -554,8 +596,54 @@ export default function RequestForm() {
                 className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 min-h-[90px]"
                 placeholder="Ej: El vehículo hace ruido al frenar; requiero cambiar pastillas y rectificar discos"
                 value={serviceFault}
-                onChange={(event) => setServiceFault(event.target.value)}
+                onChange={handleServiceFaultChange}
               />
+            </label>
+
+            <label className="flex flex-col gap-1.5" htmlFor="service-specialty">
+              <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-gray-800">
+                <span className="flex items-center gap-1.5">
+                  <Wrench className="w-3.5 h-3.5 text-[#006E7A]" /> Especialidad requerida
+                  <span className="text-red-600">*</span>
+                </span>
+                {serviceSpecialty && !specialtyManuallySet ? (
+                  <span className="rounded-full border border-[#00EED0]/40 bg-[#00EED0]/20 px-2 py-0.5 text-[10px] font-bold text-[#4B227A]">
+                    Sugerida automáticamente
+                  </span>
+                ) : null}
+              </span>
+              <div className="relative">
+                <select
+                  id="service-specialty"
+                  aria-label="Especialidad requerida"
+                  value={serviceSpecialty}
+                  onChange={(event) => {
+                    setServiceSpecialty(event.target.value);
+                    setSpecialtyManuallySet(true);
+                    setSubmitError(null);
+                  }}
+                  className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
+                >
+                  <option value="">Selecciona una especialidad</option>
+                  {WORKSHOP_SPECIALTIES.map((specialty) => (
+                    <option key={specialty} value={specialty}>{specialty}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+              {isAmbiguousSpecialty ? (
+                <p className="text-xs text-[#006E7A]">
+                  Detectamos varias especialidades posibles. Elige la correcta para dirigir el trabajo.
+                </p>
+              ) : null}
+              {!serviceSpecialty && !isAmbiguousSpecialty ? (
+                <p className="text-xs text-gray-600">
+                  Elige la especialidad para dirigir el trabajo a los talleres que la prestan.
+                </p>
+              ) : null}
+              {submitError ? (
+                <p role="alert" className="text-xs text-red-700">{submitError}</p>
+              ) : null}
             </label>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -606,7 +694,7 @@ export default function RequestForm() {
         ) : null}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          {products.map((product, index) => (
+          {!serviceMode ? products.map((product, index) => (
             <div key={product.id} id={`product-${product.id}`} className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
               <div className="flex justify-between items-center mb-4 border-b border-white/40 pb-2">
                 <h3 className="font-bold text-[#006E7A] flex items-center gap-2">
@@ -748,16 +836,18 @@ export default function RequestForm() {
                 </div>
               </div>
             </div>
-          ))}
+          )) : null}
 
-          <button
-            type="button"
-            onClick={addProduct}
-            className="w-full py-4 border-2 border-dashed border-[#00EED0]/30 rounded-2xl flex items-center justify-center gap-2 text-[#006E7A] font-bold hover:bg-[#00EED0]/10 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Agregar otro producto
-          </button>
+          {!serviceMode ? (
+            <button
+              type="button"
+              onClick={addProduct}
+              className="w-full py-4 border-2 border-dashed border-[#00EED0]/30 rounded-2xl flex items-center justify-center gap-2 text-[#006E7A] font-bold hover:bg-[#00EED0]/10 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Agregar otro producto
+            </button>
+          ) : null}
         </form>
       </div>
 
@@ -766,7 +856,7 @@ export default function RequestForm() {
           {submitting
             ? 'ENVIANDO…'
             : serviceMode
-              ? `🔧 PUBLICAR TRABAJO PARA TALLERES (${products.length})`
+              ? '🔧 PUBLICAR TRABAJO PARA TALLERES'
               : `👉 ENVIAR SOLICITUD AUTOMOTRIZ (${products.length})`}
         </Button>
       </div>

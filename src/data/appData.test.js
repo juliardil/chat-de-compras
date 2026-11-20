@@ -466,6 +466,7 @@ describe('talleres verificados en la capa de datos', () => {
       request_type: 'service',
       vehicle_plate: 'abc1234',
       service_zone: 'Centro',
+      specialty: ' Frenos ',
       items: [],
     });
 
@@ -473,12 +474,14 @@ describe('talleres verificados en la capa de datos', () => {
       request_type: 'service',
       vehicle_plate: 'abc1234',
       service_zone: 'Centro',
+      specialty: 'Frenos',
     });
 
     const part = buildPurchaseRequestPayload({ title: 'Repuesto', items: [] });
     expect(part).not.toHaveProperty('request_type');
     expect(part).not.toHaveProperty('vehicle_plate');
     expect(part).not.toHaveProperty('service_zone');
+    expect(part).not.toHaveProperty('specialty');
   });
 
   it('reconoce una propuesta de taller como oferta reutilizada', () => {

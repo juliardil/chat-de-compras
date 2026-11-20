@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Send,
   Users,
+  Wrench,
 } from 'lucide-react';
 import Button from '../ui/Button';
 import CompactOfferChat from './CompactOfferChat';
@@ -166,6 +167,11 @@ export default function WorkshopJobsPanel({ activeTab = 'all', embedded = false 
                   {job.service_zone ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
                       <MapPin className="w-3 h-3" /> {job.service_zone}
+                    </span>
+                  ) : null}
+                  {job.specialty ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-[#0197AF]/10 px-2 py-1 text-[#006E7A]">
+                      <Wrench className="w-3 h-3" /> {job.specialty}
                     </span>
                   ) : null}
                   <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">

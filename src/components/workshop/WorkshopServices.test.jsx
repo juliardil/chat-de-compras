@@ -58,6 +58,7 @@ beforeEach(() => {
         description: 'Ruido al frenar',
         vehicle_plate: 'ABC123',
         service_zone: 'Centro',
+        specialty: 'Frenos',
         client_name: 'Camila',
         client_is_club_member: true,
       },
@@ -115,6 +116,7 @@ describe('bandeja de trabajos del taller verificado', () => {
     expect((await screen.findAllByText(/cambio de pastillas/i)).length).toBeGreaterThan(0);
     expect(screen.getByText(/cliente de club/i)).toBeInTheDocument();
     expect(screen.getByText(/abc123/i)).toBeInTheDocument();
+    expect(screen.getByText('Frenos')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /enviar propuesta/i }));
     await user.type(screen.getByLabelText(/precio de mano de obra/i), '850');
