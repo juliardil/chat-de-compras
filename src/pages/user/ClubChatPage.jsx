@@ -69,11 +69,11 @@ export default function ClubChatPage() {
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <ClubEvents isOwner={Boolean(identity?.is_owner)} />
+            <ClubEvents isOwner={Boolean(identity?.is_owner)} groupId={identity?.group_id} />
           </section>
         ) : null}
 
-        <ClubChat full />
+        <ClubChat full groupId={identity?.group_id} />
       </main>
     </div>
   );

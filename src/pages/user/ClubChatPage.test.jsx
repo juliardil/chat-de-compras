@@ -12,12 +12,16 @@ vi.mock('../../data/clubAdvanced', () => ({
   fetchClubEvents: vi.fn(),
   createClubEvent: vi.fn(),
   rsvpClubEvent: vi.fn(),
+  uploadClubImage: vi.fn(),
+  validateClubImage: vi.fn(() => null),
 }));
 
 import {
   fetchClubEvents,
   fetchClubIdentity,
   fetchClubMessages,
+  sendClubMessage,
+  uploadClubImage,
 } from '../../data/clubAdvanced';
 
 const renderPage = () =>
@@ -79,5 +83,84 @@ describe('pantalla dedicada del chat del club', () => {
 
     await user.click(screen.getByRole('button', { name: /cerrar actividades/i }));
     expect(screen.queryByRole('region', { name: /actividades y rodadas/i })).not.toBeInTheDocument();
+  });
+
+  it('muestra flyers, fecha y hora, confirmados y acciones de asistencia', async () => {
+    const user = userEvent.setup();
+    fetchClubIdentity.mockResolvedValue({
+      items: [{ name: 'mostdil', is_owner: false, group_id: 'group-1' }],
+      error: null,
+      notice: null,
+    });
+    fetchClubEvents.mockResolvedValue({
+      items: [
+        {
+          id: 'event-1',
+          title: 'Rodada al parque',
+          description: 'Salida familiar',
+          location: 'Plaza principal',
+          starts_at: '2026-11-21T10:30:00',
+          going_count: 2,
+          my_status: 'none',
+          image_url: 'https://cdn.test/flyer.png',
+          confirmed_members: [
+            { user_id: 'u-1', display_name: 'Ana', avatar_url: null },
+            { user_id: 'u-2', display_name: 'Luis', avatar_url: null },
+          ],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchClubMessages.mockResolvedValue({
+      items: [
+        {
+          id: 'message-1',
+          body: 'Imagen compartida',
+          author_name: 'Ana',
+          is_mine: false,
+          created_at: '2026-11-20T09:15:00.000Z',
+          image_url: 'https://cdn.test/chat.png',
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderPage();
+
+    expect(await screen.findByAltText('Imagen compartida en el club')).toBeInTheDocument();
+
+    await user.click(await screen.findByRole('button', { name: /actividades y rodadas/i }));
+
+    expect(await screen.findByAltText('Flyer de Rodada al parque')).toBeInTheDocument();
+    expect(screen.getByText('21 nov 2026')).toBeInTheDocument();
+    expect(screen.getByText(/10:30/)).toBeInTheDocument();
+    expect(screen.getByText(/Plaza principal/)).toBeInTheDocument();
+    expect(screen.getAllByText('Ana').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /asistiré/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /no podré ir/i })).toBeInTheDocument();
+  });
+
+  it('sube una imagen del chat y la envía con texto opcional', async () => {
+    const user = userEvent.setup();
+    fetchClubIdentity.mockResolvedValue({
+      items: [{ name: 'mostdil', is_owner: false, group_id: 'group-1' }],
+      error: null,
+      notice: null,
+    });
+    uploadClubImage.mockResolvedValue({ url: 'https://cdn.test/chat.png', error: null });
+    sendClubMessage.mockResolvedValue({ ok: true, error: null });
+
+    renderPage();
+
+    const file = new File(['img'], 'foto.png', { type: 'image/png' });
+    await user.upload(screen.getByLabelText('Adjuntar imagen del club'), file);
+    await user.click(await screen.findByRole('button', { name: /enviar mensaje/i }));
+
+    expect(uploadClubImage).toHaveBeenCalledWith(
+      expect.objectContaining({ groupId: 'group-1', kind: 'chat', file })
+    );
+    expect(sendClubMessage).toHaveBeenCalledWith('', 'https://cdn.test/chat.png');
   });
 });

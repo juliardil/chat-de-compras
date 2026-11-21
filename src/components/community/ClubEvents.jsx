@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
-import { CalendarPlus, CalendarDays, Check, MapPin, Users, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  CalendarDays,
+  CalendarPlus,
+  Check,
+  Clock,
+  ImagePlus,
+  MapPin,
+  Users,
+  X,
+} from 'lucide-react';
 import Button from '../ui/Button';
 import { DataNotice, EmptyModule, LoadingModule } from '../ui/ModuleState';
 import { useModuleData } from '../../data/useModuleData';
-import { createClubEvent, fetchClubEvents, rsvpClubEvent } from '../../data/clubAdvanced';
+import {
+  createClubEvent,
+  fetchClubEvents,
+  rsvpClubEvent,
+  uploadClubImage,
+  validateClubImage,
+} from '../../data/clubAdvanced';
 import { formatRelativeDate } from '../../data/appData';
 
 const inputClass =
@@ -15,30 +30,80 @@ const eventDate = (value) => {
   return new Intl.DateTimeFormat('es-MX', {
     day: '2-digit',
     month: 'short',
+    year: 'numeric',
+  }).format(date);
+};
+
+const eventTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('es-MX', {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
 };
 
-// Actividades y rodadas del club con confirmación de asistencia.
-export default function ClubEvents({ isOwner }) {
+const memberInitial = (name) => String(name || 'M').trim().slice(0, 1).toUpperCase() || 'M';
+
+const canPreview = () =>
+  typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function';
+
+const confirmedMembers = (event) =>
+  Array.isArray(event?.confirmed_members) ? event.confirmed_members : [];
+
+// Actividades y rodadas del club con confirmación de asistencia y flyer.
+export default function ClubEvents({ isOwner, groupId }) {
   const { items, loading, error, notice, reload } = useModuleData(fetchClubEvents, []);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [startsAt, setStartsAt] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
+
+  useEffect(
+    () => () => {
+      if (imagePreview && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    },
+    [imagePreview]
+  );
+
+  const clearImage = () => {
+    if (imagePreview && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    const validation = validateClubImage(file);
+    if (validation) {
+      setActionError(validation);
+      event.target.value = '';
+      return;
+    }
+
+    clearImage();
+    setImageFile(file);
+    setImagePreview(file && canPreview() ? URL.createObjectURL(file) : null);
+    setActionError(null);
+  };
 
   const runAction = async (action) => {
     setBusy(true);
     setActionError(null);
     try {
       const result = await action();
-      if (result.error) {
+      if (result?.error) {
         setActionError(result.error);
-        return;
+        return null;
       }
       reload();
       return result;
@@ -52,19 +117,29 @@ export default function ClubEvents({ isOwner }) {
 
   const handleCreate = (event) => {
     event.preventDefault();
-    if (!startsAt) return;
+    if (!startsAt || busy) return;
     runAction(async () => {
+      let imageUrl = null;
+      if (imageFile) {
+        const upload = await uploadClubImage({ groupId, file: imageFile, kind: 'events' });
+        if (upload.error) return { error: upload.error };
+        imageUrl = upload.url;
+      }
+
       const result = await createClubEvent({
         title,
         description,
         location,
         startsAt: new Date(startsAt).toISOString(),
+        imageUrl,
       });
+
       if (!result.error) {
         setTitle('');
         setDescription('');
         setLocation('');
         setStartsAt('');
+        clearImage();
         setCreating(false);
       }
       return result;
@@ -118,17 +193,34 @@ export default function ClubEvents({ isOwner }) {
           <ul className="space-y-2">
             {items.map((event) => {
               const going = event.my_status === 'going';
+              const attendees = confirmedMembers(event);
               return (
                 <li
                   key={event.id}
-                  className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
                 >
+                  {event.image_url ? (
+                    <img
+                      src={event.image_url}
+                      alt={`Flyer de ${event.title}`}
+                      className="mb-2.5 max-h-44 w-full rounded-xl border border-[#4B227A]/10 object-cover"
+                    />
+                  ) : null}
+
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-gray-800">{event.title}</p>
-                      <p className="mt-0.5 text-[11px] font-semibold text-[#006E7A]">
-                        {eventDate(event.starts_at)} · {formatRelativeDate(event.starts_at)}
-                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-[#006E7A]">
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-3 w-3" aria-hidden="true" />
+                          {eventDate(event.starts_at)}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-3 w-3" aria-hidden="true" />
+                          {eventTime(event.starts_at)}
+                        </span>
+                        <span className="text-gray-400">{formatRelativeDate(event.starts_at)}</span>
+                      </div>
                     </div>
                     <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#4B227A]/10 px-2 py-1 text-[10px] font-bold text-[#4B227A]">
                       <Users className="h-3 w-3" aria-hidden="true" />
@@ -145,6 +237,39 @@ export default function ClubEvents({ isOwner }) {
                     </p>
                   ) : null}
 
+                  <div className="mt-2 border-t border-slate-100 pt-2">
+                    <p className="text-[10px] font-bold text-gray-500">
+                      Confirmados del grupo ({attendees.length})
+                    </p>
+                    {attendees.length > 0 ? (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {attendees.slice(0, 6).map((member, index) => (
+                          <span
+                            key={member.user_id || `${member.display_name}-${index}`}
+                            className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#4B227A]/10 px-2 py-0.5 text-[10px] font-semibold text-[#4B227A]"
+                          >
+                            {member.avatar_url ? (
+                              <img
+                                src={member.avatar_url}
+                                alt=""
+                                className="h-4 w-4 shrink-0 rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#0197AF]/15 text-[9px] font-bold text-[#006E7A]">
+                                {memberInitial(member.display_name)}
+                              </span>
+                            )}
+                            <span className="truncate">{member.display_name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-[10px] text-gray-400">
+                        Aún no hay miembros confirmados.
+                      </p>
+                    )}
+                  </div>
+
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
@@ -157,13 +282,13 @@ export default function ClubEvents({ isOwner }) {
                       }`}
                     >
                       <Check className="h-3 w-3" aria-hidden="true" />
-                      {going ? 'Asistencia confirmada' : 'Voy'}
+                      {going ? 'Asistencia confirmada' : 'Asistiré'}
                     </button>
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() => runAction(() => rsvpClubEvent(event.id, 'not_going'))}
-                      aria-label={`No asistir a ${event.title}`}
+                      aria-label={`No podré ir a ${event.title}`}
                       className={`inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition disabled:opacity-50 ${
                         event.my_status === 'not_going'
                           ? 'border-red-200 bg-red-50 text-red-700'
@@ -171,7 +296,7 @@ export default function ClubEvents({ isOwner }) {
                       }`}
                     >
                       <X className="h-3 w-3" aria-hidden="true" />
-                      No voy
+                      No podré ir
                     </button>
                   </div>
                 </li>
@@ -195,26 +320,42 @@ export default function ClubEvents({ isOwner }) {
             </label>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="block">
-                <span className="text-[11px] font-bold text-gray-600">Fecha y hora</span>
+                <span className="text-[11px] font-bold text-gray-600">Fecha</span>
                 <input
-                  type="datetime-local"
+                  type="date"
                   className={`mt-1 ${inputClass}`}
-                  value={startsAt}
-                  onChange={(event) => setStartsAt(event.target.value)}
+                  value={startsAt ? startsAt.slice(0, 10) : ''}
+                  onChange={(event) => {
+                    const time = startsAt ? startsAt.slice(11, 16) : '09:00';
+                    setStartsAt(event.target.value ? `${event.target.value}T${time}` : '');
+                  }}
                   required
                 />
               </label>
               <label className="block">
-                <span className="text-[11px] font-bold text-gray-600">Lugar</span>
+                <span className="text-[11px] font-bold text-gray-600">Hora</span>
                 <input
+                  type="time"
                   className={`mt-1 ${inputClass}`}
-                  value={location}
-                  onChange={(event) => setLocation(event.target.value)}
-                  placeholder="Plaza principal"
-                  maxLength={120}
+                  value={startsAt ? startsAt.slice(11, 16) : ''}
+                  onChange={(event) => {
+                    const day = startsAt ? startsAt.slice(0, 10) : '';
+                    setStartsAt(day ? `${day}T${event.target.value}` : '');
+                  }}
+                  required
                 />
               </label>
             </div>
+            <label className="block">
+              <span className="text-[11px] font-bold text-gray-600">Punto de encuentro</span>
+              <input
+                className={`mt-1 ${inputClass}`}
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+                placeholder="Plaza principal"
+                maxLength={120}
+              />
+            </label>
             <label className="block">
               <span className="text-[11px] font-bold text-gray-600">Descripción</span>
               <input
@@ -224,6 +365,29 @@ export default function ClubEvents({ isOwner }) {
                 placeholder="Detalles de la rodada"
                 maxLength={240}
               />
+            </label>
+            <label className="block">
+              <span className="flex items-center gap-1 text-[11px] font-bold text-gray-600">
+                <ImagePlus className="h-3 w-3 text-[#4B227A]" aria-hidden="true" />
+                Flyer de la actividad (opcional)
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleImageChange}
+                aria-label="Flyer de la actividad"
+                className="mt-1 w-full text-[11px] text-gray-600"
+              />
+              <span className="mt-1 block text-[10px] text-gray-400">
+                JPG, PNG o WEBP · máximo 5 MB
+              </span>
+              {imagePreview ? (
+                <img
+                  src={imagePreview}
+                  alt="Vista previa del flyer"
+                  className="mt-2 max-h-32 w-full rounded-xl border border-[#4B227A]/10 object-cover"
+                />
+              ) : null}
             </label>
             <Button type="submit" disabled={busy} className="w-full py-2 text-xs">
               {busy ? 'Guardando…' : 'Publicar actividad'}

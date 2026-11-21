@@ -10,6 +10,7 @@
 import { avatarsBucket, insforge, isInsforgeConfigured } from '../lib/insforge';
 import {
   emptyResult,
+  MAX_PROFILE_PHOTO_BYTES,
   NOTICES,
   runQuery,
   runWrite,
@@ -28,6 +29,7 @@ export const CLUB_ADVANCED_NOTICES = {
   event: 'No se pudo crear la actividad del club.',
   rsvp: 'No se pudo registrar tu asistencia.',
   avatar: 'No se pudo subir la imagen del club.',
+  uploadImage: 'No se pudo subir la imagen al club.',
 };
 
 // -----------------------------------------------------------------------------
@@ -91,6 +93,84 @@ export const uploadClubAvatar = async ({ groupId, file }) => {
 const describeUploadError = (error) =>
   error?.message || error?.error || CLUB_ADVANCED_NOTICES.avatar;
 
+const describeImageUploadError = (error) =>
+  error?.message || error?.error || CLUB_ADVANCED_NOTICES.uploadImage;
+
+// -----------------------------------------------------------------------------
+// Imágenes y flyers del club
+// -----------------------------------------------------------------------------
+const CLUB_IMAGE_TYPES = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+const clubImageExtension = (file) => {
+  const name = String(file?.name || '');
+  const dot = name.lastIndexOf('.');
+  const extension = dot >= 0 ? name.slice(dot + 1).toLowerCase() : '';
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(extension)) {
+    return extension === 'jpeg' ? 'jpg' : extension;
+  }
+  return CLUB_IMAGE_TYPES[String(file?.type || '').toLowerCase()] || null;
+};
+
+// Los flyers y fotos del club aceptan solo JPG, PNG o WEBP y hasta 5 MB.
+export const validateClubImage = (file) => {
+  if (!file) return 'Selecciona una imagen JPG, PNG o WEBP.';
+  const type = String(file.type || '').toLowerCase();
+  if (type && !CLUB_IMAGE_TYPES[type]) return 'Usa una imagen JPG, PNG o WEBP.';
+  if (!clubImageExtension(file)) return 'Usa una imagen JPG, PNG o WEBP.';
+  if (Number(file.size) > MAX_PROFILE_PHOTO_BYTES) return 'La imagen no puede superar 5 MB.';
+  return null;
+};
+
+// Sube al bucket público `avatars` en clubs/{groupId}/events|chat/...
+// La RPC con SECURITY DEFINER comprueba group_is_member antes de subir.
+export const uploadClubImage = async ({ groupId, file, kind = 'chat' }) => {
+  const validation = validateClubImage(file);
+  if (validation) return { url: null, key: null, error: validation };
+
+  const extension = clubImageExtension(file);
+  if (!extension) return { url: null, key: null, error: 'Usa una imagen JPG, PNG o WEBP.' };
+
+  if (!isInsforgeConfigured) {
+    const previewUrl =
+      typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
+        ? URL.createObjectURL(file)
+        : null;
+    return { url: previewUrl, key: null, error: null, demo: true };
+  }
+
+  if (!groupId) {
+    return {
+      url: null,
+      key: null,
+      error: 'No hay un club activo para subir la imagen.',
+    };
+  }
+
+  try {
+    const { data: canUpload, error: accessError } = await insforge.database.rpc(
+      'app_group_can_upload_image',
+      { p_group_id: groupId }
+    );
+    if (accessError) return { url: null, key: null, error: describeImageUploadError(accessError) };
+    if (canUpload !== true) {
+      return { url: null, key: null, error: 'Solo los miembros del club pueden publicar imágenes.' };
+    }
+
+    const folder = kind === 'events' ? 'events' : 'chat';
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const path = `clubs/${groupId}/${folder}/image-${Date.now()}-${suffix}.${extension}`;
+    const { data, error } = await insforge.storage.from(avatarsBucket).upload(path, file);
+    if (error) return { url: null, key: null, error: describeImageUploadError(error) };
+    return { url: data?.url || data?.publicUrl || path, key: path, error: null };
+  } catch (error) {
+    return { url: null, key: null, error: describeImageUploadError(error) };
+  }
+};
+
 // -----------------------------------------------------------------------------
 // Miembros del club
 // -----------------------------------------------------------------------------
@@ -103,9 +183,13 @@ export const fetchClubMembers = () =>
 export const fetchClubMessages = () =>
   runQuery((db) => db.rpc('app_group_messages', { p_limit: 40 }), CLUB_ADVANCED_NOTICES.messages);
 
-export const sendClubMessage = (body) =>
+export const sendClubMessage = (body, imageUrl = null) =>
   runWrite(
-    (db) => db.rpc('app_group_send_message', { p_body: body }),
+    (db) =>
+      db.rpc('app_group_send_message', {
+        p_body: body,
+        p_image_url: imageUrl ?? null,
+      }),
     CLUB_ADVANCED_NOTICES.sendMessage
   );
 
@@ -115,7 +199,7 @@ export const sendClubMessage = (body) =>
 export const fetchClubEvents = () =>
   runQuery((db) => db.rpc('app_group_events'), CLUB_ADVANCED_NOTICES.events);
 
-export const createClubEvent = ({ title, description, location, startsAt }) =>
+export const createClubEvent = ({ title, description, location, startsAt, imageUrl = null }) =>
   runWrite(
     (db) =>
       db.rpc('app_group_create_event', {
@@ -123,6 +207,7 @@ export const createClubEvent = ({ title, description, location, startsAt }) =>
         p_description: description || null,
         p_location: location || null,
         p_starts_at: startsAt,
+        p_image_url: imageUrl ?? null,
       }),
     CLUB_ADVANCED_NOTICES.event
   );
