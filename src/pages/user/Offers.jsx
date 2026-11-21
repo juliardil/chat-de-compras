@@ -17,6 +17,7 @@ import SafeImage from '../../components/ui/SafeImage';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import OfferSortBar from '../../components/ui/OfferSortBar';
 import BrandOptionPicker from '../../components/ui/BrandOptionPicker';
+import RecommendationCarousel from '../../components/offers/RecommendationCarousel';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
@@ -266,6 +267,11 @@ export default function Offers() {
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Producto</p>
                 <h2 className="font-bold text-gray-800">{group.product}</h2>
+                {requestById.get(group.key)?.isRecommendation ? (
+                  <span className="mt-1 inline-flex items-center text-[10px] font-bold text-[#4B227A] bg-[#4B227A]/10 border border-[#4B227A]/20 px-2 py-0.5 rounded-full">
+                    ✨ Recomiéndame
+                  </span>
+                ) : null}
                 {group.showDescription ? (
                   <p className="text-sm text-gray-600 line-clamp-2">{group.description}</p>
                 ) : null}
@@ -377,7 +383,14 @@ export default function Offers() {
                     </span>
                   ) : null}
 
-                  {!offer.brandOptionsByItem ? (
+                  {offer.isRecommendationOffer ? (
+                    <RecommendationCarousel
+                      options={offer.recommendedOptions}
+                      selectedId={selectedFor(offer)?.id || null}
+                      onSelect={(option) => handleSelectOption(offer, option)}
+                      busy={selectingOfferId === offer.id}
+                    />
+                  ) : !offer.brandOptionsByItem ? (
                     <BrandOptionPicker
                       options={offer.brandOptions}
                       selectedId={selectedFor(offer)?.id || null}

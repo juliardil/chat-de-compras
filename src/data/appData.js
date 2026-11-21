@@ -21,6 +21,10 @@ import {
   hasCommerceSegmentation,
 } from '../utils/matching';
 import { fetchGroupBadges } from './community';
+import {
+  normalizeRecommendedOptions,
+  normalizeRecommendationBudget,
+} from './recommendations';
 
 export const appMode = isInsforgeConfigured ? 'insforge' : 'demo';
 
@@ -384,6 +388,33 @@ export const uploadInventoryPhoto = async ({ userId, file }) => {
   return uploadToAvatars(path, file, 'No se pudo subir la foto del producto.');
 };
 
+// Fotos del mini-catálogo «Recomiéndame». Mismo bucket público y mismas
+// validaciones; la ruta nueva mantiene los archivos separados y la política de
+// Storage exige que la carpeta sea la del usuario autenticado.
+export const uploadRecommendationPhoto = async ({ userId, file }) => {
+  const validation = validateProfilePhoto(file);
+  if (validation) return { url: null, key: null, error: validation };
+
+  if (!isInsforgeConfigured) {
+    const previewUrl =
+      typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
+        ? URL.createObjectURL(file)
+        : null;
+    return { url: previewUrl, key: null, error: null, demo: true };
+  }
+
+  if (!userId) {
+    return {
+      url: null,
+      key: null,
+      error: 'No hay una sesión activa para subir la foto de la opción.',
+    };
+  }
+
+  const path = `offers/recommendations/${userId}/option-${Date.now()}.${profilePhotoExtension(file)}`;
+  return uploadToAvatars(path, file, 'No se pudo subir la foto de la opción.');
+};
+
 // -----------------------------------------------------------------------------
 // Solicitudes del comprador
 // -----------------------------------------------------------------------------
@@ -500,6 +531,8 @@ export const mapRequest = (row) => ({
   offers: Number.isFinite(Number(row.offers_count)) && row.offers_count !== null
     ? Number(row.offers_count)
     : null,
+  isRecommendation: Boolean(row.is_recommendation),
+  preferences: String(row.preferences ?? '').trim(),
   items: Array.isArray(row.items) ? row.items.map(mapRequestItem) : [],
 });
 
@@ -796,14 +829,24 @@ export const mapOffer = (row, buyerLocation = null) => {
   );
   const storedItemSelections = normalizeSelectedItemOptions(row.selected_item_options);
 
+  // Mini-catálogo «Recomiéndame». Se expone tal cual y también como opciones de
+  // marca para reutilizar la selección y el acuerdo de chat ya existentes.
+  const recommendedOptions = normalizeRecommendedOptions(row.recommended_options);
+  const isRecommendationOffer = recommendedOptions.length > 0;
+
   // El selector global queda solo para ofertas antiguas que no traen
   // alternativas por producto. Las nuevas usan un selector dentro de cada ítem.
-  const brandOptions = hasItemOptions
-    ? []
-    : normalizeBrandOptions(row).map((option) => ({
+  const brandOptions = isRecommendationOffer
+    ? recommendedOptions.map((option) => ({
         ...option,
         priceLabel: formatCurrency(option.price, row.currency),
-      }));
+      }))
+    : hasItemOptions
+      ? []
+      : normalizeBrandOptions(row).map((option) => ({
+          ...option,
+          priceLabel: formatCurrency(option.price, row.currency),
+        }));
   const chosen = hasItemOptions ? null : getSelectedOfferOption(row, row.currency);
   const selectedOption = chosen
     ? { ...chosen, priceLabel: formatCurrency(chosen.price, row.currency) }
@@ -893,10 +936,19 @@ export const mapOffer = (row, buyerLocation = null) => {
     photo:
       row.photo_url ||
       row.photo ||
+      recommendedOptions.find((option) => option.image_url)?.image_url ||
       mappedItems.find((item) => item.photo)?.photo ||
       null,
+    // Opciones del carrusel «Recomiéndame» (vacío en ofertas tradicionales).
+    isRecommendationOffer,
+    recommendedOptions: isRecommendationOffer
+      ? recommendedOptions.map((option) => ({
+          ...option,
+          priceLabel: formatCurrency(option.price, row.currency),
+        }))
+      : [],
     brandOptions,
-    brandOptionsByItem: hasItemOptions,
+    brandOptionsByItem: hasItemOptions && !isRecommendationOffer,
     selectedOption,
     selectedItemOptions,
     selectedAt: row.selected_at || null,
@@ -1793,7 +1845,7 @@ export const fetchOpenRequests = async (commerceId) => {
         .from('purchase_requests')
         // `buyer_id` se necesita para resolver avatar e insignia del club.
         .select(
-          'id,buyer_id,title,description,items,category,vehicle_type,budget_amount,currency,status,expires_at,created_at,request_type,vehicle_plate,service_zone'
+          'id,buyer_id,title,description,items,category,vehicle_type,budget_amount,budget,preferences,is_recommendation,currency,status,expires_at,created_at,request_type,vehicle_plate,service_zone'
         )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
@@ -1890,6 +1942,8 @@ export const fetchCommerceSales = async (commerceId) => {
   );
 };
 
+const cleanRecommendationText = (value) => String(value ?? '').trim();
+
 export const mapOpportunity = (row) => {
   const items = Array.isArray(row.items) ? row.items.map(mapRequestItem) : [];
   const firstImage = items.find((item) => item.images.length > 0)?.images[0] || null;
@@ -1910,6 +1964,16 @@ export const mapOpportunity = (row) => {
     requestType: row.request_type || 'part',
     vehiclePlate: row.vehicle_plate || null,
     serviceZone: row.service_zone || null,
+    // Solicitudes «Recomiéndame»: el comercio arma un mini-catálogo en lugar de
+    // cotizar una referencia exacta.
+    isRecommendation: Boolean(row.is_recommendation),
+    recommendationProduct:
+      cleanRecommendationText(items[0]?.product) || cleanRecommendationText(row.title),
+    recommendationBudget: formatCurrency(
+      row.budget ?? row.budget_amount,
+      row.currency
+    ),
+    preferences: cleanRecommendationText(row.preferences || items[0]?.notes),
     user: row.buyer_name || '',
     rating: null,
     transactions: null,
@@ -2016,6 +2080,27 @@ export const buildPurchaseRequestPayload = (payload = {}) => {
   const serviceModality = normalizeSegmentationText(rest.service_modality);
   if (serviceModality) next.service_modality = serviceModality;
   else delete next.service_modality;
+
+  // Modo «Recomiéndame»: las columnas nuevas solo se envían cuando el
+  // comprador pidió recomendaciones. Las solicitudes tradicionales conservan
+  // su payload exacto y caen en el default is_recommendation = false.
+  if (rest.is_recommendation === true) {
+    next.is_recommendation = true;
+    const budget = normalizeRecommendationBudget(rest.budget ?? rest.budget_amount);
+    if (budget !== null) {
+      next.budget = budget;
+      next.budget_amount = budget;
+    } else {
+      delete next.budget;
+    }
+    const preferences = normalizeSegmentationText(rest.preferences);
+    if (preferences) next.preferences = preferences;
+    else delete next.preferences;
+  } else {
+    delete next.is_recommendation;
+    delete next.budget;
+    delete next.preferences;
+  }
 
   return next;
 };

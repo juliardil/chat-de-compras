@@ -359,3 +359,145 @@ describe('publicación de una solicitud', () => {
     });
   });
 });
+
+describe('solicitudes con «Recomiéndame»', () => {
+  beforeEach(() => {
+    fetchBuyerProfileId.mockReset();
+    createPurchaseRequest.mockReset();
+    fetchMyWorkshop.mockReset();
+    fetchBuyerProfileId.mockResolvedValue({
+      item: { id: 'buyer-1' },
+      error: null,
+      notice: null,
+    });
+    fetchMyWorkshop.mockResolvedValue({ items: [], error: null, notice: null });
+    createPurchaseRequest.mockResolvedValue({
+      ok: true,
+      data: [{ id: 'req-rec' }],
+      error: null,
+    });
+  });
+
+  const activateRecommendation = async () => {
+    renderForm();
+    await userEvent.click(await screen.findByRole('button', { name: /recomiéndame/i }));
+  };
+
+  const fillRecommendation = async ({
+    vehicle = 'Carro',
+    category = 'Eléctrico',
+    product = 'Batería',
+    budget = '1500',
+    preferences = 'Talla YTX9-BS',
+  } = {}) => {
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Tipo de vehículo para recomendaciones' }),
+      vehicle
+    );
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Línea o categoría para recomendaciones' }),
+      category
+    );
+    await userEvent.type(screen.getByLabelText(/qué producto buscas/i), product);
+    await userEvent.type(screen.getByLabelText(/presupuesto aproximado/i), budget);
+    if (preferences) {
+      await userEvent.type(screen.getByLabelText(/preferencias o talla/i), preferences);
+    }
+  };
+
+  it('oculta la referencia exacta y pide solo los datos de asesoría', async () => {
+    await activateRecommendation();
+
+    expect(screen.getByText('Pide recomendaciones')).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Tipo de vehículo para recomendaciones' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Línea o categoría para recomendaciones' })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/qué producto buscas/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/presupuesto aproximado/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/preferencias o talla/i)).toBeInTheDocument();
+
+    expect(
+      screen.queryByPlaceholderText('Ej: Pastillas de freno, filtro de aceite, batería')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Producto Automotriz')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Año del vehículo')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /agregar otro producto/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /enviar solicitud automotriz/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /pedir recomendaciones/i })
+    ).toBeInTheDocument();
+  });
+
+  it('publica la recomendación con Carro mapeado a Auto y sin datos inventados', async () => {
+    await activateRecommendation();
+    await fillRecommendation();
+
+    await userEvent.click(screen.getByRole('button', { name: /pedir recomendaciones/i }));
+
+    expect(await screen.findByText('Confirmación de publicación')).toBeInTheDocument();
+    expect(createPurchaseRequest).toHaveBeenCalledTimes(1);
+
+    const payload = createPurchaseRequest.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      buyer_id: 'buyer-1',
+      title: 'Batería',
+      description: 'Talla YTX9-BS',
+      category: 'Eléctrico',
+      vehicle_type: 'Auto',
+      is_recommendation: true,
+      budget: 1500,
+      budget_amount: 1500,
+      preferences: 'Talla YTX9-BS',
+      status: 'open',
+    });
+    expect(payload.items).toEqual([
+      {
+        category: 'Eléctrico',
+        item: 'Batería',
+        vehicleType: 'Auto',
+        quantity: 1,
+        images: [],
+        notes: 'Talla YTX9-BS',
+        is_recommendation: true,
+      },
+    ]);
+    expect(payload.items[0]).not.toHaveProperty('reference');
+    expect(payload.items[0]).not.toHaveProperty('vehicleBrand');
+  });
+
+  it('conserva Moto y la línea elegida en el payload', async () => {
+    await activateRecommendation();
+    await fillRecommendation({
+      vehicle: 'Moto',
+      category: 'Accesorios Vehiculares',
+      product: 'Casco',
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /pedir recomendaciones/i }));
+
+    expect(await screen.findByText('Confirmación de publicación')).toBeInTheDocument();
+    expect(createPurchaseRequest.mock.calls[0][0]).toMatchObject({
+      vehicle_type: 'Moto',
+      category: 'Accesorios Vehiculares',
+      title: 'Casco',
+    });
+  });
+
+  it('bloquea el envío si faltan campos obligatorios', async () => {
+    await activateRecommendation();
+    await userEvent.click(screen.getByRole('button', { name: /pedir recomendaciones/i }));
+
+    expect(screen.getAllByText('Este campo es obligatorio.').length).toBeGreaterThan(0);
+    expect(screen.getByText('Escribe un presupuesto aproximado válido.')).toBeInTheDocument();
+    expect(createPurchaseRequest).not.toHaveBeenCalled();
+    expect(fetchBuyerProfileId).not.toHaveBeenCalled();
+    expect(screen.queryByText('Confirmación de publicación')).not.toBeInTheDocument();
+  });
+});

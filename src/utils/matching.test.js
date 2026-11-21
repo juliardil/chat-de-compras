@@ -1,3 +1,4 @@
+import { RECOMMENDATION_CATEGORIES } from '../data/recommendations';
 import { describe, expect, it } from 'vitest';
 import {
   filterCompatibleRequests,
@@ -128,5 +129,75 @@ describe('compatibilidad solicitud ↔ comercio', () => {
     );
 
     expect(result.map((request) => request.id)).toEqual([1, 4]);
+  });
+});
+
+describe('enrutamiento del flujo «Recomiéndame»', () => {
+  const recommendationRequest = (vehicleType, category) => ({
+    vehicle_type: vehicleType,
+    category,
+    items: [{ vehicleType, category, item: 'Producto recomendado' }],
+  });
+
+  it.each(RECOMMENDATION_CATEGORIES)(
+    'dirige %s de carro solo a comercios de carros de esa línea',
+    (category) => {
+      const request = recommendationRequest('Auto', category);
+
+      expect(
+        isRequestCompatibleWithCommerce(request, commerce({
+          vehicle_types: ['carros'],
+          inventory_systems: [category],
+        }))
+      ).toBe(true);
+      expect(
+        isRequestCompatibleWithCommerce(request, commerce({
+          vehicle_types: ['motos'],
+          inventory_systems: [category],
+        }))
+      ).toBe(false);
+      expect(
+        isRequestCompatibleWithCommerce(request, commerce({
+          vehicle_types: ['carros'],
+          inventory_systems: ['Motor'],
+        }))
+      ).toBe(false);
+    }
+  );
+
+  it.each(RECOMMENDATION_CATEGORIES)(
+    'dirige %s de moto solo a comercios de motos de esa línea',
+    (category) => {
+      const request = recommendationRequest('Moto', category);
+
+      expect(
+        isRequestCompatibleWithCommerce(request, commerce({
+          vehicle_types: ['motos'],
+          inventory_systems: [category],
+        }))
+      ).toBe(true);
+      expect(
+        isRequestCompatibleWithCommerce(request, commerce({
+          vehicle_types: ['carros'],
+          inventory_systems: [category],
+        }))
+      ).toBe(false);
+    }
+  );
+
+  it('enruta baterías dentro de la línea Eléctrica sin inventar categorías', () => {
+    const request = {
+      vehicle_type: 'Moto',
+      category: 'Eléctrico',
+      items: [{ item: 'Batería YTX9-BS', category: 'Eléctrico', vehicleType: 'Moto' }],
+    };
+
+    expect(
+      filterCompatibleRequests(
+        [request],
+        commerce({ vehicle_types: ['motos'], inventory_systems: ['Eléctrico'] })
+      )
+    ).toHaveLength(1);
+    expect(normalizeCategoryKey('Eléctrico')).toBe('electrico');
   });
 });

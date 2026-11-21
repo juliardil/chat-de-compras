@@ -428,6 +428,185 @@ describe('panel de oportunidades del comercio', () => {
     });
   });
 
+  it('muestra el badge de recomendación y abre el constructor con tres opciones', async () => {
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          id: 'req-rec',
+          title: 'Batería para moto',
+          is_recommendation: true,
+          budget: 1500,
+          preferences: 'Talla YTX9-BS',
+          items: [
+            {
+              item: 'Batería para moto',
+              category: 'Eléctrico',
+              vehicleType: 'Moto',
+              notes: 'Talla YTX9-BS',
+            },
+          ],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+
+    expect(await screen.findByText(/pide recomendaciones · batería para moto/i)).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /armar recomendaciones/i })
+    );
+
+    expect(screen.getByText('Opciones recomendadas')).toBeInTheDocument();
+    expect(screen.getByText('Ideal de 3 a 5 opciones · 3/5')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre del producto, opción 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Precio de la opción 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Regalo o promoción de la opción 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Garantía de la opción 1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Foto de la opción 1')).toHaveClass('sr-only');
+    expect(screen.queryByLabelText('Precio unitario de Bafles')).not.toBeInTheDocument();
+  });
+
+  it('envía el mini-catálogo y replica las opciones para la selección existente', async () => {
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          id: 'req-rec',
+          title: 'Batería para moto',
+          is_recommendation: true,
+          budget: 1500,
+          preferences: 'Talla YTX9-BS',
+          items: [
+            { item: 'Batería para moto', category: 'Eléctrico', vehicleType: 'Moto' },
+          ],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+    await userEvent.click(await screen.findByRole('button', { name: /armar recomendaciones/i }));
+
+    await userEvent.type(
+      screen.getByLabelText('Nombre del producto, opción 1'),
+      'Batería YTX9-BS'
+    );
+    await userEvent.type(screen.getByLabelText('Precio de la opción 1'), '1200');
+    await userEvent.type(
+      screen.getByLabelText('Regalo o promoción de la opción 1'),
+      'Cargador gratis'
+    );
+    await userEvent.type(screen.getByLabelText('Garantía de la opción 1'), '1 año');
+
+    await userEvent.type(screen.getByLabelText('Nombre del producto, opción 2'), 'Batería YTX4L');
+    await userEvent.type(screen.getByLabelText('Precio de la opción 2'), '950');
+
+    await userEvent.click(screen.getByRole('button', { name: /quitar opción 3/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
+
+    expect(await screen.findByText('Oferta enviada')).toBeInTheDocument();
+    expect(createOffer).toHaveBeenCalledTimes(1);
+
+    const payload = createOffer.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      request_id: 'req-rec',
+      commerce_id: 'commerce-1',
+      total_amount: 1200,
+      currency: 'MXN',
+      status: 'active',
+    });
+    expect(payload.recommended_options).toEqual([
+      {
+        id: expect.any(String),
+        title: 'Batería YTX9-BS',
+        price: 1200,
+        image_url: '',
+        gift_promo: 'Cargador gratis',
+        warranty: '1 año',
+      },
+      {
+        id: expect.any(String),
+        title: 'Batería YTX4L',
+        price: 950,
+        image_url: '',
+        gift_promo: '',
+        warranty: '',
+      },
+    ]);
+    expect(payload.brand_options).toEqual([
+      expect.objectContaining({ brand: 'Batería YTX9-BS', price: 1200, note: 'Cargador gratis · 1 año' }),
+      expect.objectContaining({ brand: 'Batería YTX4L', price: 950 }),
+    ]);
+    expect(payload.items[0]).toMatchObject({
+      key: 'recommendation',
+      name: 'Batería para moto',
+      quantity: 1,
+      available: true,
+      notes: 'Talla YTX9-BS',
+      brand_options: [],
+    });
+  });
+
+  it('no envía la oferta si una opción recomendada está incompleta', async () => {
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          id: 'req-rec',
+          title: 'Batería para moto',
+          is_recommendation: true,
+          budget: 1500,
+          items: [{ item: 'Batería para moto', category: 'Eléctrico' }],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+    await userEvent.click(await screen.findByRole('button', { name: /armar recomendaciones/i }));
+    await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
+
+    expect(
+      await screen.findByText(/escribe el nombre del producto de la opción 1/i)
+    ).toBeInTheDocument();
+    expect(createOffer).not.toHaveBeenCalled();
+  });
+
+  it('limita el mini-catálogo a cinco opciones', async () => {
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          id: 'req-rec',
+          title: 'Batería para moto',
+          is_recommendation: true,
+          budget: 1500,
+          items: [{ item: 'Batería para moto', category: 'Eléctrico' }],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+    await userEvent.click(await screen.findByRole('button', { name: /armar recomendaciones/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /agregar otra opción/i }));
+    await userEvent.click(screen.getByRole('button', { name: /agregar otra opción/i }));
+
+    expect(screen.getByText('Ideal de 3 a 5 opciones · 5/5')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /agregar otra opción/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('muestra la insignia B2B y la tarifa mayorista al cotizar para un taller', async () => {
     fetchOpenRequests.mockResolvedValue({
       items: [

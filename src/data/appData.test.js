@@ -18,6 +18,7 @@ import {
   mapRequestItem,
   splitOrders,
   updateOrderStatusForChat,
+  uploadRecommendationPhoto,
   validateProfilePhoto,
   MAX_PROFILE_PHOTO_BYTES,
   NOTICES,
@@ -456,6 +457,144 @@ describe('segmentación de una solicitud de compra', () => {
 
     expect(payload).not.toHaveProperty('category');
     expect(payload).not.toHaveProperty('vehicle_type');
+  });
+});
+
+describe('flujo «Recomiéndame» en la capa de datos', () => {
+  it('envía las columnas nuevas solo cuando el comprador pidió recomendaciones', () => {
+    const recommendation = buildPurchaseRequestPayload({
+      buyer_id: 'buyer-1',
+      title: 'Casco integral',
+      category: 'Seguridad Vehicular',
+      vehicle_type: 'Moto',
+      is_recommendation: true,
+      budget: ' 1250.50 ',
+      budget_amount: 1250.5,
+      preferences: ' Talla M, color negro ',
+      items: [{ item: 'Casco integral', is_recommendation: true }],
+    });
+
+    expect(recommendation).toMatchObject({
+      is_recommendation: true,
+      budget: 1250.5,
+      budget_amount: 1250.5,
+      preferences: 'Talla M, color negro',
+    });
+
+    const traditional = buildPurchaseRequestPayload({
+      title: 'Pastillas',
+      is_recommendation: false,
+      budget: 100,
+      preferences: 'No usar',
+      items: [],
+    });
+    expect(traditional).not.toHaveProperty('is_recommendation');
+    expect(traditional).not.toHaveProperty('budget');
+    expect(traditional).not.toHaveProperty('preferences');
+  });
+
+  it('expone el mini-catálogo de una oferta recomendada para el carrusel', () => {
+    const offer = mapOffer({
+      id: 'offer-rec',
+      request_id: 'req-rec',
+      commerce_name: 'Moto Shop',
+      total_amount: 480,
+      currency: 'MXN',
+      items: [{ name: 'Casco integral', available: true }],
+      recommended_options: [
+        {
+          id: 'casco-m',
+          title: 'Casco integral talla M',
+          price: 480,
+          image_url: 'https://cdn.example.com/casco-m.jpg',
+          gift_promo: 'Guantes gratis',
+          warranty: '1 año',
+        },
+        {
+          id: 'casco-l',
+          title: 'Casco integral talla L',
+          price: 520,
+          image_url: 'https://cdn.example.com/casco-l.jpg',
+          gift_promo: '',
+          warranty: '6 meses',
+        },
+      ],
+    });
+
+    expect(offer.isRecommendationOffer).toBe(true);
+    expect(offer.recommendedOptions).toHaveLength(2);
+    expect(offer.recommendedOptions[0]).toMatchObject({
+      id: 'casco-m',
+      title: 'Casco integral talla M',
+      price: 480,
+      gift_promo: 'Guantes gratis',
+      warranty: '1 año',
+    });
+    expect(offer.recommendedOptions[0].priceLabel).toContain('480');
+    expect(offer.photo).toBe('https://cdn.example.com/casco-m.jpg');
+    // Las opciones se replican como marcas para reutilizar selección y chat.
+    expect(offer.brandOptions.map((option) => option.id)).toEqual(['casco-m', 'casco-l']);
+    expect(offer.brandOptionsByItem).toBe(false);
+  });
+
+  it('mantiene vacío el carrusel en ofertas tradicionales', () => {
+    const offer = mapOffer({
+      id: 'offer-old',
+      total_amount: 300,
+      currency: 'MXN',
+      items: [
+        { name: 'Pastillas', available: true, photo: 'https://cdn.example.com/pastillas.jpg' },
+      ],
+    });
+
+    expect(offer.isRecommendationOffer).toBe(false);
+    expect(offer.recommendedOptions).toEqual([]);
+    expect(offer.photo).toBe('https://cdn.example.com/pastillas.jpg');
+  });
+
+  it('mapea los datos de una solicitud de recomendación para el comercio', () => {
+    const row = {
+      id: 'req-rec',
+      title: 'Batería para moto',
+      description: 'Busco recomendaciones para batería',
+      is_recommendation: true,
+      budget: 1500,
+      budget_amount: 1500,
+      currency: 'MXN',
+      preferences: 'Talla YTX9-BS',
+      items: [
+        {
+          item: 'Batería para moto',
+          category: 'Eléctrico',
+          vehicleType: 'Moto',
+          notes: 'Talla YTX9-BS',
+        },
+      ],
+    };
+
+    const opportunity = mapOpportunity(row);
+    expect(opportunity.isRecommendation).toBe(true);
+    expect(opportunity.recommendationProduct).toBe('Batería para moto');
+    expect(opportunity.recommendationBudget).toContain('1,500');
+    expect(opportunity.preferences).toBe('Talla YTX9-BS');
+
+    const request = mapRequest(row);
+    expect(request.isRecommendation).toBe(true);
+    expect(request.preferences).toBe('Talla YTX9-BS');
+
+    const traditional = mapOpportunity({ id: 'req-1', title: 'Frenos', items: [] });
+    expect(traditional.isRecommendation).toBe(false);
+    expect(traditional.recommendationProduct).toBe('Frenos');
+    expect(traditional.recommendationBudget).toBe('—');
+  });
+
+  it('valida la foto de una opción antes de subirla', async () => {
+    const result = await uploadRecommendationPhoto({
+      userId: 'user-1',
+      file: { type: 'application/pdf', size: 100, name: 'catalogo.pdf' },
+    });
+    expect(result.url).toBeNull();
+    expect(result.error).toMatch(/imagen/i);
   });
 });
 

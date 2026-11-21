@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
+import RecommendationBuilder from '../../components/commerce/RecommendationBuilder';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
@@ -17,6 +18,12 @@ import {
 } from '../../data/appData';
 import { fetchMyInventory, mapInventoryItem } from '../../data/businessInventory';
 import { autocompleteOfferItem, getOpportunityReadiness } from '../../data/inventoryMatching';
+import {
+  emptyRecommendedOption,
+  recommendationBrandOptions,
+  serializeRecommendedOptions,
+  validateRecommendedOptions,
+} from '../../data/recommendations';
 import {
   BadgeCheck,
   Bell,
@@ -34,6 +41,7 @@ import {
   Plus,
   Send,
   Settings,
+  Sparkles,
   Store,
   Tag,
   TrendingUp,
@@ -148,6 +156,7 @@ export default function Dashboard() {
   const [offeringId, setOfferingId] = useState(null);
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [offerItems, setOfferItems] = useState([]);
+  const [recommendationOptions, setRecommendationOptions] = useState([]);
   const [closingMessage, setClosingMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [offerError, setOfferError] = useState('');
@@ -322,6 +331,13 @@ export default function Dashboard() {
         };
       })
     );
+    // El mini-catálogo arranca con 3 opciones (el ideal) y el comercio puede
+    // quitar hasta 1 o agregar hasta 5.
+    setRecommendationOptions(
+      opportunity?.isRecommendation
+        ? [emptyRecommendedOption(), emptyRecommendedOption(), emptyRecommendedOption()]
+        : []
+    );
     setClosingMessage('');
     setOfferError('');
     setOfferSuccess(false);
@@ -406,6 +422,56 @@ export default function Dashboard() {
       setOfferError(
         'No se pudo identificar tu perfil de comercio. Vuelve a iniciar sesión o completa los datos de tu comercio.'
       );
+      return;
+    }
+
+    // Solicitudes «Recomiéndame»: se envía el mini-catálogo y se replican las
+    // opciones como brand_options para reutilizar selección y chat actuales.
+    if (opportunity.isRecommendation) {
+      const validation = validateRecommendedOptions(recommendationOptions);
+      if (validation) {
+        setOfferError(validation);
+        return;
+      }
+
+      const options = serializeRecommendedOptions(recommendationOptions);
+      const first = options[0];
+      const productName = opportunity.recommendationProduct || opportunity.product;
+
+      setSending(true);
+      setOfferError('');
+      const result = await createOffer({
+        request_id: opportunity.id,
+        commerce_id: extra.commerceId,
+        total_amount: first.price,
+        currency: 'MXN',
+        conditions: closingMessage.trim() || null,
+        status: 'active',
+        items: [
+          {
+            key: 'recommendation',
+            name: productName,
+            description: productName,
+            quantity: 1,
+            available: true,
+            unitPrice: first.price,
+            totalPrice: first.price,
+            notes: opportunity.preferences || null,
+            ...(first.image_url ? { photo: first.image_url } : {}),
+            ...(first.gift_promo ? { bonus: first.gift_promo } : {}),
+            brand_options: [],
+          },
+        ],
+        recommended_options: options,
+        brand_options: recommendationBrandOptions(options),
+      });
+
+      setSending(false);
+      if (!result.ok) {
+        setOfferError(result.error);
+        return;
+      }
+      setOfferSuccess(true);
       return;
     }
 
@@ -597,6 +663,12 @@ export default function Dashboard() {
                     <span className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-[#0197AF]/20 to-[#4B227A]/20 text-[#4B227A] rounded-lg text-[10px] font-bold uppercase border border-[#4B227A]/30">
                       <Flame className="w-3 h-3 fill-current" /> Solicitud abierta
                     </span>
+                    {opp.isRecommendation ? (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-[#4B227A]/10 text-[#4B227A] rounded-lg text-[10px] font-bold border border-[#4B227A]/25">
+                        ✨ Pide recomendaciones · {opp.recommendationProduct} ·{' '}
+                        {opp.recommendationBudget}
+                      </span>
+                    ) : null}
                     <span className="flex items-center gap-1 px-2 py-0.5 bg-[#00EED0]/20 text-[#4B227A] rounded-lg text-[10px] font-bold border border-[#00EED0]/30">
                       {opp.quantityTotal} {opp.quantityTotal === 1 ? 'unidad' : 'unidades'} · {opp.items.length}{' '}
                       {opp.items.length === 1 ? 'producto' : 'productos'}
@@ -685,6 +757,15 @@ export default function Dashboard() {
                     ) : (
                       <>
                         {opp.workshopBadge?.isVerified ? <WholesaleNotice /> : null}
+                        {opp.isRecommendation ? (
+                          <RecommendationBuilder
+                            options={recommendationOptions}
+                            onChange={setRecommendationOptions}
+                            userId={user?.id}
+                            disabled={sending}
+                          />
+                        ) : (
+                          <>
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
                             Disponibilidad de tus productos
@@ -982,6 +1063,8 @@ export default function Dashboard() {
                             «No lo tengo».
                           </p>
                         ) : null}
+                          </>
+                        )}
 
                         <div className="relative">
                           <textarea
@@ -1011,7 +1094,9 @@ export default function Dashboard() {
                     onClick={() => handleStartOffer(opp.id)}
                     className="w-full bg-[#00EED0] hover:bg-[#00EED0]/90 text-black font-bold py-3 rounded-xl shadow-[0_0_20px_rgba(0,238,208,0.4)] flex items-center justify-center gap-2 transition-all active:scale-[0.97] group text-sm"
                   >
-                    <span className="tracking-wide">OFERTAR AHORA</span>
+                    <span className="tracking-wide">
+                      {opp.isRecommendation ? 'ARMAR RECOMENDACIONES' : 'OFERTAR AHORA'}
+                    </span>
                     <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 )}
@@ -1085,6 +1170,18 @@ export default function Dashboard() {
                     Placa del vehículo: <span className="font-bold">{selectedOpp.vehiclePlate}</span>
                   </p>
                 ) : null}
+              </div>
+            ) : null}
+
+            {selectedOpp.isRecommendation ? (
+              <div className="mb-5 rounded-xl border border-[#4B227A]/20 bg-[#4B227A]/5 p-3 space-y-2">
+                <p className="flex items-center gap-1.5 text-xs font-bold text-[#4B227A]">
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                  ✨ Pide recomendaciones
+                </p>
+                <DetailField label="Producto deseado" value={selectedOpp.recommendationProduct} />
+                <DetailField label="Presupuesto" value={selectedOpp.recommendationBudget} />
+                <DetailField label="Preferencias o talla" value={selectedOpp.preferences} />
               </div>
             ) : null}
 
@@ -1182,7 +1279,7 @@ export default function Dashboard() {
               handleStartOffer(selectedOpp.id);
               setSelectedOpp(null);
             }} className="bg-[#00EED0] hover:bg-[#00EED0]/90 text-black shadow-[0_0_20px_rgba(0,238,208,0.4)]">
-              OFERTAR AHORA
+              {selectedOpp.isRecommendation ? 'ARMAR RECOMENDACIONES' : 'OFERTAR AHORA'}
             </Button>
           </div>
         </div>

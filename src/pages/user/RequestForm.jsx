@@ -13,6 +13,13 @@ import {
 } from '../../data/serviceSpecialties';
 import { SERVICE_MODALITIES } from '../../data/serviceModalities';
 import {
+  RECOMMENDATION_CATEGORIES,
+  RECOMMENDATION_VEHICLE_TYPES,
+  buildRecommendationItem,
+  normalizeRecommendationBudget,
+  recommendationVehicleToStorage,
+} from '../../data/recommendations';
+import {
   ArrowLeft,
   BadgeCheck,
   Camera,
@@ -21,6 +28,7 @@ import {
   ClipboardList,
   MapPin,
   Plus,
+  Sparkles,
   Trash2,
   Wrench,
   X,
@@ -147,6 +155,30 @@ export default function RequestForm() {
   const [specialtyManuallySet, setSpecialtyManuallySet] = useState(false);
   const [serviceModality, setServiceModality] = useState('');
   const [submitError, setSubmitError] = useState(null);
+
+  // Modo «Recomiéndame»: el comprador no conoce la referencia exacta y pide
+  // que el comercio le proponga opciones dentro de una línea y vehículo.
+  const [recommendationMode, setRecommendationMode] = useState(
+    Boolean(location.state?.recommendationMode)
+  );
+  const [recommendation, setRecommendation] = useState({
+    vehicleType: '',
+    category: '',
+    product: '',
+    budget: '',
+    preferences: '',
+  });
+  const [recommendationErrors, setRecommendationErrors] = useState({});
+
+  const updateRecommendation = (field, value) => {
+    setRecommendation((current) => ({ ...current, [field]: value }));
+    setRecommendationErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
 
   const handleServiceFaultChange = (event) => {
     const description = event.target.value;
@@ -313,8 +345,34 @@ export default function RequestForm() {
     }
     setSubmitError(null);
 
+    // Modo «Recomiéndame»: se validan los campos de asesoría en lugar de la
+    // referencia exacta. No se llama al backend si falta alguno.
+    if (recommendationMode && !serviceMode) {
+      const nextErrors = {};
+      if (!String(recommendation.vehicleType || '').trim()) {
+        nextErrors.vehicleType = 'Este campo es obligatorio.';
+      }
+      if (!String(recommendation.category || '').trim()) {
+        nextErrors.category = 'Este campo es obligatorio.';
+      }
+      if (!String(recommendation.product || '').trim()) {
+        nextErrors.product = 'Este campo es obligatorio.';
+      }
+      if (normalizeRecommendationBudget(recommendation.budget) === null) {
+        nextErrors.budget = 'Escribe un presupuesto aproximado válido.';
+      }
+
+      setRecommendationErrors(nextErrors);
+      if (Object.keys(nextErrors).length > 0) {
+        document
+          .getElementById('recommendation-fields')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
+
     // En modo servicio no se valida el bloque de producto: no se renderiza.
-    if (!serviceMode) {
+    if (!serviceMode && !recommendationMode) {
       const nextErrors = {};
 
       products.forEach((product) => {
@@ -404,6 +462,32 @@ export default function RequestForm() {
       currency: 'MXN',
       status: 'open',
     };
+
+    // «Recomiéndame» reemplaza el bloque de referencia exacta por el producto
+    // deseado, la línea y el presupuesto. El tipo «Carro» se guarda como
+    // «Auto» para usar el enrutamiento por vehículo ya existente.
+    if (recommendationMode && !serviceMode) {
+      const product = String(recommendation.product).trim();
+      const preferences = String(recommendation.preferences || '').trim();
+      const budget = normalizeRecommendationBudget(recommendation.budget);
+
+      requestPayload.title = product;
+      requestPayload.description = preferences || `Busco recomendaciones para ${product}`;
+      requestPayload.category = recommendation.category;
+      requestPayload.vehicle_type = recommendationVehicleToStorage(recommendation.vehicleType);
+      requestPayload.items = [
+        buildRecommendationItem({
+          vehicleType: recommendation.vehicleType,
+          category: recommendation.category,
+          product,
+          preferences,
+        }),
+      ];
+      requestPayload.is_recommendation = true;
+      requestPayload.budget = budget;
+      requestPayload.budget_amount = budget;
+      requestPayload.preferences = preferences || null;
+    }
 
     // Solo se envían los campos nuevos cuando el comprador los usó. Las
     // solicitudes de repuestos tradicionales conservan su payload exacto.
@@ -539,7 +623,7 @@ export default function RequestForm() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-6">
-        {!serviceMode ? (
+        {!serviceMode && !recommendationMode ? (
           <button
             type="button"
             onClick={() => setServiceMode(true)}
@@ -553,6 +637,31 @@ export default function RequestForm() {
                 </span>
                 <span className="block text-xs text-gray-600">
                   Publica un trabajo para talleres verificados
+                </span>
+              </span>
+            </span>
+            <ChevronDown className="w-4 h-4 -rotate-90 shrink-0 text-[#006E7A]" />
+          </button>
+        ) : null}
+
+        {!serviceMode && !recommendationMode ? (
+          <button
+            type="button"
+            onClick={() => {
+              setRecommendationMode(true);
+              setServiceMode(false);
+              setSubmitError(null);
+            }}
+            className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[#00EED0]/40 bg-[#00EED0]/15 px-4 py-3 text-left transition hover:bg-[#00EED0]/20"
+          >
+            <span className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 shrink-0 text-[#006E7A]" />
+              <span>
+                <span className="block text-sm font-bold text-gray-800">
+                  Recomiéndame
+                </span>
+                <span className="block text-xs text-gray-600">
+                  No sabes la referencia exacta? Elige tu línea y recibe opciones
                 </span>
               </span>
             </span>
@@ -733,7 +842,145 @@ export default function RequestForm() {
         ) : null}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          {!serviceMode ? products.map((product, index) => (
+          {recommendationMode && !serviceMode ? (
+            <section
+              id="recommendation-fields"
+              className="rounded-2xl bg-white/80 backdrop-blur-md p-5 shadow-sm border border-[#00EED0]/30 space-y-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#006E7A]" />
+                  <div>
+                    <h3 className="font-bold text-gray-800">Pide recomendaciones</h3>
+                    <p className="text-xs text-gray-600">
+                      Cuéntanos qué buscas y los comercios de tu línea te proponen opciones
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecommendationMode(false);
+                    setRecommendationErrors({});
+                  }}
+                  className="text-xs font-semibold text-[#4B227A] hover:underline"
+                >
+                  Volver a referencia exacta
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5" htmlFor="recommendation-vehicle">
+                  <span className="text-sm font-medium text-gray-800">
+                    Tipo de vehículo <span className="text-red-600">*</span>
+                  </span>
+                  <div className="relative">
+                    <select
+                      id="recommendation-vehicle"
+                      aria-label="Tipo de vehículo para recomendaciones"
+                      value={recommendation.vehicleType}
+                      onChange={(event) => updateRecommendation('vehicleType', event.target.value)}
+                      className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
+                    >
+                      <option value="">Selecciona una opción</option>
+                      {RECOMMENDATION_VEHICLE_TYPES.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                  {recommendationErrors.vehicleType ? (
+                    <p className="text-xs text-red-700">{recommendationErrors.vehicleType}</p>
+                  ) : null}
+                </label>
+
+                <label className="flex flex-col gap-1.5" htmlFor="recommendation-category">
+                  <span className="text-sm font-medium text-gray-800">
+                    Línea / categoría <span className="text-red-600">*</span>
+                  </span>
+                  <div className="relative">
+                    <select
+                      id="recommendation-category"
+                      aria-label="Línea o categoría para recomendaciones"
+                      value={recommendation.category}
+                      onChange={(event) => updateRecommendation('category', event.target.value)}
+                      className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
+                    >
+                      <option value="">Selecciona una opción</option>
+                      {RECOMMENDATION_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-5 h-5 text-gray-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                  {recommendationErrors.category ? (
+                    <p className="text-xs text-red-700">{recommendationErrors.category}</p>
+                  ) : null}
+                </label>
+              </div>
+
+              <label className="flex flex-col gap-1.5" htmlFor="recommendation-product">
+                <span className="text-sm font-medium text-gray-800">
+                  ¿Qué producto buscas? <span className="text-red-600">*</span>
+                </span>
+                <input
+                  id="recommendation-product"
+                  className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30"
+                  placeholder="Ej. Casco integral, batería, llantas..."
+                  value={recommendation.product}
+                  onChange={(event) => updateRecommendation('product', event.target.value)}
+                />
+                {recommendationErrors.product ? (
+                  <p className="text-xs text-red-700">{recommendationErrors.product}</p>
+                ) : null}
+              </label>
+
+              <label className="flex flex-col gap-1.5" htmlFor="recommendation-budget">
+                <span className="text-sm font-medium text-gray-800">
+                  Presupuesto aproximado <span className="text-red-600">*</span>
+                </span>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">
+                    $
+                  </span>
+                  <input
+                    id="recommendation-budget"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    className="w-full bg-white/70 border border-white/30 rounded-xl pl-7 pr-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30"
+                    placeholder="Ej. 2500"
+                    value={recommendation.budget}
+                    onChange={(event) => updateRecommendation('budget', event.target.value)}
+                  />
+                </div>
+                {recommendationErrors.budget ? (
+                  <p className="text-xs text-red-700">{recommendationErrors.budget}</p>
+                ) : null}
+              </label>
+
+              <label className="flex flex-col gap-1.5" htmlFor="recommendation-preferences">
+                <span className="text-sm font-medium text-gray-800">
+                  Preferencias o talla (opcional)
+                </span>
+                <textarea
+                  id="recommendation-preferences"
+                  className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 min-h-[80px]"
+                  placeholder="Ej. Talla M, color negro, prefiero garantía de 1 año"
+                  value={recommendation.preferences}
+                  onChange={(event) => updateRecommendation('preferences', event.target.value)}
+                />
+              </label>
+
+              <DataNotice>
+                Tu solicitud llegará solo a los comercios registrados en ese tipo de vehículo y
+                línea. No necesitas saber marca, modelo, año ni número de referencia.
+              </DataNotice>
+            </section>
+          ) : null}
+
+          {!serviceMode && !recommendationMode ? products.map((product, index) => (
             <div key={product.id} id={`product-${product.id}`} className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
               <div className="flex justify-between items-center mb-4 border-b border-white/40 pb-2">
                 <h3 className="font-bold text-[#006E7A] flex items-center gap-2">
@@ -877,7 +1124,7 @@ export default function RequestForm() {
             </div>
           )) : null}
 
-          {!serviceMode ? (
+          {!serviceMode && !recommendationMode ? (
             <button
               type="button"
               onClick={addProduct}
@@ -896,7 +1143,9 @@ export default function RequestForm() {
             ? 'ENVIANDO…'
             : serviceMode
               ? '🔧 PUBLICAR TRABAJO PARA TALLERES'
-              : `👉 ENVIAR SOLICITUD AUTOMOTRIZ (${products.length})`}
+              : recommendationMode
+                ? '✨ PEDIR RECOMENDACIONES'
+                : `👉 ENVIAR SOLICITUD AUTOMOTRIZ (${products.length})`}
         </Button>
       </div>
     </div>

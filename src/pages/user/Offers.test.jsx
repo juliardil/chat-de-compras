@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Offers from './Offers';
 import { AuthContext } from '../../context/auth-context';
 
@@ -106,6 +106,28 @@ const request = (id, title) => ({
   items: [{ item: title }],
 });
 
+const recommendationOffer = () => ({
+  ...offer('offer-rec', 'req-rec', 'Comercio Recomienda', 480),
+  recommended_options: [
+    {
+      id: 'casco-m',
+      title: 'Casco integral talla M',
+      price: 480,
+      image_url: 'https://cdn.example.com/casco-m.jpg',
+      gift_promo: 'Guantes gratis',
+      warranty: '1 año',
+    },
+    {
+      id: 'casco-l',
+      title: 'Casco integral talla L',
+      price: 520,
+      image_url: 'https://cdn.example.com/casco-l.jpg',
+      gift_promo: '',
+      warranty: '6 meses',
+    },
+  ],
+});
+
 const renderOffers = (user = { id: 'buyer-1', role: 'user' }) =>
   render(
     <AuthContext.Provider value={{ user }}>
@@ -124,6 +146,11 @@ function ChatProbe() {
 }
 
 describe('sección Ofertas del comprador', () => {
+  beforeAll(() => {
+    // jsdom no implementa scrollTo; el carrusel lo usa solo para los controles.
+    Element.prototype.scrollTo = vi.fn();
+  });
+
   beforeEach(() => {
     fetchBuyerOffers.mockReset();
     fetchBuyerRequests.mockReset();
@@ -617,6 +644,118 @@ describe('sección Ofertas del comprador', () => {
     expect(screen.getByText(/Instalación gratis/)).toBeInTheDocument();
     expect(screen.getByAltText('Foto de Bosch')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /mensajes/i })).toBeInTheDocument();
+  });
+
+  it('muestra el badge de recomendación y el carrusel con foto, precio, regalo y garantía', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [recommendationOffer()],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [
+        {
+          ...request('req-rec', 'Casco integral'),
+          is_recommendation: true,
+          description: 'Busco recomendaciones para casco',
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByText('✨ Recomiéndame')).toBeInTheDocument();
+    expect(screen.getByText('Opciones recomendadas')).toBeInTheDocument();
+    expect(screen.getByAltText('Foto de Casco integral talla M')).toBeInTheDocument();
+    expect(screen.getByAltText('Foto de Casco integral talla L')).toBeInTheDocument();
+    expect(screen.getByText('Guantes gratis')).toBeInTheDocument();
+    expect(screen.getByText('1 año')).toBeInTheDocument();
+    expect(screen.getByText('6 meses')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /elegir esta opción/i })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Opción anterior' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Siguiente opción' })).toBeEnabled();
+    // El selector antiguo no se muestra en ofertas recomendadas.
+    expect(screen.queryByText('Opciones de marca')).not.toBeInTheDocument();
+  });
+
+  it('guarda la opción elegida del carrusel y la fija como acuerdo del chat', async () => {
+    openChatForOffer.mockResolvedValue({
+      item: { id: 'thread-rec' },
+      error: null,
+      notice: null,
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [recommendationOffer()],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [{ ...request('req-rec', 'Casco integral'), is_recommendation: true }],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    const options = await screen.findAllByRole('button', { name: /elegir esta opción/i });
+    await userEvent.click(options[1]);
+
+    expect(selectOfferOption).toHaveBeenCalledWith({
+      offerId: 'offer-rec',
+      optionId: 'casco-l',
+    });
+    expect(
+      screen.getAllByRole('button', { name: /opción elegida/i })
+    ).toHaveLength(1);
+
+    const chatButton = await screen.findByRole('button', { name: /mensajes · casco integral talla l/i });
+    await userEvent.click(chatButton);
+
+    expect(openChatForOffer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'buyer-1',
+        offer: expect.objectContaining({ id: 'offer-rec' }),
+        subject: 'Comercio Recomienda',
+        selectedOption: expect.objectContaining({
+          id: 'casco-l',
+          brand: 'Casco integral talla L',
+          price: 520,
+        }),
+      })
+    );
+    expect(await screen.findByText('Conversación abierta: thread-rec')).toBeInTheDocument();
+  });
+
+  it('mueve el carrusel con los controles y los indicadores', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [recommendationOffer()],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [{ ...request('req-rec', 'Casco integral'), is_recommendation: true }],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    await screen.findByText('Opciones recomendadas');
+    expect(screen.getByText('1/2')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ir a la opción 2' }));
+
+    expect(screen.getByText('2/2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ir a la opción 2' })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: 'Siguiente opción' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Opción anterior' }));
+    expect(screen.getByText('1/2')).toBeInTheDocument();
   });
 
   it('muestra la miniatura de una opción de marca en ofertas antiguas', async () => {
