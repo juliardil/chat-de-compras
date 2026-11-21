@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ImagePlus, MessageCircle, Send } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ImagePlus, MessageCircle, Send, X } from 'lucide-react';
 import Button from '../ui/Button';
 import { DataNotice, EmptyModule, LoadingModule } from '../ui/ModuleState';
 import { useModuleData } from '../../data/useModuleData';
@@ -69,30 +69,58 @@ function SendForm({
   imageFile,
   imagePreview,
   onImageChange,
+  onClearImage,
+  fileInputRef,
   busy,
   onSubmit,
 }) {
   return (
     <form className="mt-3" onSubmit={onSubmit}>
-      <label className="flex items-center gap-2 rounded-xl border border-[#4B227A]/20 bg-white px-3 py-2 text-[11px] font-bold text-[#4B227A]">
+      <input
+        ref={fileInputRef}
+        id="club-chat-image"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={onImageChange}
+        aria-label="Adjuntar imagen del club"
+        className="sr-only"
+      />
+      <label
+        htmlFor="club-chat-image"
+        className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#4B227A]/25 bg-white/80 px-3 py-2.5 text-xs font-bold text-[#4B227A] transition hover:border-[#0197AF]/50 hover:bg-[#0197AF]/5"
+      >
         <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
-        Adjuntar imagen
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={onImageChange}
-          aria-label="Adjuntar imagen del club"
-          className="min-w-0 flex-1 text-[10px] font-normal text-gray-500"
-        />
+        {imageFile ? 'Cambiar imagen' : 'Adjuntar imagen'}
       </label>
-      {imagePreview ? (
-        <img
-          src={imagePreview}
-          alt="Vista previa de la imagen a enviar"
-          className="mt-2 max-h-32 w-full rounded-xl border border-[#0197AF]/15 object-cover"
-        />
-      ) : imageFile ? (
-        <p className="mt-1 text-[10px] text-[#006E7A]">Imagen lista: {imageFile.name}</p>
+      <span className="mt-1 block text-[10px] text-gray-400">
+        JPG, PNG o WEBP · máximo 5 MB
+      </span>
+      {imageFile ? (
+        <div className="mt-2 overflow-hidden rounded-xl border border-[#4B227A]/10 bg-white/80">
+          {imagePreview ? (
+            <img
+              src={imagePreview}
+              alt="Vista previa de la imagen a enviar"
+              className="max-h-32 w-full object-cover"
+            />
+          ) : null}
+          <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+            <span
+              className="min-w-0 truncate text-[10px] font-semibold text-gray-600"
+              title={imageFile.name}
+            >
+              {imageFile.name}
+            </span>
+            <button
+              type="button"
+              onClick={onClearImage}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#4B227A]/20 bg-white px-2 py-1 text-[10px] font-bold text-[#4B227A] transition hover:bg-[#4B227A]/5"
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+              Quitar
+            </button>
+          </div>
+        </div>
       ) : null}
       <div className="mt-2 flex gap-2">
         <input
@@ -148,6 +176,7 @@ export default function ClubChat({ full = false, groupId = null }) {
   const [body, setBody] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
 
@@ -166,6 +195,7 @@ export default function ClubChat({ full = false, groupId = null }) {
     if (imagePreview && typeof URL !== 'undefined' && URL.revokeObjectURL) {
       URL.revokeObjectURL(imagePreview);
     }
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setImageFile(null);
     setImagePreview(null);
   };
@@ -175,7 +205,7 @@ export default function ClubChat({ full = false, groupId = null }) {
     const validation = validateClubImage(file);
     if (validation) {
       setActionError(validation);
-      event.target.value = '';
+      clearImage();
       return;
     }
 
@@ -224,6 +254,8 @@ export default function ClubChat({ full = false, groupId = null }) {
       imageFile={imageFile}
       imagePreview={imagePreview}
       onImageChange={handleImageChange}
+      onClearImage={clearImage}
+      fileInputRef={fileInputRef}
       busy={busy}
       onSubmit={handleSend}
     />

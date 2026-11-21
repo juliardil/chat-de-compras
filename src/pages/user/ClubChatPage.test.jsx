@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -179,8 +179,11 @@ describe('pantalla dedicada del chat del club', () => {
 
     const input = screen.getByLabelText('Flyer de la actividad');
     expect(input).toHaveClass('sr-only');
+    const activitiesPanel = screen.getByRole('region', { name: /actividades y rodadas/i });
     expect(screen.getByText('Elegir flyer')).toBeInTheDocument();
-    expect(screen.getByText('JPG, PNG o WEBP · máximo 5 MB')).toBeInTheDocument();
+    expect(
+      within(activitiesPanel).getByText('JPG, PNG o WEBP · máximo 5 MB')
+    ).toBeInTheDocument();
 
     const file = new File(['img'], 'rodada.png', { type: 'image/png' });
     await user.upload(input, file);
@@ -193,6 +196,29 @@ describe('pantalla dedicada del chat del club', () => {
 
     expect(screen.getByText('Elegir flyer')).toBeInTheDocument();
     expect(screen.queryByText('rodada.png')).not.toBeInTheDocument();
+    expect(input).toHaveValue('');
+  });
+
+  it('muestra el selector de imagen del chat con opción de cambiar y quitar', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const input = await screen.findByLabelText('Adjuntar imagen del club');
+    expect(input).toHaveClass('sr-only');
+    expect(screen.getByText('Adjuntar imagen')).toBeInTheDocument();
+    expect(screen.getByText('JPG, PNG o WEBP · máximo 5 MB')).toBeInTheDocument();
+
+    const file = new File(['img'], 'foto-chat.png', { type: 'image/png' });
+    await user.upload(input, file);
+
+    expect(screen.getByText('Cambiar imagen')).toBeInTheDocument();
+    expect(screen.getByText('foto-chat.png')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /quitar/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /quitar/i }));
+
+    expect(screen.getByText('Adjuntar imagen')).toBeInTheDocument();
+    expect(screen.queryByText('foto-chat.png')).not.toBeInTheDocument();
     expect(input).toHaveValue('');
   });
 });
