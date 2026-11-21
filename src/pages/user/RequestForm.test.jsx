@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -404,6 +404,37 @@ describe('solicitudes con «Recomiéndame»', () => {
       await userEvent.type(screen.getByLabelText(/preferencias o talla/i), preferences);
     }
   };
+
+  it('muestra el selector dentro de la tarjeta de producto y activa el modo recomendación', async () => {
+    renderForm();
+
+    const card = await screen.findByTestId('product-card');
+    expect(within(card).getByText('Producto Automotriz')).toBeInTheDocument();
+    expect(
+      within(card).getByRole('button', { name: /busco algo específico/i })
+    ).toHaveAttribute('aria-pressed', 'true');
+    const recommendButton = within(card).getByRole('button', { name: /recomiéndame/i });
+    expect(recommendButton).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(recommendButton);
+
+    expect(screen.getByText('Pide recomendaciones')).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Tipo de vehículo para recomendaciones' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Línea o categoría para recomendaciones' })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/qué producto buscas/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/presupuesto aproximado/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/preferencias o talla/i)).toBeInTheDocument();
+
+    expect(screen.queryByTestId('product-card')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Ej: 04465-02060')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Ej: Toyota, Ford, Honda')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Ej: Corolla, Fiesta, Civic')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Año del vehículo')).not.toBeInTheDocument();
+  });
 
   it('oculta la referencia exacta y pide solo los datos de asesoría', async () => {
     await activateRecommendation();

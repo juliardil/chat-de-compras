@@ -28,6 +28,7 @@ import {
   ClipboardList,
   MapPin,
   Plus,
+  Search,
   Sparkles,
   Trash2,
   Wrench,
@@ -644,31 +645,6 @@ export default function RequestForm() {
           </button>
         ) : null}
 
-        {!serviceMode && !recommendationMode ? (
-          <button
-            type="button"
-            onClick={() => {
-              setRecommendationMode(true);
-              setServiceMode(false);
-              setSubmitError(null);
-            }}
-            className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[#00EED0]/40 bg-[#00EED0]/15 px-4 py-3 text-left transition hover:bg-[#00EED0]/20"
-          >
-            <span className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 shrink-0 text-[#006E7A]" />
-              <span>
-                <span className="block text-sm font-bold text-gray-800">
-                  Recomiéndame
-                </span>
-                <span className="block text-xs text-gray-600">
-                  No sabes la referencia exacta? Elige tu línea y recibe opciones
-                </span>
-              </span>
-            </span>
-            <ChevronDown className="w-4 h-4 -rotate-90 shrink-0 text-[#006E7A]" />
-          </button>
-        ) : null}
-
         {isVerifiedWorkshop ? (
           <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 flex items-start gap-2">
             <BadgeCheck className="w-4 h-4 shrink-0 mt-0.5 text-green-700" />
@@ -981,7 +957,7 @@ export default function RequestForm() {
           ) : null}
 
           {!serviceMode && !recommendationMode ? products.map((product, index) => (
-            <div key={product.id} id={`product-${product.id}`} className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
+            <div key={product.id} id={`product-${product.id}`} data-testid="product-card" className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-white/30 relative">
               <div className="flex justify-between items-center mb-4 border-b border-white/40 pb-2">
                 <h3 className="font-bold text-[#006E7A] flex items-center gap-2">
                   <span className="bg-[#00EED0]/20 text-[#4B227A] w-6 h-6 rounded-full flex items-center justify-center text-xs border border-[#00EED0]/30">
@@ -999,6 +975,48 @@ export default function RequestForm() {
                   </button>
                 )}
               </div>
+
+              {!serviceMode ? (
+                <div
+                  className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-white/50 bg-white/60 p-1.5"
+                  role="group"
+                  aria-label="Tipo de solicitud"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={!recommendationMode}
+                    onClick={() => {
+                      setRecommendationMode(false);
+                      setRecommendationErrors({});
+                      setSubmitError(null);
+                    }}
+                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-center text-sm font-bold transition-colors ${
+                      !recommendationMode
+                        ? 'bg-[#0197AF] text-white shadow-sm'
+                        : 'text-[#006E7A] hover:bg-[#00EED0]/15'
+                    }`}
+                  >
+                    <Search className="w-4 h-4 shrink-0" />
+                    Busco algo específico
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={recommendationMode}
+                    onClick={() => {
+                      setRecommendationMode(true);
+                      setSubmitError(null);
+                    }}
+                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-center text-sm font-bold transition-colors ${
+                      recommendationMode
+                        ? 'bg-[#00EED0] text-[#4B227A] shadow-sm'
+                        : 'text-[#006E7A] hover:bg-[#00EED0]/15'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    ✨ Recomiéndame
+                  </button>
+                </div>
+              ) : null}
 
               <div className="space-y-4">
                 {AUTOMOTIVE_FORM_FIELDS
