@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   CalendarPlus,
@@ -61,6 +61,7 @@ export default function ClubEvents({ isOwner, groupId }) {
   const [startsAt, setStartsAt] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
 
@@ -77,6 +78,7 @@ export default function ClubEvents({ isOwner, groupId }) {
     if (imagePreview && typeof URL !== 'undefined' && URL.revokeObjectURL) {
       URL.revokeObjectURL(imagePreview);
     }
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setImageFile(null);
     setImagePreview(null);
   };
@@ -86,7 +88,7 @@ export default function ClubEvents({ isOwner, groupId }) {
     const validation = validateClubImage(file);
     if (validation) {
       setActionError(validation);
-      event.target.value = '';
+      clearImage();
       return;
     }
 
@@ -366,29 +368,58 @@ export default function ClubEvents({ isOwner, groupId }) {
                 maxLength={240}
               />
             </label>
-            <label className="block">
+            <div>
               <span className="flex items-center gap-1 text-[11px] font-bold text-gray-600">
                 <ImagePlus className="h-3 w-3 text-[#4B227A]" aria-hidden="true" />
                 Flyer de la actividad (opcional)
               </span>
               <input
+                ref={fileInputRef}
+                id="club-event-flyer"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 onChange={handleImageChange}
                 aria-label="Flyer de la actividad"
-                className="mt-1 w-full text-[11px] text-gray-600"
+                className="sr-only"
               />
+              <label
+                htmlFor="club-event-flyer"
+                className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#4B227A]/25 bg-white/80 px-3 py-2.5 text-xs font-bold text-[#4B227A] transition hover:border-[#0197AF]/50 hover:bg-[#0197AF]/5"
+              >
+                <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                {imageFile ? 'Cambiar flyer' : 'Elegir flyer'}
+              </label>
               <span className="mt-1 block text-[10px] text-gray-400">
                 JPG, PNG o WEBP · máximo 5 MB
               </span>
-              {imagePreview ? (
-                <img
-                  src={imagePreview}
-                  alt="Vista previa del flyer"
-                  className="mt-2 max-h-32 w-full rounded-xl border border-[#4B227A]/10 object-cover"
-                />
+              {imageFile ? (
+                <div className="mt-2 overflow-hidden rounded-xl border border-[#4B227A]/10 bg-white/80">
+                  {imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt="Vista previa del flyer"
+                      className="max-h-32 w-full object-cover"
+                    />
+                  ) : null}
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                    <span
+                      className="min-w-0 truncate text-[10px] font-semibold text-gray-600"
+                      title={imageFile.name}
+                    >
+                      {imageFile.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearImage}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#4B227A]/20 bg-white px-2 py-1 text-[10px] font-bold text-[#4B227A] transition hover:bg-[#4B227A]/5"
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
+                      Quitar
+                    </button>
+                  </div>
+                </div>
               ) : null}
-            </label>
+            </div>
             <Button type="submit" disabled={busy} className="w-full py-2 text-xs">
               {busy ? 'Guardando…' : 'Publicar actividad'}
             </Button>

@@ -163,4 +163,36 @@ describe('pantalla dedicada del chat del club', () => {
     );
     expect(sendClubMessage).toHaveBeenCalledWith('', 'https://cdn.test/chat.png');
   });
+
+  it('muestra un selector de flyer limpio con opción de cambiar y quitar', async () => {
+    const user = userEvent.setup();
+    fetchClubIdentity.mockResolvedValue({
+      items: [{ name: 'mostdil', is_owner: true, group_id: 'group-1' }],
+      error: null,
+      notice: null,
+    });
+
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /actividades y rodadas/i }));
+    await user.click(await screen.findByRole('button', { name: /crear actividad/i }));
+
+    const input = screen.getByLabelText('Flyer de la actividad');
+    expect(input).toHaveClass('sr-only');
+    expect(screen.getByText('Elegir flyer')).toBeInTheDocument();
+    expect(screen.getByText('JPG, PNG o WEBP · máximo 5 MB')).toBeInTheDocument();
+
+    const file = new File(['img'], 'rodada.png', { type: 'image/png' });
+    await user.upload(input, file);
+
+    expect(screen.getByText('Cambiar flyer')).toBeInTheDocument();
+    expect(screen.getByText('rodada.png')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /quitar/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /quitar/i }));
+
+    expect(screen.getByText('Elegir flyer')).toBeInTheDocument();
+    expect(screen.queryByText('rodada.png')).not.toBeInTheDocument();
+    expect(input).toHaveValue('');
+  });
 });
