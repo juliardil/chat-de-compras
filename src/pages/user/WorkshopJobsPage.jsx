@@ -68,8 +68,10 @@ export default function WorkshopJobsPage() {
   const canWork = user?.role === 'commerce' || workshopVerified;
   const isCommerce = user?.role === 'commerce';
 
+  // El inventario sigue disponible para quienes venden productos o repuestos.
+  // Un taller verificado solo cotiza servicios: no se le ofrece esa acción.
   const menuItems = [
-    { icon: Package, label: 'Mi Inventario', path: '/inventory' },
+    ...(isCommerce ? [{ icon: Package, label: 'Mi Inventario', path: '/inventory' }] : []),
     { icon: Car, label: 'Historial por placa', action: 'history' },
     {
       icon: Settings,

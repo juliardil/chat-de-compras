@@ -5,13 +5,20 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import WorkshopJobsPage from './WorkshopJobsPage';
 
-const { setViewMode } = vi.hoisted(() => ({ setViewMode: vi.fn() }));
-
-vi.mock('../../context/auth-context', () => ({
-  useAuth: () => ({
+const { setViewMode, authState } = vi.hoisted(() => ({
+  setViewMode: vi.fn(),
+  authState: {
     user: { id: 'u-1', role: 'user' },
     workshopVerified: true,
     viewMode: 'business',
+  },
+}));
+
+vi.mock('../../context/auth-context', () => ({
+  useAuth: () => ({
+    user: authState.user,
+    workshopVerified: authState.workshopVerified,
+    viewMode: authState.viewMode,
     setViewMode,
   }),
 }));
@@ -40,6 +47,11 @@ const renderPage = () =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  Object.assign(authState, {
+    user: { id: 'u-1', role: 'user' },
+    workshopVerified: true,
+    viewMode: 'business',
+  });
 });
 
 describe('Panel de Trabajos del Taller Verificado', () => {
@@ -87,7 +99,7 @@ describe('Panel de Trabajos del Taller Verificado', () => {
 
     await user.click(screen.getByRole('button', { name: 'Abrir menú' }));
 
-    expect(screen.getByRole('menuitem', { name: 'Mi Inventario' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /inventario/i })).not.toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Historial por placa' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Ajustes' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Respuestas de mis ofertas' })).toBeInTheDocument();
@@ -103,11 +115,29 @@ describe('Panel de Trabajos del Taller Verificado', () => {
     expect(screen.queryByRole('dialog', { name: 'Historial por placa' })).not.toBeInTheDocument();
   });
 
-  it('accede a Mi Inventario desde el menú', async () => {
+  it('no ofrece opciones de inventario a una sesión de taller', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Abrir menú' }));
+
+    expect(screen.queryByRole('menuitem', { name: /inventario/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/mi inventario/i)).not.toBeInTheDocument();
+  });
+
+  it('conserva Mi Inventario para un comercio que vende repuestos', async () => {
+    const user = userEvent.setup();
+    Object.assign(authState, {
+      user: { id: 'u-2', role: 'commerce' },
+      workshopVerified: false,
+      viewMode: 'business',
+    });
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Abrir menú' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Mi Inventario' })).toBeInTheDocument();
+
     await user.click(screen.getByRole('menuitem', { name: 'Mi Inventario' }));
 
     expect(await screen.findByRole('heading', { name: 'Mi Inventario' })).toBeInTheDocument();

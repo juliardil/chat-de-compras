@@ -86,8 +86,9 @@ function RequireRole({
   if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
 
-  // `allowWorkshop` habilita módulos del taller (inventario, respuestas) sin
+  // `allowWorkshop` habilita módulos de respuesta del taller verificado sin
   // depender del viewMode transitorio: esas rutas siguen protegidas en backend.
+  // El inventario queda reservado al rol que vende productos o repuestos.
   const businessWorkshop =
     workshopVerified &&
     user.role !== 'commerce' &&
@@ -147,7 +148,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<RequireRole role="commerce"><Dashboard /></RequireRole>} />
         <Route
           path="/inventory"
-          element={<RequireRole role="commerce" allowWorkshop><Inventory /></RequireRole>}
+          element={<RequireRole role="commerce"><Inventory /></RequireRole>}
         />
         <Route path="/sales-history" element={<RequireRole role="commerce"><SalesHistory /></RequireRole>} />
         <Route path="/profile" element={<RequireRole role="commerce"><Profile /></RequireRole>} />
