@@ -68,6 +68,29 @@ describe('reglas del flujo «Recomiéndame»', () => {
     expect(item).not.toHaveProperty('yearFrom');
   });
 
+  it('incluye marca, modelo y año opcionales sin inventar una referencia', () => {
+    const item = buildRecommendationItem({
+      vehicleType: 'Carro',
+      category: 'Eléctrico',
+      product: 'Batería',
+      preferences: 'Talla YTX9-BS',
+      brand: ' Toyota ',
+      model: ' Corolla ',
+      year: '2018',
+    });
+
+    expect(item).toMatchObject({
+      brand: 'Toyota',
+      vehicleBrand: 'Toyota',
+      model: 'Corolla',
+      vehicleModel: 'Corolla',
+      year: '2018',
+      yearFrom: '2018',
+      yearTo: '2018',
+    });
+    expect(item).not.toHaveProperty('reference');
+  });
+
   it('normaliza el mini-catálogo con la forma exacta de la base de datos', () => {
     const options = normalizeRecommendedOptions([
       {

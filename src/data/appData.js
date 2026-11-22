@@ -513,7 +513,9 @@ export const mapRequestItem = (item = {}, index = 0) => ({
   yearFrom: item.yearFrom ?? item.year_from ?? '',
   yearTo: item.yearTo ?? item.year_to ?? '',
   reference: item.reference || item.part_number || '',
-  brand: item.brand || '',
+  // En «Recomiéndame», `brand` identifica el vehículo; no debe mostrarse como
+  // marca del repuesto. El panel usa `vehicleBrand` para ese dato.
+  brand: item.is_recommendation ? '' : item.brand || '',
   condition: item.condition || '',
   quantity: toPositiveInteger(item.quantity ?? item.cantidad, 1),
   notes: item.notes || '',
@@ -2096,10 +2098,45 @@ export const buildPurchaseRequestPayload = (payload = {}) => {
     const preferences = normalizeSegmentationText(rest.preferences);
     if (preferences) next.preferences = preferences;
     else delete next.preferences;
+
+    // Marca, modelo y año opcionales del vehículo: se guardan dentro del JSONB
+    // con las claves que ya entiende el panel del comercio y se eliminan de la
+    // raíz porque purchase_requests no tiene columnas `brand`/`model`/`year`.
+    const vehicleBrand = normalizeSegmentationText(rest.brand);
+    const vehicleModel = normalizeSegmentationText(rest.model);
+    const vehicleYear = normalizeSegmentationText(rest.year);
+    if (vehicleBrand || vehicleModel || vehicleYear) {
+      next.items = items.map((item, index) =>
+        index === 0
+          ? {
+              ...item,
+              ...(vehicleBrand
+                ? { brand: vehicleBrand, vehicleBrand: normalizeSegmentationText(item.vehicleBrand) || vehicleBrand }
+                : {}),
+              ...(vehicleModel
+                ? { model: vehicleModel, vehicleModel: normalizeSegmentationText(item.vehicleModel) || vehicleModel }
+                : {}),
+              ...(vehicleYear
+                ? {
+                    year: vehicleYear,
+                    yearFrom: normalizeSegmentationText(item.yearFrom) || vehicleYear,
+                    yearTo: normalizeSegmentationText(item.yearTo) || vehicleYear,
+                  }
+                : {}),
+            }
+          : item
+      );
+    }
+    delete next.brand;
+    delete next.model;
+    delete next.year;
   } else {
     delete next.is_recommendation;
     delete next.budget;
     delete next.preferences;
+    delete next.brand;
+    delete next.model;
+    delete next.year;
   }
 
   return next;

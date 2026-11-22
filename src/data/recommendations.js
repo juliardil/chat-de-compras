@@ -150,8 +150,15 @@ export const buildRecommendationItem = ({
   category = '',
   product = '',
   preferences = '',
+  brand = '',
+  model = '',
+  year = '',
 } = {}) => {
   const storedVehicleType = recommendationVehicleToStorage(vehicleType);
+  const vehicleBrand = cleanText(brand);
+  const vehicleModel = cleanText(model);
+  const vehicleYear = cleanText(year);
+
   return {
     category: cleanText(category),
     item: cleanText(product),
@@ -160,5 +167,11 @@ export const buildRecommendationItem = ({
     images: [],
     notes: cleanText(preferences),
     is_recommendation: true,
+    // Los alias `vehicleBrand`/`vehicleModel`/`yearFrom` son los que ya lee el
+    // panel del comercio; `brand`/`model`/`year` viajan explícitamente cuando el
+    // comprador los capturó. Nada de esto crea un número de referencia.
+    ...(vehicleBrand ? { brand: vehicleBrand, vehicleBrand } : {}),
+    ...(vehicleModel ? { model: vehicleModel, vehicleModel } : {}),
+    ...(vehicleYear ? { year: vehicleYear, yearFrom: vehicleYear, yearTo: vehicleYear } : {}),
   };
 };

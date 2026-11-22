@@ -141,6 +141,23 @@ describe('capa de datos de la app', () => {
     expect(mapRequestItem({ item: 'Filtro', quantity: '0' }).quantity).toBe(1);
   });
 
+  it('no confunde la marca del vehículo con la marca del repuesto en recomendaciones', () => {
+    const item = mapRequestItem({
+      is_recommendation: true,
+      vehicleBrand: 'Toyota',
+      vehicleModel: 'Corolla',
+      brand: 'Toyota',
+      yearFrom: '2018',
+      yearTo: '2018',
+    });
+
+    expect(item.vehicleBrand).toBe('Toyota');
+    expect(item.vehicleModel).toBe('Corolla');
+    expect(item.yearFrom).toBe('2018');
+    expect(item.yearTo).toBe('2018');
+    expect(item.brand).toBe('');
+  });
+
   it('expone la cantidad y las imágenes en la oportunidad del comercio', () => {
     const row = {
       id: 'req-2',
@@ -491,6 +508,31 @@ describe('flujo «Recomiéndame» en la capa de datos', () => {
     expect(traditional).not.toHaveProperty('is_recommendation');
     expect(traditional).not.toHaveProperty('budget');
     expect(traditional).not.toHaveProperty('preferences');
+  });
+
+  it('guarda marca, modelo y año opcionales en el ítem y no los envía como columnas', () => {
+    const payload = buildPurchaseRequestPayload({
+      buyer_id: 'buyer-1',
+      title: 'Batería',
+      is_recommendation: true,
+      brand: 'Toyota',
+      model: 'Corolla',
+      year: '2018',
+      items: [{ item: 'Batería', is_recommendation: true }],
+    });
+
+    expect(payload).not.toHaveProperty('brand');
+    expect(payload).not.toHaveProperty('model');
+    expect(payload).not.toHaveProperty('year');
+    expect(payload.items[0]).toMatchObject({
+      brand: 'Toyota',
+      vehicleBrand: 'Toyota',
+      model: 'Corolla',
+      vehicleModel: 'Corolla',
+      year: '2018',
+      yearFrom: '2018',
+      yearTo: '2018',
+    });
   });
 
   it('expone el mini-catálogo de una oferta recomendada para el carrusel', () => {

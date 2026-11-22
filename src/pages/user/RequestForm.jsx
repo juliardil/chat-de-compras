@@ -168,6 +168,9 @@ export default function RequestForm() {
     product: '',
     budget: '',
     preferences: '',
+    brand: '',
+    model: '',
+    year: '',
   });
   const [recommendationErrors, setRecommendationErrors] = useState({});
 
@@ -471,6 +474,9 @@ export default function RequestForm() {
       const product = String(recommendation.product).trim();
       const preferences = String(recommendation.preferences || '').trim();
       const budget = normalizeRecommendationBudget(recommendation.budget);
+      const vehicleBrand = String(recommendation.brand || '').trim();
+      const vehicleModel = String(recommendation.model || '').trim();
+      const vehicleYear = String(recommendation.year || '').trim();
 
       requestPayload.title = product;
       requestPayload.description = preferences || `Busco recomendaciones para ${product}`;
@@ -482,12 +488,20 @@ export default function RequestForm() {
           category: recommendation.category,
           product,
           preferences,
+          brand: vehicleBrand,
+          model: vehicleModel,
+          year: vehicleYear,
         }),
       ];
       requestPayload.is_recommendation = true;
       requestPayload.budget = budget;
       requestPayload.budget_amount = budget;
       requestPayload.preferences = preferences || null;
+      // Los datos opcionales del vehículo viajan arriba para quien consuma la
+      // solicitud cruda y dentro del ítem para los paneles del comercio.
+      if (vehicleBrand) requestPayload.brand = vehicleBrand;
+      if (vehicleModel) requestPayload.model = vehicleModel;
+      if (vehicleYear) requestPayload.year = vehicleYear;
     }
 
     // Solo se envían los campos nuevos cuando el comprador los usó. Las
@@ -895,6 +909,53 @@ export default function RequestForm() {
                 </label>
               </div>
 
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <label className="flex flex-col gap-1.5" htmlFor="recommendation-brand">
+                  <span className="text-sm font-medium text-gray-800">
+                    Marca del vehículo (opcional)
+                  </span>
+                  <input
+                    id="recommendation-brand"
+                    type="text"
+                    className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30"
+                    placeholder="Ej. Toyota, Ford, Honda"
+                    value={recommendation.brand}
+                    onChange={(event) => updateRecommendation('brand', event.target.value)}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5" htmlFor="recommendation-model">
+                  <span className="text-sm font-medium text-gray-800">
+                    Modelo (opcional)
+                  </span>
+                  <input
+                    id="recommendation-model"
+                    type="text"
+                    className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30"
+                    placeholder="Ej. Corolla, Fiesta, Civic"
+                    value={recommendation.model}
+                    onChange={(event) => updateRecommendation('model', event.target.value)}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5" htmlFor="recommendation-year">
+                  <span className="text-sm font-medium text-gray-800">
+                    Año (opcional)
+                  </span>
+                  <input
+                    id="recommendation-year"
+                    type="number"
+                    min="1900"
+                    max="2100"
+                    inputMode="numeric"
+                    className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30"
+                    placeholder="Ej. 2018"
+                    value={recommendation.year}
+                    onChange={(event) => updateRecommendation('year', event.target.value)}
+                  />
+                </label>
+              </div>
+
               <label className="flex flex-col gap-1.5" htmlFor="recommendation-product">
                 <span className="text-sm font-medium text-gray-800">
                   ¿Qué producto buscas? <span className="text-red-600">*</span>
@@ -950,8 +1011,7 @@ export default function RequestForm() {
               </label>
 
               <DataNotice>
-                Tu solicitud llegará solo a los comercios registrados en ese tipo de vehículo y
-                línea. No necesitas saber marca, modelo, año ni número de referencia.
+                Tu solicitud llegará solo a los comercios registrados en ese tipo de vehículo y línea. Puedes indicar marca, modelo y año opcionalmente para mayor precisión, sin necesitar número de referencia.
               </DataNotice>
             </section>
           ) : null}

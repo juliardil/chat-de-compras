@@ -389,6 +389,9 @@ describe('solicitudes con «Recomiéndame»', () => {
     product = 'Batería',
     budget = '1500',
     preferences = 'Talla YTX9-BS',
+    brand = '',
+    model = '',
+    year = '',
   } = {}) => {
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: 'Tipo de vehículo para recomendaciones' }),
@@ -398,6 +401,15 @@ describe('solicitudes con «Recomiéndame»', () => {
       screen.getByRole('combobox', { name: 'Línea o categoría para recomendaciones' }),
       category
     );
+    if (brand) {
+      await userEvent.type(screen.getByLabelText(/marca del vehículo \(opcional\)/i), brand);
+    }
+    if (model) {
+      await userEvent.type(screen.getByLabelText(/modelo \(opcional\)/i), model);
+    }
+    if (year) {
+      await userEvent.type(screen.getByLabelText(/año \(opcional\)/i), year);
+    }
     await userEvent.type(screen.getByLabelText(/qué producto buscas/i), product);
     await userEvent.type(screen.getByLabelText(/presupuesto aproximado/i), budget);
     if (preferences) {
@@ -429,10 +441,12 @@ describe('solicitudes con «Recomiéndame»', () => {
     expect(screen.getByLabelText(/presupuesto aproximado/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/preferencias o talla/i)).toBeInTheDocument();
 
+    expect(screen.getByLabelText(/marca del vehículo \(opcional\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/modelo \(opcional\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/año \(opcional\)/i)).toBeInTheDocument();
+
     expect(screen.queryByTestId('product-card')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ej: 04465-02060')).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Ej: Toyota, Ford, Honda')).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Ej: Corolla, Fiesta, Civic')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Año del vehículo')).not.toBeInTheDocument();
   });
 
@@ -501,6 +515,42 @@ describe('solicitudes con «Recomiéndame»', () => {
     ]);
     expect(payload.items[0]).not.toHaveProperty('reference');
     expect(payload.items[0]).not.toHaveProperty('vehicleBrand');
+  });
+
+  it('envía marca, modelo y año opcionales del vehículo cuando se completan', async () => {
+    await activateRecommendation();
+    await fillRecommendation({
+      brand: 'Toyota',
+      model: 'Corolla',
+      year: '2018',
+    });
+
+    expect(
+      screen.getByText(
+        'Tu solicitud llegará solo a los comercios registrados en ese tipo de vehículo y línea. Puedes indicar marca, modelo y año opcionalmente para mayor precisión, sin necesitar número de referencia.'
+      )
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /pedir recomendaciones/i }));
+
+    expect(await screen.findByText('Confirmación de publicación')).toBeInTheDocument();
+    const payload = createPurchaseRequest.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      brand: 'Toyota',
+      model: 'Corolla',
+      year: '2018',
+      is_recommendation: true,
+    });
+    expect(payload.items[0]).toMatchObject({
+      brand: 'Toyota',
+      vehicleBrand: 'Toyota',
+      model: 'Corolla',
+      vehicleModel: 'Corolla',
+      year: '2018',
+      yearFrom: '2018',
+      yearTo: '2018',
+    });
+    expect(payload.items[0]).not.toHaveProperty('reference');
   });
 
   it('conserva Moto y la línea elegida en el payload', async () => {
