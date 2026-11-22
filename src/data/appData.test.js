@@ -147,14 +147,10 @@ describe('capa de datos de la app', () => {
       vehicleBrand: 'Toyota',
       vehicleModel: 'Corolla',
       brand: 'Toyota',
-      yearFrom: '2018',
-      yearTo: '2018',
     });
 
     expect(item.vehicleBrand).toBe('Toyota');
     expect(item.vehicleModel).toBe('Corolla');
-    expect(item.yearFrom).toBe('2018');
-    expect(item.yearTo).toBe('2018');
     expect(item.brand).toBe('');
   });
 
@@ -510,14 +506,13 @@ describe('flujo «Recomiéndame» en la capa de datos', () => {
     expect(traditional).not.toHaveProperty('preferences');
   });
 
-  it('guarda marca, modelo y año opcionales en el ítem y no los envía como columnas', () => {
+  it('guarda marca y modelo opcionales en el ítem y no los envía como columnas', () => {
     const payload = buildPurchaseRequestPayload({
       buyer_id: 'buyer-1',
       title: 'Batería',
       is_recommendation: true,
       brand: 'Toyota',
       model: 'Corolla',
-      year: '2018',
       items: [{ item: 'Batería', is_recommendation: true }],
     });
 
@@ -529,10 +524,10 @@ describe('flujo «Recomiéndame» en la capa de datos', () => {
       vehicleBrand: 'Toyota',
       model: 'Corolla',
       vehicleModel: 'Corolla',
-      year: '2018',
-      yearFrom: '2018',
-      yearTo: '2018',
     });
+    expect(payload.items[0]).not.toHaveProperty('year');
+    expect(payload.items[0]).not.toHaveProperty('yearFrom');
+    expect(payload.items[0]).not.toHaveProperty('yearTo');
   });
 
   it('expone el mini-catálogo de una oferta recomendada para el carrusel', () => {

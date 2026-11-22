@@ -2099,13 +2099,12 @@ export const buildPurchaseRequestPayload = (payload = {}) => {
     if (preferences) next.preferences = preferences;
     else delete next.preferences;
 
-    // Marca, modelo y año opcionales del vehículo: se guardan dentro del JSONB
-    // con las claves que ya entiende el panel del comercio y se eliminan de la
-    // raíz porque purchase_requests no tiene columnas `brand`/`model`/`year`.
+    // Marca y modelo opcionales del vehículo: se guardan dentro del JSONB con
+    // las claves que ya entiende el panel del comercio y se eliminan de la
+    // raíz porque purchase_requests no tiene columnas `brand`/`model`.
     const vehicleBrand = normalizeSegmentationText(rest.brand);
     const vehicleModel = normalizeSegmentationText(rest.model);
-    const vehicleYear = normalizeSegmentationText(rest.year);
-    if (vehicleBrand || vehicleModel || vehicleYear) {
+    if (vehicleBrand || vehicleModel) {
       next.items = items.map((item, index) =>
         index === 0
           ? {
@@ -2116,20 +2115,13 @@ export const buildPurchaseRequestPayload = (payload = {}) => {
               ...(vehicleModel
                 ? { model: vehicleModel, vehicleModel: normalizeSegmentationText(item.vehicleModel) || vehicleModel }
                 : {}),
-              ...(vehicleYear
-                ? {
-                    year: vehicleYear,
-                    yearFrom: normalizeSegmentationText(item.yearFrom) || vehicleYear,
-                    yearTo: normalizeSegmentationText(item.yearTo) || vehicleYear,
-                  }
-                : {}),
             }
           : item
       );
     }
     delete next.brand;
     delete next.model;
-    delete next.year;
+    delete next.year; // El año ya no se captura; nunca fue una columna de la tabla.
   } else {
     delete next.is_recommendation;
     delete next.budget;

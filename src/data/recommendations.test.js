@@ -68,7 +68,7 @@ describe('reglas del flujo «Recomiéndame»', () => {
     expect(item).not.toHaveProperty('yearFrom');
   });
 
-  it('incluye marca, modelo y año opcionales sin inventar una referencia', () => {
+  it('incluye marca y modelo opcionales sin inventar una referencia', () => {
     const item = buildRecommendationItem({
       vehicleType: 'Carro',
       category: 'Eléctrico',
@@ -76,7 +76,6 @@ describe('reglas del flujo «Recomiéndame»', () => {
       preferences: 'Talla YTX9-BS',
       brand: ' Toyota ',
       model: ' Corolla ',
-      year: '2018',
     });
 
     expect(item).toMatchObject({
@@ -84,10 +83,10 @@ describe('reglas del flujo «Recomiéndame»', () => {
       vehicleBrand: 'Toyota',
       model: 'Corolla',
       vehicleModel: 'Corolla',
-      year: '2018',
-      yearFrom: '2018',
-      yearTo: '2018',
     });
+    expect(item).not.toHaveProperty('year');
+    expect(item).not.toHaveProperty('yearFrom');
+    expect(item).not.toHaveProperty('yearTo');
     expect(item).not.toHaveProperty('reference');
   });
 
