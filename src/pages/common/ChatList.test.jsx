@@ -59,9 +59,9 @@ function LocationProbe() {
   return <span>Ruta actual: {pathname}</span>;
 }
 
-const renderChatList = (user) =>
+const renderChatList = (user, sellerMembership = null) =>
   render(
-    <AuthContext.Provider value={{ user }}>
+    <AuthContext.Provider value={{ user, sellerMembership }}>
       <MemoryRouter initialEntries={['/chat-list']}>
         <LocationProbe />
         <ChatList />
@@ -88,6 +88,18 @@ describe('bandeja de mensajes con etapas', () => {
     expect(screen.getByRole('button', { name: 'Abrir conversación Bafles' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abrir conversación Aceite' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abrir conversación Pastillas' })).toBeInTheDocument();
+  });
+
+  it('muestra las píldoras a un dueño detectado por su membresía activa', async () => {
+    renderChatList(
+      { id: 'user-1', role: 'user' },
+      { role: 'owner', is_active: true }
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Negociando (2)' })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregados (1)' })).toBeInTheDocument();
+    expect(fetchChatThreads).toHaveBeenCalledWith({ userId: 'user-1', role: 'commerce' });
   });
 
   it('filtra por etapa, resalta la píldora activa y permite volver a ver todas', async () => {
@@ -118,10 +130,14 @@ describe('bandeja de mensajes con etapas', () => {
   });
 
   it('conserva la vista del comprador sin píldoras de etapas', async () => {
-    renderChatList({ id: 'buyer-1', role: 'buyer' });
+    renderChatList(
+      { id: 'buyer-1', role: 'buyer' },
+      { role: 'seller', is_active: false }
+    );
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Abrir conversación Aceite' })).toBeInTheDocument());
     expect(screen.queryByRole('group', { name: 'Etapas de conversación' })).not.toBeInTheDocument();
+    expect(fetchChatThreads).toHaveBeenCalledWith({ userId: 'buyer-1', role: 'buyer' });
     expect(fetchChatStageBoard).not.toHaveBeenCalled();
   });
 });

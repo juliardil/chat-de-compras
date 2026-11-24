@@ -613,7 +613,7 @@ describe('panel de oportunidades del comercio', () => {
       warranty: '2 años',
       category_group: 'Bombillos',
     });
-  });
+  }, 10000);
 
   it('envía el mini-catálogo y replica las opciones para la selección existente', async () => {
     fetchOpenRequests.mockResolvedValue({

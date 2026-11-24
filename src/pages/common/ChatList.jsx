@@ -17,6 +17,17 @@ const CHAT_STAGE_TABS = [
   { key: 'delivered', label: 'Entregados' },
 ];
 
+// La sesión de un dueño/comercio trae `commerce` y la de un afiliado activo
+// trae `seller`. La membresía activa es un respaldo para sesiones cuyo perfil
+// todavía no reflejó el rol; nunca habilita la bandeja de ventas a compradores.
+const resolveSalesInboxRole = (user, sellerMembership) => {
+  if (['commerce', 'seller'].includes(user?.role)) return user.role;
+  if (sellerMembership?.is_active !== true) return null;
+  if (sellerMembership.role === 'seller') return 'seller';
+  if (sellerMembership.role === 'owner') return 'commerce';
+  return null;
+};
+
 const initialsOf = (name) =>
   String(name || '')
     .trim()
@@ -28,14 +39,16 @@ const initialsOf = (name) =>
 
 export default function ChatList() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isSalesInbox = ['commerce', 'seller'].includes(user?.role);
+  const { user, sellerMembership } = useAuth();
+  const salesRole = resolveSalesInboxRole(user, sellerMembership);
+  const isSalesInbox = Boolean(salesRole);
+  const dataRole = salesRole || user?.role;
   const [activeStage, setActiveStage] = useState(null);
   const [stageBoard, setStageBoard] = useState({ counts: null, stages: {}, error: null });
 
   const { items, loading, error, notice } = useModuleData(
-    () => fetchChatThreads({ userId: user?.id, role: user?.role }),
-    [user?.id, user?.role]
+    () => fetchChatThreads({ userId: user?.id, role: dataRole }),
+    [user?.id, dataRole]
   );
 
   // Los contadores y la etapa de cada hilo se leen de InsForge. Se refrescan
@@ -91,7 +104,7 @@ export default function ChatList() {
         </button>
         <div className="min-w-0">
           <h1 className="text-xl font-bold text-gray-800">Mis Chats</h1>
-          {user?.role === 'seller' && user?.sellerCommerceName ? (
+          {salesRole === 'seller' && user?.sellerCommerceName ? (
             <p className="truncate text-[11px] font-semibold text-[#006E7A]">
               Vendedor · {user.sellerCommerceName}
             </p>
@@ -206,7 +219,7 @@ export default function ChatList() {
         )}
       </div>
 
-      {['commerce', 'seller'].includes(user?.role) ? <CommerceBottomNav /> : <UserBottomNav />}
+      {['commerce', 'seller'].includes(dataRole) ? <CommerceBottomNav /> : <UserBottomNav />}
     </div>
   );
 }
