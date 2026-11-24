@@ -49,7 +49,8 @@ import { ChatProvider } from './context/ChatContext';
 import { useAuth } from './context/auth-context';
 import ErrorBoundary from './components/ErrorBoundary';
 
-const homeForRole = (role) => (role === 'commerce' ? '/dashboard' : '/categories');
+const homeForRole = (role) =>
+  role === 'commerce' || role === 'seller' ? '/dashboard' : '/categories';
 
 // En modo InsForge la sesión se rehidrata de forma asíncrona al recargar:
 // este splash evita redirigir a /welcome antes de conocer al usuario.
@@ -66,7 +67,12 @@ function HomeRedirect() {
 
   if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
-  if (viewMode === 'business' && workshopVerified && user.role !== 'commerce') {
+  if (
+    viewMode === 'business' &&
+    workshopVerified &&
+    user.role !== 'commerce' &&
+    user.role !== 'seller'
+  ) {
     return <Navigate to="/workshop-jobs" replace />;
   }
   return <Navigate to={homeForRole(user.role)} replace />;
@@ -77,6 +83,7 @@ function HomeRedirect() {
 // habilita módulos del taller verificado sin depender del viewMode transitorio.
 function RequireRole({
   role,
+  allowSeller = false,
   allowWorkshopBusiness = false,
   allowWorkshop = false,
   children,
@@ -86,15 +93,26 @@ function RequireRole({
   if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
 
+  // Un vendedor nunca puede caer en módulos de comprador, taller ni ajustes
+  // del dueño, aunque la ruta no declarara un `role` explícito.
+  if (user.role === 'seller' && !allowSeller) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // El vendedor opera con los mismos datos que el comercio, pero no hereda sus
+  // ajustes críticos: `allowSeller` se declara ruta por ruta.
+  const sellerAllowed = allowSeller && user.role === 'seller';
+
   // `allowWorkshop` habilita módulos de respuesta del taller verificado sin
   // depender del viewMode transitorio: esas rutas siguen protegidas en backend.
   // El inventario queda reservado al rol que vende productos o repuestos.
   const businessWorkshop =
     workshopVerified &&
     user.role !== 'commerce' &&
+    user.role !== 'seller' &&
     (allowWorkshop || (allowWorkshopBusiness && viewMode === 'business'));
 
-  if (role && user.role !== role && !businessWorkshop) {
+  if (role && user.role !== role && !businessWorkshop && !sellerAllowed) {
     return <Navigate to={homeForRole(user.role)} replace />;
   }
 
@@ -144,8 +162,12 @@ function AppRoutes() {
         <Route path="/addresses" element={<RequireRole role="user"><Addresses /></RequireRole>} />
         <Route path="/edit-user-profile" element={<RequireRole role="user"><EditUserProfile /></RequireRole>} />
 
-        {/* Commerce Routes */}
-        <Route path="/dashboard" element={<RequireRole role="commerce"><Dashboard /></RequireRole>} />
+        {/* Commerce Routes. El vendedor solo entra a las operativas; los
+            ajustes legales, nichos, SLA, inventario e equipo son del dueño. */}
+        <Route
+          path="/dashboard"
+          element={<RequireRole role="commerce" allowSeller><Dashboard /></RequireRole>}
+        />
         <Route
           path="/inventory"
           element={<RequireRole role="commerce"><Inventory /></RequireRole>}
@@ -153,15 +175,15 @@ function AppRoutes() {
         <Route path="/sales-history" element={<RequireRole role="commerce"><SalesHistory /></RequireRole>} />
         <Route path="/profile" element={<RequireRole role="commerce"><Profile /></RequireRole>} />
         <Route path="/edit-profile" element={<RequireRole role="commerce"><EditProfile /></RequireRole>} />
-        <Route path="/change-password" element={<RequireRole><ChangePassword /></RequireRole>} />
+        <Route path="/change-password" element={<RequireRole allowSeller><ChangePassword /></RequireRole>} />
         <Route path="/niche-config" element={<RequireRole role="commerce"><NicheConfig /></RequireRole>} />
 
         {/* Common (requieren sesión, cualquier rol) */}
-        <Route path="/chat/:id" element={<RequireRole><ChatDispatch /></RequireRole>} />
-        <Route path="/notifications" element={<RequireRole><Notifications /></RequireRole>} />
-        <Route path="/orders" element={<RequireRole><Orders /></RequireRole>} />
-        <Route path="/chat-list" element={<RequireRole><ChatList /></RequireRole>} />
-        <Route path="/support" element={<RequireRole><Support /></RequireRole>} />
+        <Route path="/chat/:id" element={<RequireRole allowSeller><ChatDispatch /></RequireRole>} />
+        <Route path="/notifications" element={<RequireRole allowSeller><Notifications /></RequireRole>} />
+        <Route path="/orders" element={<RequireRole allowSeller><Orders /></RequireRole>} />
+        <Route path="/chat-list" element={<RequireRole allowSeller><ChatList /></RequireRole>} />
+        <Route path="/support" element={<RequireRole allowSeller><Support /></RequireRole>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

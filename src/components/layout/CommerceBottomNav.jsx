@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, User } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Package, User } from 'lucide-react';
+import { useAuth } from '../../context/auth-context';
 
 // Actualización estética Junio 2026
 
@@ -11,14 +12,25 @@ export default function CommerceBottomNav({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  // La barra también se usa en vistas aisladas sin Provider (taller, pruebas),
+  // así que la sesión es opcional.
+  const auth = useAuth();
 
   const isActive = (path) => location.pathname === path;
 
-  const navItems = [
-    { icon: LayoutDashboard, label: 'Panel', path: panelPath },
-    { icon: MessageSquare, label: 'Chat', path: '/chat-list', indicator: true },
-    { icon: User, label: 'Perfil', path: profilePath },
-  ];
+  // El vendedor no ve «Perfil» ni ajustes: su navegación se limita a operar.
+  const navItems =
+    auth?.user?.role === 'seller'
+      ? [
+          { icon: LayoutDashboard, label: 'Panel', path: panelPath },
+          { icon: MessageSquare, label: 'Chat', path: '/chat-list', indicator: true },
+          { icon: Package, label: 'Pedidos', path: '/orders' },
+        ]
+      : [
+          { icon: LayoutDashboard, label: 'Panel', path: panelPath },
+          { icon: MessageSquare, label: 'Chat', path: '/chat-list', indicator: true },
+          { icon: User, label: 'Perfil', path: profilePath },
+        ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/30 px-6 py-3 flex justify-between items-center z-50 max-w-md mx-auto">

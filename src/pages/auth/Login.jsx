@@ -8,7 +8,7 @@ import Logo from '../../components/Logo';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, mode, resendVerificationCode } = useAuth();
+  const { login, mode, resendVerificationCode, authNotice } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -88,6 +88,12 @@ export default function Login() {
             onChange={e => setFormData({...formData, password: e.target.value})}
             required
           />
+
+          {authNotice ? (
+            <p role="alert" className="text-sm text-[#4B227A] bg-[#4B227A]/10 border border-[#4B227A]/25 rounded-xl px-4 py-3">
+              {authNotice}
+            </p>
+          ) : null}
 
           {error ? (
             <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-4 py-3">

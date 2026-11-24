@@ -18,6 +18,15 @@ import {
 
 // Actualización estética Junio 2026
 
+const initialsOf = (name) =>
+  String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('');
+
 export default function Chat() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -89,15 +98,25 @@ export default function Chat() {
             {counterpart?.avatarUrl ? (
               <SafeImage
                 src={counterpart.avatarUrl}
-                alt={`Foto de ${counterpart.name || 'el comercio'}`}
+                alt={`Foto de ${counterpart.name || 'la contraparte'}`}
                 className="w-full h-full object-cover"
               />
+            ) : counterpart?.isSeller ? (
+              <span className="text-xs font-bold text-[#4B227A]">
+                {initialsOf(counterpart.sellerName || counterpart.name)}
+              </span>
             ) : (
               <Store className="w-5 h-5 text-[#4B227A]" aria-hidden="true" />
             )}
           </div>
           <div>
             <h1 className="font-bold text-gray-800">{counterpart?.name || 'Conversación'}</h1>
+            {counterpart?.isSeller ? (
+              <p className="text-[11px] font-semibold text-[#006E7A]">
+                {counterpart.sellerName || counterpart.name} · Vendedor de{' '}
+                {counterpart.storeName || 'tu tienda'}
+              </p>
+            ) : null}
             <p className="text-xs text-[#006E7A] flex items-center gap-1">
               <span className="w-2 h-2 bg-[#00EED0] rounded-full"></span>
               {connected ? 'Conversación en tiempo real' : 'Mensajes guardados en este dispositivo'}

@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
 import { NOTICES, formatCurrency } from '../../data/appData';
+import { useAuth } from '../../context/auth-context';
 import { useChat } from '../../context/chat-context';
 import {
   DeliveryAgreementPanel,
@@ -19,6 +20,9 @@ import {
 export default function Chat() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
+  const isSeller = user?.role === 'seller';
+  const sellerCommerceName = user?.sellerCommerceName || '';
   
   // Consumir ChatContext - Junio 2026
   const {
@@ -91,6 +95,22 @@ export default function Chat() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {isSeller ? (
+            <div className="flex items-center gap-1.5 rounded-full border border-[#00EED0]/50 bg-[#00EED0]/10 px-2 py-1" title={sellerCommerceName}>
+              <div className="h-6 w-6 overflow-hidden rounded-full bg-[#4B227A]/15 flex items-center justify-center">
+                {user?.avatarUrl ? (
+                  <SafeImage src={user.avatarUrl} alt="Mi foto de vendedor" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-[10px] font-bold text-[#4B227A]">
+                    {String(user?.name || 'V').trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <span className="hidden text-[10px] font-bold text-[#006E7A] sm:inline">
+                Vendedor · {sellerCommerceName || 'Mi tienda'}
+              </span>
+            </div>
+          ) : null}
           <button 
             onClick={() => setShowHistory(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#0197AF]/20 to-[#4B227A]/20 text-[#4B227A] rounded-full text-xs font-bold hover:bg-white/80 transition-colors border border-[#4B227A]/30"

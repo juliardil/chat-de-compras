@@ -337,7 +337,9 @@ const uploadToAvatars = async (path, file, fallbackMessage) => {
 
 // Sube la foto al bucket público y devuelve su URL. En modo demostración se
 // mantiene una URL local para que la vista previa funcione sin backend.
-export const uploadProfilePhoto = async ({ userId, role, file }) => {
+// `folder` permite aislar las fotos que el dueño sube para su equipo
+// (`seller-uploads/{ownerId}`) sin mezclarlas con su avatar de comercio.
+export const uploadProfilePhoto = async ({ userId, role, file, folder }) => {
   const validation = validateProfilePhoto(file);
   if (validation) return { url: null, key: null, error: validation };
 
@@ -353,8 +355,13 @@ export const uploadProfilePhoto = async ({ userId, role, file }) => {
     };
   }
 
-  const folder = role === 'commerce' ? 'commerce' : 'buyer';
-  const path = `${folder}/${userId}/avatar-${Date.now()}.${profilePhotoExtension(file)}`;
+  const safeFolder = String(folder || '').trim();
+  const customFolder = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(safeFolder)
+    ? safeFolder
+    : null;
+  const baseFolder =
+    role === 'commerce' ? 'commerce' : role === 'seller' ? 'seller' : 'buyer';
+  const path = `${customFolder || baseFolder}/${userId}/avatar-${Date.now()}.${profilePhotoExtension(file)}`;
 
   return uploadToAvatars(path, file, 'No se pudo subir la foto de perfil.');
 };
@@ -1651,6 +1658,16 @@ export const fetchCommerceIdForUser = async (userId) => {
   if (!isInsforgeConfigured) return emptyResult(NOTICES.demo);
   if (!userId) return emptyResult(NOTICES.chats, 'No hay una sesión activa para consultar estos datos.');
 
+  // app_my_commerce resuelve tanto al dueño como al miembro activo. Es la
+  // fuente de verdad para que el vendedor consulte los mismos datos del
+  // comercio sin convertirse en propietario.
+  const rpcResult = await runQuery((db) => db.rpc('app_my_commerce'), NOTICES.chats);
+  if (!rpcResult.error && rpcResult.items.length > 0) {
+    return { ...rpcResult, item: rpcResult.items[0] };
+  }
+
+  // Respaldos para proyectos donde la RPC aún no está publicada: el dueño
+  // siempre puede resolver su comercio por owner_user_id.
   const result = await runQuery(
     (db) => db
       .from('commerce_profiles')
@@ -1668,10 +1685,14 @@ export const fetchChatThreads = async ({ userId, role }) => {
     return emptyResult(NOTICES.chats, 'No hay una sesión activa para consultar estos datos.');
   }
 
-  if (role === 'commerce') {
+  // El vendedor consume exactamente las mismas consultas que el comercio; su
+  // rol ('seller') solo cambia la interfaz y los permisos de configuración.
+  const effectiveRole = role === 'seller' ? 'commerce' : role;
+
+  if (effectiveRole === 'commerce') {
     const commerce = await fetchCommerceIdForUser(userId);
     if (!commerce.item) return emptyResult(commerce.notice || NOTICES.chats, commerce.error);
-    return fetchChatThreadsBy('commerce_id', commerce.item.id, role);
+    return fetchChatThreadsBy('commerce_id', commerce.item.id, effectiveRole);
   }
 
   const buyer = await fetchBuyerProfileId(userId);
@@ -1679,7 +1700,7 @@ export const fetchChatThreads = async ({ userId, role }) => {
     return emptyResult(buyer.notice || NOTICES.chats, buyer.error);
   }
 
-  return fetchChatThreadsBy('buyer_id', buyer.item.id, role);
+  return fetchChatThreadsBy('buyer_id', buyer.item.id, effectiveRole);
 };
 
 // Agrega el nombre y la foto de la contraparte a cada conversación. El
@@ -1709,8 +1730,6 @@ const attachChatCounterparts = async (threads, role) => {
         NOTICES.chats
       );
 
-  if (result.error) return threads;
-
   const profileById = result.items.reduce((acc, profile) => {
     acc[profile.id] = profile;
     return acc;
@@ -1718,10 +1737,35 @@ const attachChatCounterparts = async (threads, role) => {
 
   return threads.map((thread) => {
     const profile = profileById[isCommerce ? thread.buyer_id : thread.commerce_id] || {};
+
+    if (isCommerce) {
+      return {
+        ...thread,
+        counterpart_name: profile.display_name || '',
+        counterpart_avatar_url: profile.avatar_url || null,
+        counterpart_role: 'buyer',
+        seller_name: '',
+        seller_avatar_url: null,
+        store_name: '',
+        store_avatar_url: null,
+      };
+    }
+
+    // El comprador ve al vendedor que lo atendió, sin perder el nombre ni la
+    // identidad de la tienda (que se conserva como respaldo).
+    const sellerName = thread.assigned_seller_name || profile.trade_name || '';
+    const hasSeller = Boolean(thread.assigned_seller_id || thread.assigned_seller_name);
     return {
       ...thread,
-      counterpart_name: (isCommerce ? profile.display_name : profile.trade_name) || '',
-      counterpart_avatar_url: profile.avatar_url || null,
+      counterpart_name: sellerName,
+      counterpart_avatar_url: hasSeller
+        ? thread.assigned_seller_avatar || null
+        : profile.avatar_url || null,
+      counterpart_role: hasSeller ? 'seller' : 'commerce',
+      seller_name: thread.assigned_seller_name || '',
+      seller_avatar_url: thread.assigned_seller_avatar || null,
+      store_name: profile.trade_name || '',
+      store_avatar_url: profile.avatar_url || null,
     };
   });
 };
@@ -1746,6 +1790,11 @@ export const mapChatThread = (row) => ({
   subject: row.subject || 'Conversación',
   counterpartName: row.counterpart_name || '',
   avatar: row.counterpart_avatar_url || null,
+  counterpartRole: row.counterpart_role || 'commerce',
+  sellerName: row.seller_name || '',
+  sellerAvatarUrl: row.seller_avatar_url || null,
+  storeName: row.store_name || '',
+  storeAvatarUrl: row.store_avatar_url || null,
   status: row.status || 'active',
   lastMessageAt: row.last_message_at || row.created_at,
   time: formatRelativeDate(row.last_message_at || row.created_at),
@@ -1766,10 +1815,22 @@ export const fetchChatThread = async (chatId) => {
 // Resuelve la contraparte de una conversación para pintar su foto y nombre en
 // la cabecera del chat.
 export const fetchChatCounterpart = async (thread, role) => {
-  const empty = { id: null, name: '', avatarUrl: null };
+  const empty = {
+    id: null,
+    name: '',
+    avatarUrl: null,
+    isSeller: false,
+    sellerName: '',
+    sellerAvatarUrl: null,
+    storeName: '',
+    storeAvatarUrl: null,
+  };
   if (!thread) return empty;
 
-  if (role === 'commerce') {
+  // Un vendedor con rol 'seller' lee la contraparte como commerce.
+  const effectiveRole = role === 'seller' ? 'commerce' : role;
+
+  if (effectiveRole === 'commerce') {
     if (!thread.buyer_id) return empty;
     const result = await runQuery(
       (db) => db.rpc('app_buyer_avatars', { p_ids: [thread.buyer_id] }),
@@ -1777,9 +1838,11 @@ export const fetchChatCounterpart = async (thread, role) => {
     );
     const profile = result.items[0] || {};
     return {
+      ...empty,
       id: profile.id || thread.buyer_id,
       name: profile.display_name || '',
       avatarUrl: profile.avatar_url || null,
+      isSeller: false,
     };
   }
 
@@ -1794,10 +1857,22 @@ export const fetchChatCounterpart = async (thread, role) => {
     NOTICES.chats
   );
   const profile = result.items[0] || {};
+  const storeName = profile.trade_name || '';
+  const isSeller = Boolean(thread.assigned_seller_id || thread.assigned_seller_name);
+  const sellerName = thread.assigned_seller_name || storeName;
+
   return {
-    id: profile.id || thread.commerce_id,
-    name: profile.trade_name || '',
-    avatarUrl: profile.avatar_url || null,
+    ...empty,
+    id: isSeller ? thread.assigned_seller_id || thread.commerce_id : profile.id || thread.commerce_id,
+    name: sellerName,
+    avatarUrl: isSeller
+      ? thread.assigned_seller_avatar || null
+      : profile.avatar_url || null,
+    isSeller,
+    sellerName: thread.assigned_seller_name || '',
+    sellerAvatarUrl: thread.assigned_seller_avatar || null,
+    storeName,
+    storeAvatarUrl: profile.avatar_url || null,
   };
 };
 

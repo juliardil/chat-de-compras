@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
+import SellersTeam from '../../components/commerce/SellersTeam';
 import { Car, Clock, User, ChevronRight, Lock, SlidersHorizontal } from 'lucide-react';
 import { DataNotice } from '../../components/ui/ModuleState';
 import Button from '../../components/ui/Button';
@@ -393,6 +394,9 @@ export default function NicheConfig() {
             {savingSla ? 'Guardando…' : 'Guardar tiempo de respuesta'}
           </Button>
         </div>
+
+        {/* Equipo y Vendedores: solo accesible desde esta ruta del dueño. */}
+        <SellersTeam />
       </div>
 
       <CommerceBottomNav />

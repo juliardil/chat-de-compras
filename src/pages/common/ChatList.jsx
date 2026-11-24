@@ -11,6 +11,15 @@ import { fetchChatThreads, mapChatThread, NOTICES } from '../../data/appData';
 
 // Actualización estética Junio 2026
 
+const initialsOf = (name) =>
+  String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('');
+
 export default function ChatList() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -28,7 +37,14 @@ export default function ChatList() {
         <button aria-label="Volver" onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/70 rounded-full">
           <ArrowLeft className="w-6 h-6 text-gray-800" />
         </button>
-        <h1 className="text-xl font-bold text-gray-800">Mis Chats</h1>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-800">Mis Chats</h1>
+          {user?.role === 'seller' && user?.sellerCommerceName ? (
+            <p className="truncate text-[11px] font-semibold text-[#006E7A]">
+              Vendedor · {user.sellerCommerceName}
+            </p>
+          ) : null}
+        </div>
       </header>
 
       <div className="flex flex-col">
@@ -57,7 +73,9 @@ export default function ChatList() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <MessageSquare className="w-6 h-6 text-gray-700" />
+                <span className="text-sm font-bold text-[#4B227A]">
+                  {initialsOf(chat.counterpartName) || <MessageSquare className="w-6 h-6 text-gray-700" />}
+                </span>
               )}
             </div>
 
@@ -68,9 +86,16 @@ export default function ChatList() {
                 </h3>
                 <span className="text-[10px] text-gray-600 whitespace-nowrap ml-2">{chat.time}</span>
               </div>
-              <p className="text-xs font-medium text-[#006E7A] truncate">
-                {chat.counterpartName ? chat.subject : chat.status}
-              </p>
+              {chat.counterpartRole === 'seller' ? (
+                <p className="text-xs font-medium text-[#006E7A] truncate">
+                  {chat.sellerName || chat.counterpartName} · Vendedor de{' '}
+                  {chat.storeName || chat.subject}
+                </p>
+              ) : (
+                <p className="text-xs font-medium text-[#006E7A] truncate">
+                  {chat.counterpartName ? chat.subject : chat.status}
+                </p>
+              )}
             </div>
 
             <div className="self-center">
@@ -92,7 +117,7 @@ export default function ChatList() {
         )}
       </div>
 
-      {user?.role === 'commerce' ? <CommerceBottomNav /> : <UserBottomNav />}
+      {['commerce', 'seller'].includes(user?.role) ? <CommerceBottomNav /> : <UserBottomNav />}
     </div>
   );
 }

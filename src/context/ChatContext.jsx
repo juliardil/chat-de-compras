@@ -209,7 +209,9 @@ export const ChatProvider = ({ children }) => {
   const refreshingRef = useRef(false);
   const { user } = useAuth() || {};
   const userId = user?.id || null;
-  const userRole = user?.role === 'commerce' ? 'commerce' : 'user';
+  // El vendedor lee y escribe los mismos chats del comercio; su rol solo se
+  // usa en la interfaz y en los ajustes vedados.
+  const userRole = ['commerce', 'seller'].includes(user?.role) ? 'commerce' : 'user';
   const displayName = user?.name || (userRole === 'commerce' ? 'Comercio' : 'Comprador');
   // En modo InsForge los mensajes viven en chat_messages y se consultan de
   // forma periódica; en demostración se conserva el comportamiento local.
@@ -242,6 +244,11 @@ export const ChatProvider = ({ children }) => {
     id: null,
     name: '',
     avatarUrl: null,
+    isSeller: false,
+    sellerName: '',
+    sellerAvatarUrl: null,
+    storeName: '',
+    storeAvatarUrl: null,
   });
 
   // Estado real del ciclo de vida de la oferta elegida (si el hilo tiene uno).
@@ -313,7 +320,16 @@ export const ChatProvider = ({ children }) => {
         itemBrands: '',
         optionNote: '',
       });
-      setCounterpart({ id: null, name: '', avatarUrl: null });
+      setCounterpart({
+        id: null,
+        name: '',
+        avatarUrl: null,
+        isSeller: false,
+        sellerName: '',
+        sellerAvatarUrl: null,
+        storeName: '',
+        storeAvatarUrl: null,
+      });
       setLifecycleInfo(null);
       return;
     }

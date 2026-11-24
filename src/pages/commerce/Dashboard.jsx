@@ -17,6 +17,8 @@ import {
   createOffer,
   formatCurrency,
   runOfferLifecycleAction,
+  uploadProfilePhoto,
+  validateProfilePhoto,
   NOTICES,
 } from '../../data/appData';
 import { fetchMyInventory, mapInventoryItem } from '../../data/businessInventory';
@@ -30,6 +32,7 @@ import {
 import {
   BadgeCheck,
   Bell,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -155,7 +158,7 @@ function ReadinessBadge({ items, inventory }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [offeringId, setOfferingId] = useState(null);
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [offerItems, setOfferItems] = useState([]);
@@ -167,14 +170,21 @@ export default function Dashboard() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [acceptingRequestId, setAcceptingRequestId] = useState(null);
   const [lifecycleError, setLifecycleError] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const menuRef = useRef(null);
+  const photoInputRef = useRef(null);
 
-  const menuItems = [
-    { icon: Package, label: 'Mi Inventario', path: '/inventory' },
-    { icon: Settings, label: 'Ajustes', path: '/niche-config' },
-    { icon: History, label: 'Estadísticas', path: '/sales-history' },
-    { icon: Bell, label: 'Notificaciones', path: '/notifications' },
-  ];
+  const isSeller = user?.role === 'seller';
+
+  const menuItems = isSeller
+    ? [{ icon: Bell, label: 'Notificaciones', path: '/notifications' }]
+    : [
+        { icon: Package, label: 'Mi Inventario', path: '/inventory' },
+        { icon: Settings, label: 'Ajustes', path: '/niche-config' },
+        { icon: History, label: 'Estadísticas', path: '/sales-history' },
+        { icon: Bell, label: 'Notificaciones', path: '/notifications' },
+      ];
 
   const { items, loading, error, notice, extra } = useModuleData(async () => {
     const commerce = await fetchCommerceIdForUser(user?.id);
@@ -266,7 +276,11 @@ export default function Dashboard() {
   ];
 
   const commerceName =
-    extra?.commerceName || user?.business?.tradeName || user?.name || 'Mi comercio';
+    extra?.commerceName ||
+    user?.sellerCommerceName ||
+    user?.business?.tradeName ||
+    user?.name ||
+    'Mi comercio';
 
   const handleMenuNavigate = (path) => {
     setIsMenuOpen(false);
@@ -288,6 +302,35 @@ export default function Dashboard() {
       navigate(`/chat/${thread.id}`);
     } finally {
       setAcceptingRequestId(null);
+    }
+  };
+
+  // El vendedor puede actualizar su foto sin entrar a los ajustes del dueño.
+  // app_set_avatar_url escribe en commerce_members cuando el usuario es seller.
+  const handleSellerPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const validation = validateProfilePhoto(file);
+    if (validation) {
+      setPhotoError(validation);
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setPhotoError('');
+    try {
+      const upload = await uploadProfilePhoto({ userId: user?.id, role: 'seller', file });
+      if (upload.error || !upload.url) {
+        setPhotoError(upload.error || 'No se pudo subir tu foto.');
+        return;
+      }
+      await updateProfile({ avatar_url: upload.url });
+    } catch (error) {
+      setPhotoError(error?.message || 'No se pudo guardar tu foto.');
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -611,9 +654,56 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#E7E7E7] pb-20">
       {/* Header con glassmorphism - Actualización estética Junio 2026 */}
       <header className="bg-white/70 backdrop-blur-md px-6 py-5 border-b border-white/30 flex justify-between items-center sticky top-0 z-30">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">Panel de Oportunidades</h1>
-          <p className="text-sm text-gray-600">Hola, {commerceName} 👋</p>
+        <div className="flex min-w-0 items-center gap-3">
+          {isSeller ? (
+            <>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleSellerPhoto}
+                className="hidden"
+                aria-label="Cambiar mi foto de vendedor"
+              />
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                aria-label="Cambiar mi foto de vendedor"
+                className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[#00EED0]/60 bg-gradient-to-br from-[#00EED0]/30 to-[#4B227A]/30 disabled:opacity-60"
+              >
+                {user?.avatarUrl ? (
+                  <SafeImage
+                    src={user.avatarUrl}
+                    alt="Mi foto de vendedor"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-sm font-bold text-[#4B227A]">
+                    {String(user?.name || 'V')
+                      .trim()
+                      .split(/\s+/)
+                      .slice(0, 2)
+                      .map((part) => part[0])
+                      .join('')
+                      .toUpperCase()}
+                  </span>
+                )}
+                <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[#006E7A] shadow">
+                  <Camera className="h-3 w-3" aria-hidden="true" />
+                </span>
+              </button>
+            </>
+          ) : null}
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-gray-800">Panel de Oportunidades</h1>
+            <p className="truncate text-sm text-gray-600">
+              {isSeller ? `Vendedor · ${commerceName}` : `Hola, ${commerceName} 👋`}
+            </p>
+            {isSeller && photoError ? (
+              <p className="mt-0.5 text-[11px] font-semibold text-red-600">{photoError}</p>
+            ) : null}
+          </div>
         </div>
         <div ref={menuRef} className="relative">
           <button

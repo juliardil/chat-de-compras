@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './auth-context';
 import { insforge, isInsforgeConfigured } from '../lib/insforge';
-import { ensureProfile } from '../data/appData';
+import { ensureProfile, fetchCommerceIdForUser } from '../data/appData';
+import {
+  fetchMySellerMembership,
+  SELLER_DISABLED_MESSAGE,
+} from '../data/commerceSellers';
 import { fetchMyWorkshop } from '../data/workshop';
 
 // =============================================================================
@@ -22,6 +26,36 @@ import { fetchMyWorkshop } from '../data/workshop';
 
 const SESSION_KEY = 'chat_compras_session';
 const LOGGED_OUT_KEY = 'chat_compras_logged_out';
+const SELLER_DISABLED_KEY = 'chat_compras_seller_disabled';
+
+// El aviso de desactivación debe sobrevivir al cierre de sesión y a la
+// redirección a /login, pero no a un inicio de sesión correcto.
+const readSellerDisabledNotice = () => {
+  try {
+    if (typeof sessionStorage === 'undefined') return null;
+    return sessionStorage.getItem(SELLER_DISABLED_KEY) || null;
+  } catch {
+    return null;
+  }
+};
+
+const writeSellerDisabledNotice = (message) => {
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    sessionStorage.setItem(SELLER_DISABLED_KEY, message);
+  } catch {
+    // El aviso en memoria sigue disponible durante esta carga.
+  }
+};
+
+const clearSellerDisabledNotice = () => {
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    sessionStorage.removeItem(SELLER_DISABLED_KEY);
+  } catch {
+    // No hay nada que limpiar si el navegador bloquea el almacenamiento.
+  }
+};
 
 // Usuario de demostración que se usa la primera vez que se abre la app. No se
 // inventa un nombre: la interfaz muestra "Usuario" si no hay uno guardado.
@@ -36,7 +70,7 @@ const readStoredSession = () => {
     if (!raw) return DEFAULT_USER;
 
     const parsed = JSON.parse(raw);
-    if (parsed && (parsed.role === 'user' || parsed.role === 'commerce')) {
+    if (parsed && ['user', 'commerce', 'seller'].includes(parsed.role)) {
       return parsed;
     }
     return DEFAULT_USER;
@@ -128,7 +162,18 @@ export const mapInsForgeUser = (authUser) => {
   };
 };
 
-const homeFor = (user) => (user?.role === 'commerce' ? '/dashboard' : '/categories');
+const homeFor = (user) =>
+  user?.role === 'commerce' || user?.role === 'seller' ? '/dashboard' : '/categories';
+
+// Un vendedor no guarda su rol en auth.users.profile: se deriva de
+// commerce_members. Al actualizar el perfil hay que conservar esa identidad
+// aunque el JSONB no traiga `role`.
+const keepSessionIdentity = (next, previous) => ({
+  ...next,
+  role: previous?.role === 'seller' ? 'seller' : next.role,
+  avatarUrl: next.avatarUrl || previous?.avatarUrl || '',
+  sellerCommerceName: previous?.sellerCommerceName || '',
+});
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
@@ -142,6 +187,85 @@ export const AuthProvider = ({ children }) => {
   // no se guardan en localStorage ni cambian el `role` persistido en el backend.
   const [workshopVerified, setWorkshopVerified] = useState(false);
   const [viewMode, setViewModeState] = useState('buyer');
+  const [sellerMembership, setSellerMembership] = useState(null);
+  const [sellerCommerceName, setSellerCommerceName] = useState('');
+  const [authNotice, setAuthNotice] = useState(() => readSellerDisabledNotice());
+
+  const clearAuthNotice = useCallback(() => {
+    clearSellerDisabledNotice();
+    setAuthNotice(null);
+  }, []);
+
+  // Cierra la sesión completa. `keepNotice` se usa solo cuando el motivo es la
+  // desactivación del vendedor: el mensaje debe verse en la pantalla de login.
+  const performLogout = useCallback(
+    async ({ keepNotice = false } = {}) => {
+      if (!isInsforgeConfigured) {
+        clearStoredSession();
+      } else {
+        try {
+          await insforge.auth.signOut();
+        } catch {
+          // La sesión local se cierra igualmente.
+        }
+      }
+
+      setUser(null);
+      setWorkshopVerified(false);
+      setViewModeState('buyer');
+      setSellerMembership(null);
+      setSellerCommerceName('');
+
+      if (keepNotice) {
+        setAuthNotice(readSellerDisabledNotice() || SELLER_DISABLED_MESSAGE);
+      } else {
+        clearSellerDisabledNotice();
+        setAuthNotice(null);
+      }
+
+      navigate('/login', { replace: true });
+    },
+    [navigate]
+  );
+
+  // Resuelve la membresía del usuario autenticado. Un seller activo conserva
+  // los datos de la empresa para el encabezado; uno inactivo se marca para
+  // cerrar sesión de inmediato.
+  const resolveSellerIdentity = useCallback(async (baseUser) => {
+    if (!baseUser || !isInsforgeConfigured) {
+      return { user: baseUser, membership: null, commerceName: '', disabled: false };
+    }
+
+    const result = await fetchMySellerMembership();
+    const membership = result.item;
+    if (!membership) {
+      return { user: baseUser, membership: null, commerceName: '', disabled: false };
+    }
+
+    if (membership.role === 'seller' && !membership.is_active) {
+      writeSellerDisabledNotice(SELLER_DISABLED_MESSAGE);
+      return { user: baseUser, membership, commerceName: '', disabled: true };
+    }
+
+    if (membership.role !== 'seller') {
+      return { user: baseUser, membership, commerceName: '', disabled: false };
+    }
+
+    const commerce = await fetchCommerceIdForUser(baseUser.id);
+    const commerceName = commerce.item?.trade_name || '';
+    return {
+      user: {
+        ...baseUser,
+        role: 'seller',
+        name: membership.full_name || baseUser.name,
+        avatarUrl: membership.avatar_url || baseUser.avatarUrl,
+        sellerCommerceName: commerceName,
+      },
+      membership,
+      commerceName,
+      disabled: false,
+    };
+  }, []);
 
   // Lee la credencial del taller desde la RPC aislada del módulo. Si falla, la
   // app sigue funcionando como comprador: nunca bloquea el inicio de sesión.
@@ -169,16 +293,35 @@ export const AuthProvider = ({ children }) => {
       try {
         const { data, error } = await insforge.auth.getCurrentUser();
         if (cancelled) return;
-        const nextUser = error ? null : mapInsForgeUser(data?.user);
-        setUser(nextUser);
-        if (nextUser) {
-          // Provisiona el perfil de comprador/comercio si aún no existe.
-          void ensureProfile();
-          if (nextUser.role === 'commerce') setViewModeState('business');
-          await refreshWorkshopCapability();
-        } else {
+        const baseUser = error ? null : mapInsForgeUser(data?.user);
+
+        if (!baseUser) {
+          setUser(null);
+          setSellerMembership(null);
+          setSellerCommerceName('');
           setWorkshopVerified(false);
+          return;
         }
+
+        const identity = await resolveSellerIdentity(baseUser);
+        if (cancelled) return;
+
+        if (identity.disabled) {
+          setAuthNotice(SELLER_DISABLED_MESSAGE);
+          await performLogout({ keepNotice: true });
+          return;
+        }
+
+        setUser(identity.user);
+        setSellerMembership(identity.membership);
+        setSellerCommerceName(identity.commerceName);
+        // Solo el dueño/comprador necesita aprovisionar su perfil; el vendedor
+        // pertenece al comercio y no debe crear un perfil propio de comprador.
+        if (!identity.membership || identity.membership.role === 'owner') {
+          void ensureProfile();
+        }
+        if (['commerce', 'seller'].includes(identity.user.role)) setViewModeState('business');
+        await refreshWorkshopCapability();
       } catch {
         if (!cancelled) setUser(null);
       } finally {
@@ -190,7 +333,50 @@ export const AuthProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [refreshWorkshopCapability]);
+  }, [performLogout, refreshWorkshopCapability, resolveSellerIdentity]);
+
+  // Verificación periódica de la membresía: si el dueño desactiva al vendedor
+  // desde otro dispositivo, la sesión se cierra sin esperar una recarga.
+  useEffect(() => {
+    if (!isInsforgeConfigured || user?.role !== 'seller') return undefined;
+
+    let cancelled = false;
+    const verify = async () => {
+      try {
+        const result = await fetchMySellerMembership();
+        const membership = result.item;
+        if (cancelled || !membership || membership.role !== 'seller') return;
+
+        if (!membership.is_active) {
+          writeSellerDisabledNotice(SELLER_DISABLED_MESSAGE);
+          setAuthNotice(SELLER_DISABLED_MESSAGE);
+          await performLogout({ keepNotice: true });
+          return;
+        }
+
+        setSellerMembership(membership);
+        setUser((current) =>
+          current
+            ? {
+                ...current,
+                role: 'seller',
+                name: membership.full_name || current.name,
+                avatarUrl: membership.avatar_url || current.avatarUrl,
+              }
+            : current
+        );
+      } catch {
+        // Una falla de red no cierra la sesión: se reintenta en el próximo ciclo.
+      }
+    };
+
+    void verify();
+    const interval = setInterval(verify, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [performLogout, user?.role]);
 
   // Guarda el perfil en auth.users.profile fusionando con lo existente ( así
   // la operación es segura tanto si el backend fusiona como si reemplaza).
@@ -221,6 +407,10 @@ export const AuthProvider = ({ children }) => {
         writeStoredSession(demoUser);
         setUser(demoUser);
         setWorkshopVerified(false);
+        setSellerMembership(null);
+        setSellerCommerceName('');
+        clearSellerDisabledNotice();
+        setAuthNotice(null);
         setViewModeState(demoUser.role === 'commerce' ? 'business' : 'buyer');
         navigate(homeFor(demoUser), { replace: true });
         return demoUser;
@@ -233,15 +423,28 @@ export const AuthProvider = ({ children }) => {
         throw authError;
       }
 
-      const nextUser = mapInsForgeUser(data.user);
+      const identity = await resolveSellerIdentity(mapInsForgeUser(data.user));
+      if (identity.disabled) {
+        setAuthNotice(SELLER_DISABLED_MESSAGE);
+        await performLogout({ keepNotice: true });
+        throw new Error(SELLER_DISABLED_MESSAGE);
+      }
+
+      const nextUser = identity.user;
       setUser(nextUser);
-      await ensureProfile();
+      setSellerMembership(identity.membership);
+      setSellerCommerceName(identity.commerceName);
+      if (!identity.membership || identity.membership.role === 'owner') {
+        await ensureProfile();
+      }
       await refreshWorkshopCapability();
-      if (nextUser.role === 'commerce') setViewModeState('business');
+      if (['commerce', 'seller'].includes(nextUser.role)) setViewModeState('business');
+      clearSellerDisabledNotice();
+      setAuthNotice(null);
       navigate(homeFor(nextUser), { replace: true });
       return nextUser;
     },
-    [navigate, refreshWorkshopCapability]
+    [navigate, performLogout, refreshWorkshopCapability, resolveSellerIdentity]
   );
 
   const register = useCallback(
@@ -254,6 +457,10 @@ export const AuthProvider = ({ children }) => {
         writeStoredSession(demoUser);
         setUser(demoUser);
         setWorkshopVerified(false);
+        setSellerMembership(null);
+        setSellerCommerceName('');
+        clearSellerDisabledNotice();
+        setAuthNotice(null);
         setViewModeState(demoUser.role === 'commerce' ? 'business' : 'buyer');
         navigate(homeFor(demoUser), { replace: true });
         return { verificationRequired: false };
@@ -347,12 +554,16 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
-    await ensureProfile();
+    if (user?.role !== 'seller') await ensureProfile();
     await refreshWorkshopCapability();
-    const nextUser = mapInsForgeUser({ ...authUser, profile });
+    const nextUser = keepSessionIdentity(mapInsForgeUser({ ...authUser, profile }), user);
+    if (user?.role === 'seller') {
+      const membershipResult = await fetchMySellerMembership();
+      if (membershipResult.item) setSellerMembership(membershipResult.item);
+    }
     setUser(nextUser);
     return nextUser;
-  }, [user, refreshWorkshopCapability]);
+  }, [refreshWorkshopCapability, user]);
 
   const requestPasswordReset = useCallback(async (email) => {
     if (!isInsforgeConfigured) return;
@@ -374,31 +585,18 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async () => {
-    if (!isInsforgeConfigured) {
-      clearStoredSession();
-      setUser(null);
-      setWorkshopVerified(false);
-      setViewModeState('buyer');
-      navigate('/login', { replace: true });
-      return;
-    }
-
-    try {
-      await insforge.auth.signOut();
-    } catch {
-      // La sesión local se cierra igualmente.
-    }
-    setUser(null);
-    setWorkshopVerified(false);
-    setViewModeState('buyer');
-    navigate('/login', { replace: true });
-  }, [navigate]);
+    await performLogout();
+  }, [performLogout]);
 
   // Cambia la vista activa. Un usuario normal no puede activar el modo empresa:
   // solo un comercio o un Taller Verificado pueden hacerlo.
   const setViewMode = useCallback(
     (next) => {
       const target = next === 'business' ? 'business' : 'buyer';
+      if (user?.role === 'seller') {
+        setViewModeState('business');
+        return true;
+      }
       if (target === 'business' && user?.role !== 'commerce' && !workshopVerified) {
         return false;
       }
@@ -417,6 +615,10 @@ export const AuthProvider = ({ children }) => {
         workshopVerified,
         viewMode,
         setViewMode,
+        sellerMembership,
+        sellerCommerceName,
+        authNotice,
+        clearAuthNotice,
         refreshWorkshopCapability,
         login,
         logout,

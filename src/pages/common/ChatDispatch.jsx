@@ -6,7 +6,7 @@ import SellerChat from '../commerce/Chat';
 export default function ChatDispatch() {
   const { user } = useAuth();
 
-  if (user?.role === 'commerce') {
+  if (user?.role === 'commerce' || user?.role === 'seller') {
     return <SellerChat />;
   }
 

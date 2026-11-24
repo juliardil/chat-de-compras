@@ -332,6 +332,26 @@ describe('capa de datos de la app', () => {
     expect(thread.unread).toBe(0);
   });
 
+  it('conserva la atribución del vendedor en la conversación del comprador', () => {
+    const thread = mapChatThread({
+      id: 'thread-seller',
+      subject: 'Bafles para Corolla',
+      counterpart_name: 'Ana Torres',
+      counterpart_avatar_url: 'https://cdn.example.com/ana.jpg',
+      counterpart_role: 'seller',
+      seller_name: 'Ana Torres',
+      seller_avatar_url: 'https://cdn.example.com/ana.jpg',
+      store_name: 'Taller Real',
+      store_avatar_url: 'https://cdn.example.com/taller.jpg',
+    });
+
+    expect(thread.counterpartRole).toBe('seller');
+    expect(thread.sellerName).toBe('Ana Torres');
+    expect(thread.sellerAvatarUrl).toBe('https://cdn.example.com/ana.jpg');
+    expect(thread.storeName).toBe('Taller Real');
+    expect(thread.avatar).toBe('https://cdn.example.com/ana.jpg');
+  });
+
   it('traduce los mensajes del backend a burbujas de comprador y comercio', () => {
     const createdAt = new Date().toISOString();
 
