@@ -486,6 +486,7 @@ describe('panel de oportunidades del comercio', () => {
           image_url: 'https://cdn.insforge.app/avatars/offers/recommendations/user-1/casco.jpg',
           gift_promo: 'Guantes gratis',
           warranty: '1 año',
+          category_group: 'Cascos',
         },
         {
           id: 'saved-bateria',
@@ -494,6 +495,7 @@ describe('panel de oportunidades del comercio', () => {
           image_url: savedPhoto,
           gift_promo: '',
           warranty: '',
+          category_group: 'Baterías',
         },
       ],
       error: null,
@@ -527,6 +529,28 @@ describe('panel de oportunidades del comercio', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Guantes gratis · 1 año')).toBeInTheDocument();
 
+    expect(screen.getByRole('button', { name: /grupo todas \(2\)/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: /grupo cascos \(1\)/i })).toBeInTheDocument();
+    const bateriasTab = screen.getByRole('button', { name: /grupo baterías \(1\)/i });
+    expect(bateriasTab).toBeInTheDocument();
+    await userEvent.click(bateriasTab);
+    expect(bateriasTab).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.queryByRole('button', { name: /reutilizar casco integral m en la opción 1/i })
+    ).not.toBeInTheDocument();
+
+    const groupInput = screen.getByLabelText('Grupo / Carpeta de la opción 1');
+    expect(groupInput).toHaveAttribute('list', 'recommendation-category-groups');
+    expect(
+      screen.getByRole('button', { name: /usar grupo baterías en la opción 1/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /usar grupo cascos en la opción 1/i })
+    ).toBeInTheDocument();
+
     await userEvent.type(
       screen.getByRole('searchbox', { name: /buscar tarjetas guardadas para la opción 1/i }),
       'bateria'
@@ -543,8 +567,11 @@ describe('panel de oportunidades del comercio', () => {
     expect(screen.getByLabelText('Precio de la opción 1')).toHaveValue(1200);
     expect(screen.getByLabelText('Regalo o promoción de la opción 1')).toHaveValue('');
     expect(screen.getByLabelText('Garantía de la opción 1')).toHaveValue('');
+    expect(groupInput).toHaveValue('Baterías');
     expect(screen.getByAltText('Vista previa de la opción 1')).toHaveAttribute('src', savedPhoto);
 
+    await userEvent.clear(groupInput);
+    await userEvent.type(groupInput, 'Bombillos');
     await userEvent.clear(screen.getByLabelText('Nombre del producto, opción 1'));
     await userEvent.type(
       screen.getByLabelText('Nombre del producto, opción 1'),
@@ -566,6 +593,7 @@ describe('panel de oportunidades del comercio', () => {
       image_url: savedPhoto,
       gift_promo: 'Cargador',
       warranty: '2 años',
+      category_group: 'Bombillos',
     });
   });
 

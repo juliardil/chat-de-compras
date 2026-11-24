@@ -26,6 +26,114 @@ export const MAX_RECOMMENDED_OPTIONS = 5;
 // Tope de tarjetas propias que se ofrecen en el selector del comercio.
 export const MAX_SAVED_RECOMMENDED_OPTIONS = 50;
 
+// Pestaña que muestra toda la biblioteca privada del comercio.
+export const ALL_RECOMMENDATION_GROUPS = 'Todas';
+
+const FALLBACK_RECOMMENDATION_GROUP = 'Otros';
+
+// Grupos canónicos para las tarjetas antiguas que aún no traen
+// `category_group`. Se infieren del producto de la solicitud original (o, en
+// su defecto, del título de la tarjeta) sin inventar un catálogo público.
+const RECOMMENDATION_GROUP_RULES = [
+  { words: ['bateria', 'baterias', 'acumulador', 'acumuladores'], label: 'Baterías' },
+  {
+    words: [
+      'bombillo', 'bombillos', 'bombilla', 'bombillas', 'foco', 'focos',
+      'ampolleta', 'ampoletas', 'ampolla', 'ampollas',
+    ],
+    label: 'Bombillos',
+  },
+  { words: ['llanta', 'llantas', 'neumatico', 'neumaticos', 'rueda', 'ruedas'], label: 'Llantas' },
+  { words: ['casco', 'cascos'], label: 'Cascos' },
+  { words: ['aceite', 'lubricante', 'lubricantes'], label: 'Lubricantes' },
+  { words: ['filtro', 'filtros'], label: 'Filtros' },
+  { words: ['freno', 'frenos', 'pastilla', 'pastillas'], label: 'Frenos' },
+  { words: ['faro', 'faros'], label: 'Faros' },
+  { words: ['espejo', 'espejos'], label: 'Espejos' },
+  { words: ['bujia', 'bujias'], label: 'Bujías' },
+  { words: ['correa', 'correas'], label: 'Correas' },
+  { words: ['manguera', 'mangueras'], label: 'Mangueras' },
+  { words: ['radiador', 'radiadores'], label: 'Radiadores' },
+  { words: ['alternador', 'alternadores'], label: 'Alternadores' },
+  { words: ['parlante', 'parlantes', 'bocina', 'bocinas', 'audio'], label: 'Audio' },
+  { words: ['silla', 'asiento', 'asientos'], label: 'Asientos' },
+];
+
+const CANONICAL_RECOMMENDATION_GROUPS = [
+  ...RECOMMENDATION_GROUP_RULES.map(({ label }) => label),
+  FALLBACK_RECOMMENDATION_GROUP,
+];
+
+const RECOMMENDATION_GROUP_STOP_WORDS = new Set([
+  'para', 'de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas',
+  'con', 'talla', 'modelo', 'original', 'compatible', 'repuesto', 'repuestos',
+  'nuevo', 'nueva', 'moto', 'motocicleta', 'carro', 'auto', 'vehiculo',
+  'vehicular',
+]);
+
+const pluralizeGroupWord = (word) => {
+  if (!word) return '';
+  if (word.endsWith('s')) return word;
+  if (/(z|x|ch|sh)$/.test(word)) return `${word}es`;
+  if (/[aeiou]$/.test(word)) return `${word}s`;
+  return `${word}es`;
+};
+
+// Mantiene la capitalización de los grupos creados por el comercio y recupera
+// los acentos canónicos: "baterias" y "BATERÍAS" se muestran como "Baterías".
+export const normalizeRecommendationGroup = (value) => {
+  const cleaned = String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toLocaleUpperCase('es') + word.slice(1).toLocaleLowerCase('es'))
+    .join(' ');
+
+  if (!cleaned) return '';
+  return (
+    CANONICAL_RECOMMENDATION_GROUPS.find(
+      (label) => normalizeMatchingText(label) === normalizeMatchingText(cleaned)
+    ) || cleaned
+  );
+};
+
+export const inferRecommendationGroup = (value) => {
+  const normalized = normalizeMatchingText(value);
+  if (!normalized) return '';
+
+  const tokens = normalized.split(' ').filter(Boolean);
+  const meaningful = tokens.filter((token) => !RECOMMENDATION_GROUP_STOP_WORDS.has(token));
+  const candidates = meaningful.length > 0 ? meaningful : tokens;
+
+  for (const token of candidates) {
+    const rule = RECOMMENDATION_GROUP_RULES.find(({ words }) => words.includes(token));
+    if (rule) return rule.label;
+  }
+
+  const root = candidates[0];
+  return root ? normalizeRecommendationGroup(pluralizeGroupWord(root)) : '';
+};
+
+export const getSavedRecommendationGroup = (card) =>
+  normalizeRecommendationGroup(card?.category_group) ||
+  inferRecommendationGroup(card?.title) ||
+  FALLBACK_RECOMMENDATION_GROUP;
+
+// Conteo usado por las pestañas del selector privado. Las tarjetas sin grupo
+// guardado ya vienen clasificadas por la capa de datos.
+export const buildRecommendationGroups = (cards = []) => {
+  const counts = new Map();
+  (Array.isArray(cards) ? cards : []).forEach((card) => {
+    const name = getSavedRecommendationGroup(card);
+    counts.set(name, (counts.get(name) || 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'));
+};
+
 // La interfaz dice «Carro», pero el matching actual reconoce «Auto». Guardamos
 // «Auto» para que el cruce vehículo ↔ comercio siga siendo el de siempre.
 export const recommendationVehicleToStorage = (value) => {
@@ -53,12 +161,17 @@ export const emptyRecommendedOption = () => ({
   image_url: '',
   gift_promo: '',
   warranty: '',
+  // Opcional: agrupa tarjetas del propio comercio dentro de su biblioteca
+  // privada. Las opciones antiguas que no lo traen siguen siendo válidas.
+  category_group: '',
 });
 
 const cleanText = (value) => String(value ?? '').trim();
 
 // Normaliza el mini-catálogo guardado en purchase_offers.recommended_options.
-// La forma canónica siempre trae las seis claves acordadas con la base de datos.
+// La forma canónica trae las seis claves acordadas con la base de datos y,
+// cuando el comercio lo capturó, el grupo/carpeta `category_group` (alias
+// `group` para opciones escritas a mano).
 export const normalizeRecommendedOptions = (value) => {
   const raw = Array.isArray(value) ? value : [];
   const usedIds = new Set();
@@ -77,6 +190,9 @@ export const normalizeRecommendedOptions = (value) => {
       const imageUrl = cleanText(option?.image_url ?? option?.photo ?? option?.photo_url);
       const giftPromo = cleanText(option?.gift_promo ?? option?.giftPromo);
       const warranty = cleanText(option?.warranty);
+      // `group` se acepta como alias de opciones escritas a mano; la forma
+      // guardada canónica es `category_group`.
+      const categoryGroup = normalizeRecommendationGroup(option?.category_group ?? option?.group);
       const note = [giftPromo, warranty].filter(Boolean).join(' · ');
 
       return {
@@ -89,6 +205,7 @@ export const normalizeRecommendedOptions = (value) => {
         photo: imageUrl,
         gift_promo: giftPromo,
         warranty,
+        category_group: categoryGroup,
         note,
         available: option?.available !== false,
         isRecommended: Boolean(option?.is_recommended ?? option?.isRecommended),
@@ -102,8 +219,9 @@ export const normalizeRecommendedOptions = (value) => {
 // llave de deduplicación es título + imagen (sin distinguir mayúsculas ni
 // acentos en el título). Si una tarjeta aparece varias veces, gana la más
 // reciente para mostrar su último precio.
-export const normalizeSavedRecommendedOptions = (offers = []) => {
+export const normalizeSavedRecommendedOptions = (offers = [], productByRequest = {}) => {
   const rows = Array.isArray(offers) ? offers : [];
+  const products = productByRequest && typeof productByRequest === 'object' ? productByRequest : {};
   const newestFirst = [...rows].sort((a, b) =>
     String(b?.created_at || '').localeCompare(String(a?.created_at || ''))
   );
@@ -111,11 +229,21 @@ export const normalizeSavedRecommendedOptions = (offers = []) => {
   const cards = [];
 
   newestFirst.forEach((row) => {
+    const requestProduct = products[row?.request_id] || row?.request_product || row?.title;
+
     normalizeRecommendedOptions(row?.recommended_options).forEach((option) => {
       if (!option.image_url || cards.length >= MAX_SAVED_RECOMMENDED_OPTIONS) return;
       const key = `${normalizeMatchingText(option.title)}|${option.image_url.toLowerCase()}`;
       if (seen.has(key)) return;
       seen.add(key);
+      // El grupo escrito por el comercio manda; si la tarjeta es antigua se
+      // clasifica desde el producto de la solicitud original.
+      const categoryGroup =
+        option.category_group ||
+        inferRecommendationGroup(requestProduct) ||
+        inferRecommendationGroup(option.title) ||
+        FALLBACK_RECOMMENDATION_GROUP;
+
       cards.push({
         id: `${row?.id || 'offer'}-${option.id}`,
         title: option.title,
@@ -123,6 +251,7 @@ export const normalizeSavedRecommendedOptions = (offers = []) => {
         image_url: option.image_url,
         gift_promo: option.gift_promo,
         warranty: option.warranty,
+        category_group: categoryGroup,
       });
     });
   });
@@ -163,6 +292,9 @@ export const serializeRecommendedOptions = (options = []) =>
     image_url: option.image_url,
     gift_promo: option.gift_promo,
     warranty: option.warranty,
+    // Solo se escribe cuando el comercio eligió un grupo: las opciones
+    // anteriores siguen guardándose con su forma original.
+    ...(option.category_group ? { category_group: option.category_group } : {}),
   }));
 
 // Las opciones recomendadas también viajan como `brand_options` de la oferta para

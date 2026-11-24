@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_RECOMMENDATION_GROUPS,
   MAX_RECOMMENDED_OPTIONS,
   MAX_SAVED_RECOMMENDED_OPTIONS,
   RECOMMENDATION_CATEGORIES,
   RECOMMENDATION_VEHICLE_TYPES,
+  buildRecommendationGroups,
   buildRecommendationItem,
   emptyRecommendedOption,
+  getSavedRecommendationGroup,
+  inferRecommendationGroup,
   normalizeRecommendedOptions,
   normalizeRecommendationBudget,
+  normalizeRecommendationGroup,
   normalizeSavedRecommendedOptions,
   recommendationBrandOptions,
   recommendationVehicleToStorage,
@@ -28,6 +33,20 @@ describe('reglas del flujo «Recomiéndame»', () => {
       'Interior / Exterior',
     ]);
     expect(MAX_RECOMMENDED_OPTIONS).toBe(5);
+    expect(ALL_RECOMMENDATION_GROUPS).toBe('Todas');
+  });
+
+  it('normaliza y deduce grupos con capitalización y plurales en español', () => {
+    expect(normalizeRecommendationGroup('  baterias  ')).toBe('Baterías');
+    expect(normalizeRecommendationGroup('BATERÍAS DEL AUTO')).toBe('Baterías Del Auto');
+    expect(normalizeRecommendationGroup('')).toBe('');
+
+    expect(inferRecommendationGroup('Batería para moto')).toBe('Baterías');
+    expect(inferRecommendationGroup('bombillo led h4')).toBe('Bombillos');
+    expect(inferRecommendationGroup('BOMBILLOS 12V')).toBe('Bombillos');
+    expect(inferRecommendationGroup('Llanta 195/65 R15')).toBe('Llantas');
+    expect(inferRecommendationGroup('Casco integral talla M')).toBe('Cascos');
+    expect(inferRecommendationGroup('')).toBe('');
   });
 
   it('guarda «Carro» como «Auto» y deja «Moto» como «Moto»', () => {
@@ -133,6 +152,15 @@ describe('reglas del flujo «Recomiéndame»', () => {
     });
   });
 
+  it('conserva el grupo/carpeta de cada opción y acepta el alias group', () => {
+    const options = normalizeRecommendedOptions([
+      { id: 'opt-1', title: 'Batería YTX9', price: 1200, category_group: 'baterias' },
+      { id: 'opt-2', title: 'Bombillo H4', price: 90, group: 'BOMBILLOS' },
+    ]);
+
+    expect(options.map((option) => option.category_group)).toEqual(['Baterías', 'Bombillos']);
+  });
+
   it('descarta opciones incompletas y limita el catálogo a cinco', () => {
     const raw = Array.from({ length: 7 }, (_, index) => ({
       id: `opt-${index + 1}`,
@@ -203,12 +231,76 @@ describe('reglas del flujo «Recomiéndame»', () => {
       image_url: 'https://storage.example.com/casco.jpg',
       gift_promo: 'Guantes gratis',
       warranty: '1 año',
+      category_group: 'Cascos',
     });
     expect(cards[1]).toMatchObject({
       id: 'offer-new-new-bateria',
       title: 'Batería YTX9',
       price: 1200,
+      category_group: 'Baterías',
     });
+  });
+
+  it('clasifica tarjetas antiguas desde el producto de la solicitud original', () => {
+    const offers = [
+      {
+        id: 'offer-1',
+        request_id: 'req-1',
+        created_at: '2026-02-01T00:00:00Z',
+        recommended_options: [
+          {
+            id: 'opt-1',
+            title: 'Opción económica',
+            price: 100,
+            image_url: 'https://storage.example.com/1.jpg',
+          },
+        ],
+      },
+      {
+        id: 'offer-2',
+        request_id: 'req-2',
+        created_at: '2026-02-02T00:00:00Z',
+        recommended_options: [
+          {
+            id: 'opt-2',
+            title: 'Opción premium',
+            price: 200,
+            image_url: 'https://storage.example.com/2.jpg',
+            category_group: 'bombillos',
+          },
+        ],
+      },
+      {
+        id: 'offer-3',
+        request_id: 'req-3',
+        created_at: '2026-02-03T00:00:00Z',
+        recommended_options: [
+          {
+            id: 'opt-3',
+            title: 'Batería YTX9',
+            price: 300,
+            image_url: 'https://storage.example.com/3.jpg',
+          },
+        ],
+      },
+    ];
+
+    const cards = normalizeSavedRecommendedOptions(offers, {
+      'req-1': 'Batería para moto',
+      'req-2': 'Bombillo H4',
+      'req-3': '',
+    });
+
+    expect(cards.map((card) => card.category_group)).toEqual([
+      'Baterías',
+      'Bombillos',
+      'Baterías',
+    ]);
+    expect(getSavedRecommendationGroup(cards[1])).toBe('Bombillos');
+    expect(buildRecommendationGroups(cards)).toEqual([
+      { name: 'Baterías', count: 2 },
+      { name: 'Bombillos', count: 1 },
+    ]);
   });
 
   it('limita la biblioteca privada del comercio a 50 tarjetas', () => {
@@ -280,6 +372,9 @@ describe('reglas del flujo «Recomiéndame»', () => {
         photo: 'https://cdn.example.com/casco.jpg',
       },
     ]);
+    expect(
+      serializeRecommendedOptions([{ ...raw[0], category_group: 'baterias' }])[0]
+    ).toMatchObject({ category_group: 'Baterías' });
   });
 
   it('crea opciones vacías con claves únicas para el constructor', () => {
@@ -292,6 +387,7 @@ describe('reglas del flujo «Recomiéndame»', () => {
       image_url: '',
       gift_promo: '',
       warranty: '',
+      category_group: '',
     });
   });
 });

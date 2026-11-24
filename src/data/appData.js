@@ -416,6 +416,20 @@ export const uploadRecommendationPhoto = async ({ userId, file }) => {
   return uploadToAvatars(path, file, 'No se pudo subir la foto de la opción.');
 };
 
+// Producto de la solicitud original que originó una oferta. Se usa para
+// clasificar tarjetas antiguas que aún no traen `category_group`, sin depender
+// de inventar un catálogo ni de volver a preguntarle al comercio.
+const recommendationRequestProduct = (row) => {
+  const items = Array.isArray(row?.items) ? row.items : [];
+  const item = items.find((value) =>
+    value?.part_name || value?.partName || value?.item || value?.name || value?.description
+  ) || items[0];
+
+  return String(
+    item?.part_name ?? item?.partName ?? item?.item ?? item?.name ?? item?.description ?? row?.title ?? ''
+  ).trim();
+};
+
 // Biblioteca privada del comercio para reutilizar tarjetas en el constructor de
 // «Recomiéndame». En esta BD el dueño de la oferta es `commerce_id` (equivalente
 // a business_id/seller_id); RLS ya limita la lectura a las ofertas propias. Las
@@ -434,7 +448,7 @@ export const fetchCommerceSavedRecommendations = async (commerceId) => {
     (db) =>
       db
         .from('purchase_offers')
-        .select('id,recommended_options,created_at')
+        .select('id,request_id,recommended_options,created_at')
         .eq('commerce_id', commerceId)
         .not('recommended_options', 'is', null)
         .order('created_at', { ascending: false })
@@ -443,7 +457,37 @@ export const fetchCommerceSavedRecommendations = async (commerceId) => {
   );
 
   if (result.error || result.notice) return result;
-  return { ...result, items: normalizeSavedRecommendedOptions(result.items) };
+
+  // Segunda lectura, solo para tarjetas sin grupo guardado. Si el comercio ya
+  // no puede ver una solicitud antigua, la inferencia cae al título de la
+  // tarjeta y la biblioteca sigue funcionando igual.
+  const requestIds = [...new Set(result.items.map((row) => row?.request_id).filter(Boolean))];
+  let productByRequest = {};
+
+  if (requestIds.length > 0) {
+    const requests = await runQuery(
+      (db) =>
+        db
+          .from('purchase_requests')
+          .select('id,title,items')
+          .in('id', requestIds)
+          .limit(100),
+      NOTICES.offers
+    );
+
+    if (!requests.error && !requests.notice) {
+      productByRequest = Object.fromEntries(
+        requests.items
+          .filter((row) => row?.id)
+          .map((row) => [row.id, recommendationRequestProduct(row)])
+      );
+    }
+  }
+
+  return {
+    ...result,
+    items: normalizeSavedRecommendedOptions(result.items, productByRequest),
+  };
 };
 
 // -----------------------------------------------------------------------------

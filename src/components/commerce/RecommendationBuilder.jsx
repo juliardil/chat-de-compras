@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Folder,
   Gift,
   ImagePlus,
   Plus,
@@ -14,8 +15,11 @@ import {
   uploadRecommendationPhoto,
 } from '../../data/appData';
 import {
+  ALL_RECOMMENDATION_GROUPS,
   MAX_RECOMMENDED_OPTIONS,
+  buildRecommendationGroups,
   emptyRecommendedOption,
+  getSavedRecommendationGroup,
 } from '../../data/recommendations';
 import { normalizeMatchingText } from '../../utils/matching';
 
@@ -30,11 +34,13 @@ export default function RecommendationBuilder({
 }) {
   const fileInputs = useRef({});
   const savedLoaded = useRef(false);
+  const savedRequest = useRef(null);
   const [uploading, setUploading] = useState({});
   const [error, setError] = useState('');
   const [savedOpen, setSavedOpen] = useState(null);
   const [savedCards, setSavedCards] = useState([]);
   const [savedSearch, setSavedSearch] = useState('');
+  const [savedGroup, setSavedGroup] = useState(ALL_RECOMMENDATION_GROUPS);
   const [savedLoading, setSavedLoading] = useState(false);
   const [savedError, setSavedError] = useState('');
 
@@ -79,37 +85,69 @@ export default function RecommendationBuilder({
     onChange(options.filter((option) => option.key !== key));
   };
 
+  const savedGroups = buildRecommendationGroups(savedCards);
+  const groupInputListId = 'recommendation-category-groups';
+  const savedTabClass = (active) =>
+    `inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold transition focus:outline-none focus:ring-2 focus:ring-[#00EED0]/40 ${
+      active
+        ? 'border-[#006E7A] bg-[#006E7A] text-white'
+        : 'border-[#00EED0]/40 bg-white text-[#006E7A] hover:border-[#0197AF] hover:bg-[#00EED0]/10'
+    }`;
+
   // Biblioteca privada del comercio: solo se consultan las ofertas de su propio
-  // perfil. Se carga una vez por sesión del constructor para no repetir lecturas.
-  const toggleSaved = async (key) => {
+  // perfil. Se carga una vez por sesión del constructor y también alimenta las
+  // sugerencias del campo «Grupo / Carpeta» al enfocarlo.
+  const ensureSavedCards = () => {
+    if (savedLoaded.current || savedRequest.current) return savedRequest.current;
+
+    setSavedLoading(true);
+    setSavedError('');
+    const request = fetchCommerceSavedRecommendations(commerceId)
+      .then((result) => {
+        setSavedLoading(false);
+        if (result.error || result.notice) {
+          setSavedError(
+            result.error || result.notice || 'No se pudieron cargar tus tarjetas guardadas.'
+          );
+          return [];
+        }
+        setSavedCards(result.items);
+        savedLoaded.current = true;
+        return result.items;
+      })
+      .catch(() => {
+        setSavedLoading(false);
+        setSavedError('No se pudieron cargar tus tarjetas guardadas.');
+        return [];
+      })
+      .finally(() => {
+        savedRequest.current = null;
+      });
+
+    savedRequest.current = request;
+    return request;
+  };
+
+  const toggleSaved = (key) => {
     if (savedOpen === key) {
       setSavedOpen(null);
       return;
     }
     setSavedOpen(key);
     setSavedSearch('');
-    setSavedError('');
-    if (savedLoaded.current) return;
-
-    setSavedLoading(true);
-    const result = await fetchCommerceSavedRecommendations(commerceId);
-    setSavedLoading(false);
-    if (result.error || result.notice) {
-      setSavedError(
-        result.error || result.notice || 'No se pudieron cargar tus tarjetas guardadas.'
-      );
-      return;
-    }
-    setSavedCards(result.items);
-    savedLoaded.current = true;
+    setSavedGroup(ALL_RECOMMENDATION_GROUPS);
+    ensureSavedCards();
   };
 
-  const visibleSavedCards = savedCards.filter((card) =>
-    normalizeMatchingText(card.title).includes(normalizeMatchingText(savedSearch))
+  const visibleSavedCards = savedCards.filter(
+    (card) =>
+      (savedGroup === ALL_RECOMMENDATION_GROUPS ||
+        getSavedRecommendationGroup(card) === savedGroup) &&
+      normalizeMatchingText(card.title).includes(normalizeMatchingText(savedSearch))
   );
 
   // La foto ya vive en Storage: se copia su URL tal cual. El comercio puede
-  // seguir editando todos los campos (incluida la foto) antes de enviar.
+  // seguir editando todos los campos (incluido el grupo) antes de enviar.
   const reuseSavedCard = (card) => {
     if (!savedOpen) return;
     patchOption(savedOpen, {
@@ -118,9 +156,11 @@ export default function RecommendationBuilder({
       image_url: card.image_url,
       gift_promo: card.gift_promo || '',
       warranty: card.warranty || '',
+      category_group: getSavedRecommendationGroup(card),
     });
     setSavedOpen(null);
     setSavedSearch('');
+    setSavedGroup(ALL_RECOMMENDATION_GROUPS);
   };
 
   return (
@@ -191,6 +231,34 @@ export default function RecommendationBuilder({
               <p className="text-[10px] text-gray-500">
                 Tus tarjetas anteriores con foto. Al elegir una podrás editar todos los datos.
               </p>
+              <div
+                className="flex gap-1.5 overflow-x-auto pb-1"
+                aria-label={`Grupos de tarjetas guardadas para la opción ${index + 1}`}
+              >
+                <button
+                  type="button"
+                  aria-label={`Grupo ${ALL_RECOMMENDATION_GROUPS} (${savedCards.length})`}
+                  aria-pressed={savedGroup === ALL_RECOMMENDATION_GROUPS}
+                  onClick={() => setSavedGroup(ALL_RECOMMENDATION_GROUPS)}
+                  className={savedTabClass(savedGroup === ALL_RECOMMENDATION_GROUPS)}
+                >
+                  {ALL_RECOMMENDATION_GROUPS}
+                  <span className="rounded-full bg-[#00EED0]/25 px-1.5">{savedCards.length}</span>
+                </button>
+                {savedGroups.map((group) => (
+                  <button
+                    key={group.name}
+                    type="button"
+                    aria-label={`Grupo ${group.name} (${group.count})`}
+                    aria-pressed={savedGroup === group.name}
+                    onClick={() => setSavedGroup(group.name)}
+                    className={savedTabClass(savedGroup === group.name)}
+                  >
+                    {group.name}
+                    <span className="rounded-full bg-[#00EED0]/25 px-1.5">{group.count}</span>
+                  </button>
+                ))}
+              </div>
               <input
                 type="search"
                 aria-label={`Buscar tarjetas guardadas para la opción ${index + 1}`}
@@ -207,7 +275,7 @@ export default function RecommendationBuilder({
               ) : null}
               {!savedLoading && !savedError && visibleSavedCards.length === 0 ? (
                 <p className="text-[11px] text-gray-600">
-                  No tienes tarjetas guardadas con ese nombre.
+                  No tienes tarjetas guardadas con ese nombre en este grupo.
                 </p>
               ) : null}
               {!savedLoading && !savedError && visibleSavedCards.length > 0 ? (
@@ -308,6 +376,44 @@ export default function RecommendationBuilder({
             disabled={disabled}
           />
 
+          <div>
+            <label
+              htmlFor={`recommendation-group-${option.key}`}
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#4B227A]"
+            >
+              <Folder className="w-3 h-3" aria-hidden="true" />
+              Grupo / Carpeta (ej. Baterías, Bombillos)
+            </label>
+            <input
+              id={`recommendation-group-${option.key}`}
+              type="text"
+              list={groupInputListId}
+              aria-label={`Grupo / Carpeta de la opción ${index + 1}`}
+              className="mt-1 w-full bg-white/70 border border-[#4B227A]/20 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#0197AF]/30 focus:border-[#0197AF]"
+              placeholder="Opcional · Ej. Baterías, Bombillos"
+              value={option.category_group || ''}
+              onChange={(event) => patchOption(option.key, { category_group: event.target.value })}
+              onFocus={ensureSavedCards}
+              disabled={disabled}
+            />
+            {savedGroups.length > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {savedGroups.map((group) => (
+                  <button
+                    key={group.name}
+                    type="button"
+                    aria-label={`Usar grupo ${group.name} en la opción ${index + 1}`}
+                    onClick={() => patchOption(option.key, { category_group: group.name })}
+                    disabled={disabled}
+                    className="rounded-full border border-[#00EED0]/40 bg-white px-2 py-0.5 text-[10px] font-bold text-[#006E7A] transition hover:border-[#0197AF] hover:bg-[#00EED0]/10 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/40"
+                  >
+                    {group.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-sm">
               $
@@ -358,6 +464,12 @@ export default function RecommendationBuilder({
           </div>
         </div>
       ))}
+
+      <datalist id={groupInputListId}>
+        {savedGroups.map((group) => (
+          <option key={group.name} value={group.name} />
+        ))}
+      </datalist>
 
       {error ? (
         <p role="alert" className="text-xs text-red-700">{error}</p>
