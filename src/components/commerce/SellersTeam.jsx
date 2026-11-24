@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Camera,
@@ -72,32 +73,36 @@ function Metric({ label, value }) {
   );
 }
 
+// Los modales se montan en el body: dentro de la tarjeta de nichos cualquier
+// `overflow`/`transform` recortaría el formulario. El mismo patrón que el modal
+// de «Datos de Envío» del chat mantiene todos los campos visibles en móvil.
 function Modal({ title, subtitle, onClose, children }) {
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[#4B227A]/40 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <div className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
+      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <h3 className="text-lg font-bold text-gray-800">{title}</h3>
-            {subtitle ? <p className="mt-0.5 text-xs text-gray-600">{subtitle}</p> : null}
+            {subtitle ? <p className="mt-1 text-xs leading-relaxed text-gray-600">{subtitle}</p> : null}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-full p-1.5 text-gray-600 hover:bg-gray-100"
+            className="shrink-0 rounded-full p-2 text-gray-600 hover:bg-[#0197AF]/10 hover:text-[#006E7A]"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -299,13 +304,13 @@ export default function SellersTeam() {
         </DataNotice>
       ) : null}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {sellers.map((member) => (
           <article
             key={member.id}
-            className="rounded-2xl border border-[#4B227A]/15 bg-white/70 p-3"
+            className="rounded-2xl border border-[#4B227A]/15 bg-white/70 p-5"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <SellerAvatar member={member} onEdit={() => openEdit(member)} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -327,7 +332,7 @@ export default function SellersTeam() {
               </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-4 grid grid-cols-3 gap-4">
               <Metric label="Ofertas" value={String(member.offersSent)} />
               <Metric label="Monto" value={formatCurrency(member.salesAmount)} />
               <Metric
@@ -336,7 +341,7 @@ export default function SellersTeam() {
               />
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-4">
               <button
                 type="button"
                 onClick={() => navigate('/chat-list')}
@@ -393,7 +398,7 @@ export default function SellersTeam() {
           }
           onClose={closeModal}
         >
-          <form onSubmit={submit} className="flex flex-col gap-3">
+          <form onSubmit={submit} className="flex flex-col gap-4">
             <input
               ref={fileInputRef}
               type="file"
@@ -404,7 +409,7 @@ export default function SellersTeam() {
             />
 
             {modal.type !== 'password' ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -482,11 +487,11 @@ export default function SellersTeam() {
               <DataNotice tone={message.tone}>{message.text}</DataNotice>
             ) : null}
 
-            <div className="mt-1 flex gap-2">
-              <Button type="button" variant="secondary" onClick={closeModal} className="flex-1 py-2.5 text-sm">
+            <div className="mt-2 flex gap-3">
+              <Button type="button" variant="secondary" onClick={closeModal} className="flex-1 py-3 text-sm">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={busy} className="flex-1 py-2.5 text-sm">
+              <Button type="submit" disabled={busy} className="flex-1 py-3 text-sm">
                 {busy
                   ? 'Guardando…'
                   : modal.type === 'create'
