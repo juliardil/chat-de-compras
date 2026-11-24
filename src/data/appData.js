@@ -1639,7 +1639,11 @@ export const fetchCommerceIdForUser = async (userId) => {
   if (!userId) return emptyResult(NOTICES.chats, 'No hay una sesión activa para consultar estos datos.');
 
   const result = await runQuery(
-    (db) => db.from('commerce_profiles').select('id,trade_name,status,vehicle_types,inventory_systems').eq('owner_user_id', userId).limit(1),
+    (db) => db
+      .from('commerce_profiles')
+      .select('id,trade_name,status,vehicle_types,inventory_systems,max_response_minutes')
+      .eq('owner_user_id', userId)
+      .limit(1),
     NOTICES.chats
   );
 
@@ -2339,6 +2343,25 @@ const runLifecycleRpc = async (name, params, fallback) => {
   } catch (error) {
     return { ok: false, data: null, error: describeError(error, fallback) };
   }
+};
+
+// El comercio elige su propio SLA. La RPC valida los valores permitidos y
+// actualiza solo el perfil dueño de la sesión (no hay política UPDATE directa).
+export const updateCommerceMaxResponseMinutes = async (minutes) => {
+  const value = Number(minutes);
+  if (![5, 10, 15, 20, 30].includes(value)) {
+    return {
+      ok: false,
+      data: null,
+      error: 'Elige un tiempo de respuesta válido: 5, 10, 15, 20 o 30 minutos.',
+    };
+  }
+
+  return runLifecycleRpc(
+    'app_set_max_response_minutes',
+    { p_minutes: value },
+    'No se pudo guardar el tiempo de respuesta.'
+  );
 };
 
 export const mapLifecycleThread = (row) => {

@@ -25,6 +25,7 @@ import {
   runOfferLifecycleAction,
   selectOfferForLifecycle,
   splitOrders,
+  updateCommerceMaxResponseMinutes,
   updateOrderStatusForChat,
   uploadRecommendationPhoto,
   validateProfilePhoto,
@@ -521,6 +522,22 @@ describe('ciclo de vida de la oferta y reputación', () => {
     await expect(
       runOfferLifecycleAction({ action: 'desconocida', chatId: 'thread-1' })
     ).resolves.toMatchObject({ ok: false, error: /Acción de ciclo de vida desconocida/ });
+  });
+
+  it('rechaza timeouts de respuesta fuera de los valores permitidos', async () => {
+    await expect(updateCommerceMaxResponseMinutes(7)).resolves.toMatchObject({
+      ok: false,
+      error: /5, 10, 15, 20 o 30/,
+    });
+    await expect(updateCommerceMaxResponseMinutes(null)).resolves.toMatchObject({
+      ok: false,
+      error: /5, 10, 15, 20 o 30/,
+    });
+    await expect(updateCommerceMaxResponseMinutes(30)).resolves.toMatchObject({
+      ok: false,
+      skipped: true,
+      error: expect.stringContaining('No se guardó nada'),
+    });
   });
 });
 
