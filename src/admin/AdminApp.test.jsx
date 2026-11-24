@@ -48,6 +48,7 @@ describe('panel administrativo (modo demostración)', () => {
     expect(within(sidebar).queryByRole('link', { name: /personal y permisos/i })).not.toBeInTheDocument();
     expect(within(sidebar).getByRole('link', { name: /auditoría/i })).toBeInTheDocument();
     expect(within(sidebar).getByRole('link', { name: /analítica/i })).toBeInTheDocument();
+    expect(within(sidebar).getByRole('link', { name: /vendedores/i })).toBeInTheDocument();
   });
 
   it('abre compradores, comercios y categorías en lugar del aviso de módulo pendiente', async () => {
@@ -186,6 +187,23 @@ describe('panel administrativo (modo demostración)', () => {
     const sidebar = screen.getByRole('complementary', { name: /menú administrativo/i });
     expect(within(sidebar).queryByRole('link', { name: /^analítica/i })).not.toBeInTheDocument();
     expect(within(sidebar).queryByRole('link', { name: /^pagos/i })).not.toBeInTheDocument();
+    expect(within(sidebar).queryByRole('link', { name: /vendedores/i })).not.toBeInTheDocument();
+  });
+
+  it('abre vendedores con el directorio global en modo demostración', async () => {
+    renderAdmin();
+    const user = await loginWithDemoAccount('superadmin@demo.local');
+
+    await screen.findByRole('heading', { level: 1, name: /panel de control/i });
+    const sidebar = screen.getByRole('complementary', { name: /menú administrativo/i });
+
+    await user.click(within(sidebar).getByRole('link', { name: /vendedores/i }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /^vendedores$/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/vendedores de demostración/i)).toBeInTheDocument();
+    expect(screen.getByText('Andrés Martínez')).toBeInTheDocument();
+    expect(screen.queryByText(/este módulo todavía no existe/i)).not.toBeInTheDocument();
   });
 
   it('abre comunidades con el listado de clubes y la auditoría de miembros', async () => {

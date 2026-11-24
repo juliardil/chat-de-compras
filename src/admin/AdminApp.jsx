@@ -7,6 +7,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Buyers from './pages/Buyers';
+import Vendedores from './pages/Vendedores';
 import Communities from './pages/Communities';
 import Workshops from './pages/Workshops';
 import Commerce from './pages/Commerce';
@@ -87,6 +88,14 @@ function AdminRoutes() {
           element={
             <RequirePermission permission="users.view">
               <Buyers />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="vendedores"
+          element={
+            <RequirePermission permission="sellers.view">
+              <Vendedores />
             </RequirePermission>
           }
         />

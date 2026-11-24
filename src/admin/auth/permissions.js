@@ -11,6 +11,9 @@ export const PERMISSION_CATALOG = [
   { key: 'users.block', module: 'Compradores', label: 'Bloquear compradores', sensitive: true },
   { key: 'users.delete', module: 'Compradores', label: 'Anonimizar o eliminar compradores', sensitive: true },
 
+  { key: 'sellers.view', module: 'Vendedores', label: 'Ver vendedores afiliados y sus ventas', sensitive: false },
+  { key: 'sellers.manage', module: 'Vendedores', label: 'Activar o desactivar vendedores afiliados', sensitive: true },
+
   { key: 'communities.view', module: 'Comunidades', label: 'Ver clubes de compradores', sensitive: false },
   { key: 'communities.configure', module: 'Comunidades', label: 'Configurar el mínimo de participantes', sensitive: true },
 
@@ -183,6 +186,8 @@ export const ROLE_PERMISSIONS = {
     'workshops.verify',
     'sponsorships.view',
     'sponsorships.manage',
+    'sellers.view',
+    'sellers.manage',
   ],
 
   moderator: [
@@ -206,6 +211,7 @@ export const ROLE_PERMISSIONS = {
     'orders.view',
     'support.view',
     'workshops.view',
+    'sellers.view',
   ],
 
   support: [
@@ -239,6 +245,7 @@ export const ROLE_PERMISSIONS = {
     'audit.view',
     'sponsorships.view',
     'sponsorships.finance',
+    'sellers.view',
   ],
 
   finance: [

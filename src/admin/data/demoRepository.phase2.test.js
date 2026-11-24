@@ -545,7 +545,7 @@ describe('repositorio de demostración · Fase 2', () => {
       expect(session.memberId).toBe('legacy-member');
 
       const stored = JSON.parse(localStorage.getItem(STORE_KEY));
-      expect(stored.version).toBe(6);
+      expect(stored.version).toBe(7);
       expect(stored.members).toHaveLength(1);
       expect(stored.invitations).toHaveLength(1);
       expect(stored.buyers).toHaveLength(6);

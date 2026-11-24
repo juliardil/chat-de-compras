@@ -29,6 +29,10 @@ const SPONSORSHIPS_MIGRATION = path.resolve(
   MIGRATIONS_DIR,
   '20261117170000_clubs-sponsorships-advanced.sql'
 );
+const SELLERS_MIGRATION = path.resolve(
+  MIGRATIONS_DIR,
+  '20261124181652_admin-sellers.sql'
+);
 
 const readMigration = (migrationPath) => readFileSync(migrationPath, 'utf8');
 
@@ -93,6 +97,19 @@ describe('catálogo de permisos', () => {
     expect(analyst).not.toContain('staff.view');
   });
 
+  it('permite gestionar vendedores solo a los roles operativos autorizados', () => {
+    expect(getPermissionsForRole('commerce_manager')).toEqual(
+      expect.arrayContaining(['sellers.view', 'sellers.manage'])
+    );
+    expect(getPermissionsForRole('moderator')).toEqual(
+      expect.arrayContaining(['sellers.view'])
+    );
+    expect(getPermissionsForRole('moderator')).not.toContain('sellers.manage');
+    expect(getPermissionsForRole('analyst')).toContain('sellers.view');
+    expect(getPermissionsForRole('analyst')).not.toContain('sellers.manage');
+    expect(getPermissionsForRole('support')).not.toContain('sellers.view');
+  });
+
   it('no inventa permisos para roles desconocidos', () => {
     expect(getPermissionsForRole('inexistente')).toEqual([]);
   });
@@ -126,12 +143,13 @@ describe('groupPermissionsByModule', () => {
 
 describe('consistencia con la migración de Fase 1', () => {
   it('siembra exactamente los permisos del catálogo', () => {
-    // El catálogo se siembra en la fundación, comunidades, talleres y patrocinios.
+    // El catálogo se siembra en la fundación y se amplía por fases.
     const seeded = [
       FOUNDATION_MIGRATION,
       COMMUNITIES_MIGRATION,
       WORKSHOPS_MIGRATION,
       SPONSORSHIPS_MIGRATION,
+      SELLERS_MIGRATION,
     ]
       .flatMap((migrationPath) => extractSeededPermissionKeys(readMigration(migrationPath)))
       .sort();

@@ -22,6 +22,14 @@ export const NAVIGATION_GROUPS = [
     items: [
       { key: 'users', label: 'Compradores', path: '/compradores', icon: 'Users', permission: 'users.view', phase: 2 },
       {
+        key: 'sellers',
+        label: 'Vendedores',
+        path: '/vendedores',
+        icon: 'Users',
+        permission: 'sellers.view',
+        phase: 5,
+      },
+      {
         key: 'communities',
         label: 'Comunidades',
         path: '/comunidades',

@@ -67,7 +67,7 @@ import { buildCsv, csvDateStamp } from '../utils/csv';
 
 const STORE_KEY = 'chat_compras_admin_demo_v1';
 const SESSION_KEY = 'chat_compras_admin_demo_session_v1';
-const STORE_VERSION = 6;
+const STORE_VERSION = 7;
 
 // Credenciales exclusivas del modo demostración. No existen en producción.
 export const DEMO_PASSWORD = 'Demo1234!';
@@ -198,6 +198,229 @@ function buildWorkshopsSeed() {
         isVerified: true,
         createdAt: hoursAgo(24 * 3),
         ownerName: 'Sara Pinto',
+      },
+    ],
+  };
+}
+
+const SELLER_SUMMARY_KEYS = [
+  'id',
+  'userId',
+  'fullName',
+  'email',
+  'commerceId',
+  'commerceName',
+  'avatarUrl',
+  'role',
+  'isActive',
+  'joinedAt',
+  'offersSent',
+  'salesClosed',
+  'salesAmount',
+  'rating',
+  'chatCount',
+  'messageCount',
+];
+
+const toSellerSummary = (seller) =>
+  Object.fromEntries(
+    SELLER_SUMMARY_KEYS.filter((key) => key in seller).map((key) => [key, seller[key]])
+  );
+
+// Datos de ejemplo del directorio global de vendedores (solo modo demostración).
+// Incluye un dueño para comprobar que la UI no permite desactivarlo.
+function buildSellersSeed() {
+  return {
+    sellers: [
+      {
+        id: 'demo-seller-owner',
+        userId: 'demo-seller-user-owner',
+        fullName: 'Gabriela Núñez',
+        email: 'gabriela@autopartescentral.demo',
+        commerceId: 'demo-commerce-1',
+        commerceName: 'AutoPartes Central',
+        avatarUrl: null,
+        role: 'owner',
+        isActive: true,
+        joinedAt: hoursAgo(24 * 90),
+        offersSent: 0,
+        salesClosed: 0,
+        salesAmount: 0,
+        rating: null,
+        chatCount: 0,
+        messageCount: 0,
+        sales: [],
+        chats: [],
+      },
+      {
+        id: 'demo-seller-1',
+        userId: 'demo-seller-user-1',
+        fullName: 'Andrés Martínez',
+        email: 'andres@frenosseguros.demo',
+        commerceId: 'demo-commerce-2',
+        commerceName: 'Frenos Seguros',
+        avatarUrl: null,
+        role: 'seller',
+        isActive: true,
+        joinedAt: hoursAgo(24 * 48),
+        offersSent: 16,
+        salesClosed: 7,
+        salesAmount: 985.5,
+        rating: 4.6,
+        chatCount: 9,
+        messageCount: 34,
+        sales: [
+          {
+            orderId: 'demo-seller-order-1',
+            orderNumber: 'GO-1042',
+            status: 'completed',
+            totalAmount: 245.5,
+            currency: 'USD',
+            buyerName: 'Valentina Rodríguez',
+            placedAt: hoursAgo(24 * 6),
+            completedAt: hoursAgo(24 * 5),
+          },
+          {
+            orderId: 'demo-seller-order-2',
+            orderNumber: 'GO-1031',
+            status: 'delivered',
+            totalAmount: 180,
+            currency: 'USD',
+            buyerName: 'Luis Hernández',
+            placedAt: hoursAgo(24 * 13),
+            completedAt: hoursAgo(24 * 12),
+          },
+        ],
+        chats: [
+          {
+            chatId: 'demo-seller-chat-1',
+            subject: 'Pastillas de freno delanteras',
+            status: 'closed',
+            buyerName: 'Valentina Rodríguez',
+            rating: 5,
+            createdAt: hoursAgo(24 * 7),
+            lastMessageAt: hoursAgo(24 * 5),
+            messageCount: 12,
+            messages: [
+              {
+                id: 'demo-seller-msg-1',
+                senderType: 'buyer',
+                senderName: 'Valentina Rodríguez',
+                body: '¿Tienen disponible el juego delantero?',
+                createdAt: hoursAgo(24 * 7),
+              },
+              {
+                id: 'demo-seller-msg-2',
+                senderType: 'commerce',
+                senderName: 'Andrés Martínez',
+                body: 'Sí, puedo cotizarlo hoy mismo.',
+                createdAt: new Date(Date.now() - 24 * 7 * 60 * 60 * 1000 + 60000).toISOString(),
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'demo-seller-2',
+        userId: 'demo-seller-user-2',
+        fullName: 'Camila Pérez',
+        email: 'camila@lospinos.demo',
+        commerceId: 'demo-commerce-3',
+        commerceName: 'Taller Los Pinos',
+        avatarUrl: null,
+        role: 'seller',
+        isActive: true,
+        joinedAt: hoursAgo(24 * 30),
+        offersSent: 11,
+        salesClosed: 4,
+        salesAmount: 620,
+        rating: 4.8,
+        chatCount: 6,
+        messageCount: 21,
+        sales: [
+          {
+            orderId: 'demo-seller-order-3',
+            orderNumber: 'GO-1055',
+            status: 'completed',
+            totalAmount: 620,
+            currency: 'USD',
+            buyerName: 'Sofía Castillo',
+            placedAt: hoursAgo(24 * 3),
+            completedAt: hoursAgo(24 * 2),
+          },
+        ],
+        chats: [
+          {
+            chatId: 'demo-seller-chat-2',
+            subject: 'Diagnóstico de suspensión',
+            status: 'closed',
+            buyerName: 'Sofía Castillo',
+            rating: 5,
+            createdAt: hoursAgo(24 * 4),
+            lastMessageAt: hoursAgo(24 * 2),
+            messageCount: 9,
+            messages: [
+              {
+                id: 'demo-seller-msg-3',
+                senderType: 'buyer',
+                senderName: 'Sofía Castillo',
+                body: 'El vehículo suena al girar.',
+                createdAt: hoursAgo(24 * 4),
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'demo-seller-3',
+        userId: 'demo-seller-user-3',
+        fullName: 'Miguel Ángel Rojas',
+        email: 'miguel@electricosdeleste.demo',
+        commerceId: 'demo-commerce-4',
+        commerceName: 'Eléctricos del Este',
+        avatarUrl: null,
+        role: 'seller',
+        isActive: false,
+        joinedAt: hoursAgo(24 * 21),
+        offersSent: 5,
+        salesClosed: 2,
+        salesAmount: 310,
+        rating: 4.2,
+        chatCount: 3,
+        messageCount: 8,
+        sales: [
+          {
+            orderId: 'demo-seller-order-4',
+            orderNumber: 'GO-0988',
+            status: 'completed',
+            totalAmount: 310,
+            currency: 'USD',
+            buyerName: 'Miguel Ángel Rojas',
+            placedAt: hoursAgo(24 * 20),
+            completedAt: hoursAgo(24 * 19),
+          },
+        ],
+        chats: [
+          {
+            chatId: 'demo-seller-chat-3',
+            subject: 'Alternador de sedán',
+            status: 'closed',
+            buyerName: 'Camila Pérez',
+            rating: 4,
+            createdAt: hoursAgo(24 * 22),
+            lastMessageAt: hoursAgo(24 * 19),
+            messageCount: 8,
+            messages: [
+              {
+                id: 'demo-seller-msg-4',
+                senderType: 'commerce',
+                senderName: 'Miguel Ángel Rojas',
+                body: 'La cotización quedó confirmada.',
+                createdAt: hoursAgo(24 * 19),
+              },
+            ],
+          },
+        ],
       },
     ],
   };
@@ -390,6 +613,7 @@ function buildSeed() {
     ...phase5,
     ...buildGroupsSeed(),
     ...buildWorkshopsSeed(),
+    ...buildSellersSeed(),
     ...buildSponsorshipsSeed(),
     members,
     invitations: [
@@ -507,6 +731,7 @@ function upgradeStore(stored) {
     groups: Array.isArray(stored.groups) ? stored.groups : buildGroupsSeed().groups,
     groupSettings: stored.groupSettings || buildGroupsSeed().groupSettings,
     workshops: Array.isArray(stored.workshops) ? stored.workshops : buildWorkshopsSeed().workshops,
+    sellers: Array.isArray(stored.sellers) ? stored.sellers : buildSellersSeed().sellers,
     sponsorshipRates: Array.isArray(stored.sponsorshipRates)
       ? stored.sponsorshipRates
       : buildSponsorshipsSeed().sponsorshipRates,
@@ -4031,6 +4256,99 @@ export const demoRepository = {
     saveStore(store);
 
     return { minMembers: value, updatedAt };
+  },
+
+  // ---------------------------------------------------------------------------
+  // Vendedores afiliados (modo demostración)
+  // ---------------------------------------------------------------------------
+  async listAdminSellers({ search = '', actor } = {}) {
+    requirePermission(actor, 'sellers.view', 'No tienes permiso para ver los vendedores.');
+
+    const term = String(search || '').trim().toLowerCase();
+    const store = readStore();
+    const sellers = Array.isArray(store.sellers) ? store.sellers : [];
+
+    return sellers
+      .filter((seller) => {
+        if (!term) return true;
+        return [seller.fullName, seller.email, seller.commerceName]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .map(toSellerSummary)
+      .sort(
+        (a, b) =>
+          (a.role === 'owner' ? 0 : 1) - (b.role === 'owner' ? 0 : 1) ||
+          new Date(b.joinedAt) - new Date(a.joinedAt)
+      );
+  },
+
+  async getAdminSellerDetail({ sellerId, actor } = {}) {
+    requirePermission(actor, 'sellers.view', 'No tienes permiso para ver los vendedores.');
+
+    const store = readStore();
+    const sellers = Array.isArray(store.sellers) ? store.sellers : [];
+    const seller = sellers.find((item) => item.id === sellerId);
+    if (!seller) throw new Error('El vendedor afiliado no existe.');
+
+    const { sales = [], chats = [], ...summary } = seller;
+    const contentUnlocked = actorHas(actor, 'chats.access_content');
+
+    return {
+      seller: summary,
+      sales: [...sales],
+      chats: chats.map((chat) => ({
+        ...chat,
+        messages: contentUnlocked ? [...(chat.messages || [])] : [],
+      })),
+      contentUnlocked,
+    };
+  },
+
+  async setSellerActive({ sellerId, isActive, reason, reasonCode = null, actor } = {}) {
+    requirePermission(
+      actor,
+      'sellers.manage',
+      'No tienes permiso para cambiar el estado de los vendedores.'
+    );
+    requireReason(reason);
+
+    const store = readStore();
+    const sellers = Array.isArray(store.sellers) ? store.sellers : [];
+    const index = sellers.findIndex((seller) => seller.id === sellerId);
+    if (index === -1) throw new Error('El vendedor afiliado no existe.');
+
+    const previous = sellers[index];
+    if (previous.role !== 'seller') {
+      throw new Error('Solo se puede cambiar el estado de vendedores afiliados.');
+    }
+
+    const next = { ...previous, isActive: Boolean(isActive) };
+    store.sellers = sellers.map((seller, position) => (position === index ? next : seller));
+
+    if (previous.isActive !== next.isActive) {
+      appendAudit(store, {
+        actorId: actor?.memberId || null,
+        actorName: actor?.name || null,
+        actorRole: actor?.roleKey || null,
+        action: next.isActive ? 'sellers.activate' : 'sellers.deactivate',
+        module: 'Vendedores',
+        entityType: 'commerce_member',
+        entityId: sellerId,
+        reason: String(reason).trim(),
+        metadata: {
+          reasonCode,
+          fullName: next.fullName,
+          commerceName: next.commerceName,
+          previousIsActive: Boolean(previous.isActive),
+          newIsActive: next.isActive,
+          mode: 'demo',
+        },
+      });
+      saveStore(store);
+    }
+
+    return toSellerSummary(next);
   },
 
   // ---------------------------------------------------------------------------

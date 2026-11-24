@@ -12,6 +12,54 @@ const MEMBER_COLUMNS =
 const AUDIT_COLUMNS =
   'id,created_at,actor_id,actor_name,actor_email,actor_role,action,module,entity_type,entity_id,reason_code,reason_text,metadata';
 
+const mapSellerRow = (row) => ({
+  id: row.membership_id,
+  userId: row.user_id,
+  fullName: row.full_name,
+  email: row.email,
+  commerceId: row.commerce_id,
+  commerceName: row.commerce_name,
+  avatarUrl: row.avatar_url,
+  role: row.role,
+  isActive: Boolean(row.is_active),
+  joinedAt: row.joined_at,
+  offersSent: Number(row.offers_sent || 0),
+  salesClosed: Number(row.sales_closed || 0),
+  salesAmount: Number(row.sales_amount || 0),
+  rating: row.rating == null ? null : Number(row.rating),
+  chatCount: Number(row.chat_count || 0),
+  messageCount: Number(row.message_count || 0),
+});
+
+const mapSellerSaleRow = (row) => ({
+  orderId: row.order_id,
+  orderNumber: row.order_number,
+  status: row.status,
+  totalAmount: Number(row.total_amount || 0),
+  currency: row.currency || 'USD',
+  buyerName: row.buyer_name,
+  placedAt: row.placed_at,
+  completedAt: row.completed_at,
+});
+
+const mapSellerChatRow = (row) => ({
+  chatId: row.chat_id,
+  subject: row.subject,
+  status: row.status,
+  buyerName: row.buyer_name,
+  rating: row.rating == null ? null : Number(row.rating),
+  createdAt: row.created_at,
+  lastMessageAt: row.last_message_at,
+  messageCount: Number(row.message_count || 0),
+  messages: (Array.isArray(row.messages) ? row.messages : []).map((message) => ({
+    id: message.id,
+    senderType: message.sender_type,
+    senderName: message.sender_name,
+    body: message.body,
+    createdAt: message.created_at,
+  })),
+});
+
 const mapSession = (payload) => {
   if (!payload) return null;
   const data = Array.isArray(payload) ? payload[0] : payload;
@@ -379,6 +427,48 @@ export function createInsforgeRepository(insforge) {
       });
       throwIfError(error, 'No se pudo cambiar el estado del comprador.');
       return data;
+    },
+
+    // -------------------------------------------------------------------------
+    // Vendedores afiliados. Las RPC validan permisos y auditan los cambios.
+    // -------------------------------------------------------------------------
+    async listAdminSellers({ search = '' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_sellers', {
+        p_search: String(search || '').trim() || null,
+      });
+      throwIfError(error, 'No se pudieron cargar los vendedores afiliados.');
+      return asArray(data).map(mapSellerRow);
+    },
+
+    async getAdminSellerDetail({ sellerId } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_get_seller_detail', {
+        p_membership_id: sellerId,
+      });
+      throwIfError(error, 'No se pudo cargar el detalle del vendedor.');
+
+      const payload = Array.isArray(data) ? data[0] : data;
+      return {
+        seller: mapSellerRow(payload?.seller || {}),
+        sales: asArray(payload?.sales).map(mapSellerSaleRow),
+        chats: asArray(payload?.chats).map(mapSellerChatRow),
+        contentUnlocked: Boolean(payload?.contentUnlocked),
+      };
+    },
+
+    async setSellerActive({ sellerId, isActive, reason, reasonCode = null } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_set_seller_active', {
+        p_membership_id: sellerId,
+        p_is_active: Boolean(isActive),
+        p_reason: String(reason || '').trim() || null,
+        p_reason_code: reasonCode || null,
+      });
+      throwIfError(error, 'No se pudo cambiar el estado del vendedor.');
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        id: row?.id || sellerId,
+        fullName: row?.full_name,
+        isActive: Boolean(row?.is_active ?? isActive),
+      };
     },
 
     // -------------------------------------------------------------------------
