@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Dashboard from './Dashboard';
 import { AuthContext } from '../../context/auth-context';
@@ -15,6 +15,9 @@ vi.mock('../../data/appData', async (importOriginal) => {
     fetchCommerceSales: vi.fn(),
     fetchCommerceSavedRecommendations: vi.fn(),
     createOffer: vi.fn(),
+    expireOfferLifecycles: vi.fn(),
+    fetchActiveOfferLifecycles: vi.fn(),
+    runOfferLifecycleAction: vi.fn(),
   };
 });
 
@@ -28,10 +31,13 @@ vi.mock('../../data/businessInventory', async (importOriginal) => {
 
 import {
   createOffer,
+  expireOfferLifecycles,
+  fetchActiveOfferLifecycles,
   fetchCommerceIdForUser,
   fetchCommerceSales,
   fetchCommerceSavedRecommendations,
   fetchOpenRequests,
+  runOfferLifecycleAction,
 } from '../../data/appData';
 import { fetchMyInventory } from '../../data/businessInventory';
 
@@ -72,10 +78,16 @@ const requestWithTwoItems = {
   ],
 };
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div>Ruta actual: {location.pathname}</div>;
+}
+
 const renderDashboard = () =>
   render(
     <AuthContext.Provider value={{ user: { id: 'user-1', role: 'commerce' } }}>
       <MemoryRouter initialEntries={['/dashboard']}>
+        <LocationProbe />
         <Dashboard />
       </MemoryRouter>
     </AuthContext.Provider>
@@ -89,6 +101,12 @@ describe('panel de oportunidades del comercio', () => {
     fetchCommerceSavedRecommendations.mockReset();
     createOffer.mockReset();
     fetchMyInventory.mockReset();
+    expireOfferLifecycles.mockReset();
+    expireOfferLifecycles.mockResolvedValue({ ok: true, data: 0, error: null });
+    fetchActiveOfferLifecycles.mockReset();
+    fetchActiveOfferLifecycles.mockResolvedValue({ items: [], error: null, notice: null });
+    runOfferLifecycleAction.mockReset();
+    runOfferLifecycleAction.mockResolvedValue({ ok: true, error: null });
 
     fetchCommerceIdForUser.mockResolvedValue({
       item: { id: 'commerce-1', status: 'approved', trade_name: 'Taller Real' },
@@ -762,5 +780,66 @@ describe('panel de oportunidades del comercio', () => {
     expect(
       await screen.findAllByText(/tarifa mayorista \/ precio taller/i)
     ).not.toHaveLength(0);
+  });
+
+  it('muestra las solicitudes esperando respuesta y navega al aceptarlas', async () => {
+    fetchActiveOfferLifecycles.mockResolvedValue({
+      items: [
+        {
+          id: 'thread-pendiente',
+          requestId: 'req-1',
+          offerId: 'offer-1',
+          state: 'ESPERANDO_ACEPTACION',
+          responseDeadlineAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+
+    expect(
+      await screen.findByText('Solicitudes esperando tu respuesta')
+    ).toBeInTheDocument();
+    expect(expireOfferLifecycles).toHaveBeenCalled();
+    expect(fetchActiveOfferLifecycles).toHaveBeenCalledWith('user-1', 'commerce');
+    expect(screen.getAllByText('Bafles').length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Aceptar solicitud' }));
+
+    expect(runOfferLifecycleAction).toHaveBeenCalledWith({
+      action: 'acceptRequest',
+      chatId: 'thread-pendiente',
+    });
+    expect(await screen.findByText('Ruta actual: /chat/thread-pendiente')).toBeInTheDocument();
+  });
+
+  it('muestra el error si no se pudo aceptar la solicitud', async () => {
+    fetchActiveOfferLifecycles.mockResolvedValue({
+      items: [
+        {
+          id: 'thread-pendiente',
+          requestId: 'req-1',
+          state: 'ESPERANDO_ACEPTACION',
+          responseDeadlineAt: null,
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    runOfferLifecycleAction.mockResolvedValue({
+      ok: false,
+      error: 'El plazo para responder ya venció.',
+    });
+
+    renderDashboard();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Aceptar solicitud' }));
+
+    expect(
+      await screen.findByText('El plazo para responder ya venció.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Ruta actual: /dashboard')).toBeInTheDocument();
   });
 });

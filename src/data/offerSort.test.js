@@ -73,6 +73,20 @@ describe('ordenamiento de ofertas', () => {
     expect(ids(sortOffers(list, 'reliability'))).toEqual(['b', 'c', 'a', 'sin-resenas']);
   });
 
+  it('prioriza la reputación real del ciclo por encima de las estrellas sueltas', () => {
+    const list = [
+      offer('muchas-estrellas', { rating: 5, ratingCount: 2, reputationScore: 0.42 }),
+      offer('cumplidor', { rating: 4.4, ratingCount: 30, reputationScore: 0.91 }),
+      offer('sin-historial', { rating: null, ratingCount: 0, reputationScore: null }),
+    ];
+
+    expect(ids(sortOffers(list, 'reliability'))).toEqual([
+      'cumplidor',
+      'muchas-estrellas',
+      'sin-historial',
+    ]);
+  });
+
   it('no modifica la lista original', () => {
     const list = [offer('a', { amount: 900 }), offer('b', { amount: 100 })];
     const sorted = sortOffers(list, 'price_asc');

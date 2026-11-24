@@ -10,20 +10,26 @@ vi.mock('../../data/appData', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
+    expireOfferLifecycles: vi.fn(),
+    fetchActiveOfferLifecycles: vi.fn(),
     fetchBuyerOffers: vi.fn(),
     fetchBuyerRequests: vi.fn(),
-    openChatForOffer: vi.fn(),
+    selectOfferForLifecycle: vi.fn(),
     selectOfferItemBrands: vi.fn(),
     selectOfferOption: vi.fn(),
+    syncLifecycleSelections: vi.fn(),
   };
 });
 
 import {
+  expireOfferLifecycles,
+  fetchActiveOfferLifecycles,
   fetchBuyerOffers,
   fetchBuyerRequests,
-  openChatForOffer,
+  selectOfferForLifecycle,
   selectOfferItemBrands,
   selectOfferOption,
+  syncLifecycleSelections,
 } from '../../data/appData';
 
 const offer = (id, requestId, store, amount) => ({
@@ -152,13 +158,24 @@ describe('sección Ofertas del comprador', () => {
   });
 
   beforeEach(() => {
+    expireOfferLifecycles.mockReset();
+    expireOfferLifecycles.mockResolvedValue({ ok: true, data: 0, error: null });
+    fetchActiveOfferLifecycles.mockReset();
+    fetchActiveOfferLifecycles.mockResolvedValue({ items: [], error: null, notice: null });
     fetchBuyerOffers.mockReset();
     fetchBuyerRequests.mockReset();
-    openChatForOffer.mockReset();
+    selectOfferForLifecycle.mockReset();
+    selectOfferForLifecycle.mockImplementation(async ({ offerId }) => ({
+      ok: true,
+      item: { chatId: `thread-${offerId}`, state: 'ESPERANDO_ACEPTACION' },
+      error: null,
+    }));
     selectOfferItemBrands.mockReset();
     selectOfferItemBrands.mockResolvedValue({ ok: true, data: null, error: null });
     selectOfferOption.mockReset();
     selectOfferOption.mockResolvedValue({ ok: true, data: null, error: null });
+    syncLifecycleSelections.mockReset();
+    syncLifecycleSelections.mockResolvedValue({ ok: true, error: null });
   });
 
   it('agrupa las ofertas por producto y conserva el comercio de cada oferta', async () => {
@@ -225,12 +242,7 @@ describe('sección Ofertas del comprador', () => {
     expect(screen.getByText(/Discos × 1 \(no disponible\)/)).toBeInTheDocument();
   });
 
-  it('abre la conversación existente asociada a la oferta y al comercio', async () => {
-    openChatForOffer.mockResolvedValue({
-      item: { id: 'thread-1' },
-      error: null,
-      notice: null,
-    });
+  it('inicia el ciclo de la oferta elegida y navega a su conversación', async () => {
     fetchBuyerOffers.mockResolvedValue({
       items: [offer('offer-a', 'req-1', 'Comercio A', 900)],
       error: null,
@@ -243,28 +255,23 @@ describe('sección Ofertas del comprador', () => {
     });
 
     renderOffers();
-    const buttons = await screen.findAllByRole('button', { name: /mensajes/i });
+    const buttons = await screen.findAllByRole('button', { name: 'Elegir esta oferta' });
     await userEvent.click(buttons[0]);
 
-    expect(openChatForOffer).toHaveBeenCalledWith({
-      userId: 'buyer-1',
-      offer: expect.objectContaining({
-        id: 'offer-a',
-        commerceId: 'commerce-offer-a',
-        store: 'Comercio A',
-      }),
-      subject: 'Comercio A',
-      selectedOption: null,
+    expect(expireOfferLifecycles).toHaveBeenCalled();
+    expect(selectOfferForLifecycle).toHaveBeenCalledWith({
+      offerId: 'offer-a',
+      category: null,
     });
-    expect(await screen.findByText('Conversación abierta: thread-1')).toBeInTheDocument();
+    expect(syncLifecycleSelections).toHaveBeenCalledWith({
+      chatId: 'thread-offer-a',
+      selectedOption: null,
+      selectedItemOptions: [],
+    });
+    expect(await screen.findByText('Conversación abierta: thread-offer-a')).toBeInTheDocument();
   });
 
   it('lista las marcas, guarda la elegida y la fija como acuerdo del chat', async () => {
-    openChatForOffer.mockResolvedValue({
-      item: { id: 'thread-multi' },
-      error: null,
-      notice: null,
-    });
     fetchBuyerOffers.mockResolvedValue({
       items: [multiBrandOffer()],
       error: null,
@@ -291,13 +298,15 @@ describe('sección Ofertas del comprador', () => {
     });
     expect(screen.getAllByText('$450.00').length).toBeGreaterThan(0);
 
-    const chatButton = await screen.findByRole('button', { name: /mensajes · lubrax/i });
+    const chatButton = await screen.findByRole('button', { name: 'Elegir esta oferta' });
     await userEvent.click(chatButton);
 
-    expect(openChatForOffer).toHaveBeenCalledWith({
-      userId: 'buyer-1',
-      offer: expect.objectContaining({ id: 'offer-multi' }),
-      subject: 'Comercio Multi',
+    expect(selectOfferForLifecycle).toHaveBeenCalledWith({
+      offerId: 'offer-multi',
+      category: null,
+    });
+    expect(syncLifecycleSelections).toHaveBeenCalledWith({
+      chatId: 'thread-offer-multi',
       selectedOption: {
         id: 'lubrax',
         brand: 'Lubrax',
@@ -306,16 +315,14 @@ describe('sección Ofertas del comprador', () => {
         is_recommended: false,
         note: 'Opción económica',
       },
+      selectedItemOptions: [],
     });
-    expect(await screen.findByText('Conversación abierta: thread-multi')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Conversación abierta: thread-offer-multi')
+    ).toBeInTheDocument();
   });
 
   it('permite elegir una marca por producto y abre el chat con el acuerdo desglosado', async () => {
-    openChatForOffer.mockResolvedValue({
-      item: { id: 'thread-items' },
-      error: null,
-      notice: null,
-    });
     fetchBuyerOffers.mockResolvedValue({
       items: [perItemOffer()],
       error: null,
@@ -342,20 +349,21 @@ describe('sección Ofertas del comprador', () => {
     });
     expect(screen.getAllByText('$590.00').length).toBeGreaterThan(0);
 
-    const chatButton = await screen.findByRole('button', { name: /mensajes · 2 marcas/i });
+    const chatButton = await screen.findByRole('button', { name: 'Elegir esta oferta' });
     await userEvent.click(chatButton);
 
-    expect(openChatForOffer).toHaveBeenCalledWith(
+    expect(syncLifecycleSelections).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'buyer-1',
-        subject: 'Comercio Multi',
+        chatId: 'thread-offer-items',
         selectedItemOptions: [
           expect.objectContaining({ item_key: 'item-1', brand: 'Pioneer', price: 240 }),
           expect.objectContaining({ item_key: 'item-2', brand: 'Garmin', price: 110 }),
         ],
       })
     );
-    expect(await screen.findByText('Conversación abierta: thread-items')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Conversación abierta: thread-offer-items')
+    ).toBeInTheDocument();
   });
 
   it('revierte la elección si el backend no puede guardarla', async () => {
@@ -383,11 +391,12 @@ describe('sección Ofertas del comprador', () => {
       await screen.findByText('No tienes permiso para elegir esta opción.')
     ).toBeInTheDocument();
     expect(lubrax).not.toBeChecked();
-    expect(screen.getByRole('button', { name: 'Mensajes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Elegir esta oferta' })).toBeInTheDocument();
   });
 
-  it('muestra un aviso si no se puede abrir la conversación', async () => {
-    openChatForOffer.mockResolvedValue({
+  it('muestra un aviso si no se puede iniciar la atención de la oferta', async () => {
+    selectOfferForLifecycle.mockResolvedValue({
+      ok: false,
       item: null,
       error: 'El backend rechazó la operación por permisos.',
       notice: null,
@@ -404,7 +413,7 @@ describe('sección Ofertas del comprador', () => {
     });
 
     renderOffers();
-    const buttons = await screen.findAllByRole('button', { name: /mensajes/i });
+    const buttons = await screen.findAllByRole('button', { name: 'Elegir esta oferta' });
     await userEvent.click(buttons[0]);
 
     expect(
@@ -643,7 +652,7 @@ describe('sección Ofertas del comprador', () => {
     expect(screen.getByAltText('Foto de Pastillas')).toBeInTheDocument();
     expect(screen.getByText(/Instalación gratis/)).toBeInTheDocument();
     expect(screen.getByAltText('Foto de Bosch')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /mensajes/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Elegir esta oferta' })).toBeInTheDocument();
   });
 
   it('muestra el badge de recomendación y el carrusel con foto, precio, regalo y garantía', async () => {
@@ -681,11 +690,6 @@ describe('sección Ofertas del comprador', () => {
   });
 
   it('guarda la opción elegida del carrusel y la fija como acuerdo del chat', async () => {
-    openChatForOffer.mockResolvedValue({
-      item: { id: 'thread-rec' },
-      error: null,
-      notice: null,
-    });
     fetchBuyerOffers.mockResolvedValue({
       items: [recommendationOffer()],
       error: null,
@@ -710,14 +714,16 @@ describe('sección Ofertas del comprador', () => {
       screen.getAllByRole('button', { name: /opción elegida/i })
     ).toHaveLength(1);
 
-    const chatButton = await screen.findByRole('button', { name: /mensajes · casco integral talla l/i });
+    const chatButton = await screen.findByRole('button', { name: 'Elegir esta oferta' });
     await userEvent.click(chatButton);
 
-    expect(openChatForOffer).toHaveBeenCalledWith(
+    expect(selectOfferForLifecycle).toHaveBeenCalledWith({
+      offerId: 'offer-rec',
+      category: null,
+    });
+    expect(syncLifecycleSelections).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'buyer-1',
-        offer: expect.objectContaining({ id: 'offer-rec' }),
-        subject: 'Comercio Recomienda',
+        chatId: 'thread-offer-rec',
         selectedOption: expect.objectContaining({
           id: 'casco-l',
           brand: 'Casco integral talla L',
@@ -725,7 +731,9 @@ describe('sección Ofertas del comprador', () => {
         }),
       })
     );
-    expect(await screen.findByText('Conversación abierta: thread-rec')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Conversación abierta: thread-offer-rec')
+    ).toBeInTheDocument();
   });
 
   it('mueve el carrusel con los controles y los indicadores', async () => {
@@ -777,5 +785,85 @@ describe('sección Ofertas del comprador', () => {
 
     expect(await screen.findByAltText('Foto de Mobil')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Mobil/ })).toBeInTheDocument();
+  });
+
+  it('muestra el SLA del comercio y envía la categoría al elegir la oferta', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        offer('offer-sla', 'req-cat', 'Comercio SLA', 900),
+        { ...offer('offer-custom', 'req-otro', 'Comercio Rápido', 800), commerce_max_response_minutes: 5 },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [
+        { ...request('req-cat', 'Pastillas'), category: 'Frenos' },
+        request('req-otro', 'Bafles'),
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    // El SLA por defecto es 15 min y solo se aceptan 5/10/15/20/30.
+    expect(await screen.findByText('Responde en máx. 15 min')).toBeInTheDocument();
+    expect(screen.getByText('Responde en máx. 5 min')).toBeInTheDocument();
+
+    const buttons = screen.getAllByRole('button', { name: 'Elegir esta oferta' });
+    await userEvent.click(buttons[0]);
+
+    expect(selectOfferForLifecycle).toHaveBeenCalledWith({
+      offerId: 'offer-sla',
+      category: 'Frenos',
+    });
+  });
+
+  it('bloquea solo la solicitud en atención y deja navegar el hilo elegido', async () => {
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        offer('offer-elegida', 'req-bloqueada', 'Comercio Elegido', 900),
+        offer('offer-ajena', 'req-bloqueada', 'Comercio Ajeno', 950),
+        offer('offer-libre', 'req-libre', 'Comercio Libre', 400),
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-bloqueada', 'Pastillas'), request('req-libre', 'Bafles')],
+      error: null,
+      notice: null,
+    });
+    fetchActiveOfferLifecycles.mockResolvedValue({
+      items: [
+        {
+          id: 'thread-elegida',
+          requestId: 'req-bloqueada',
+          offerId: 'offer-elegida',
+          state: 'EN_NEGOCIACION',
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    // El texto aparece en el aviso de la solicitud y en el botón de la oferta ajena.
+    expect(await screen.findAllByText('Te están atendiendo')).toHaveLength(2);
+    const verConversacion = screen.getAllByRole('button', { name: 'Ver conversación' })[0];
+    expect(
+      screen.getByRole('button', { name: 'Te están atendiendo' })
+    ).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Te están atendiendo' })).toHaveLength(1);
+    expect(
+      screen.getAllByRole('button', { name: 'Elegir esta oferta' })
+    ).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Elegir esta oferta' })).toBeEnabled();
+
+    await userEvent.click(verConversacion);
+    expect(await screen.findByText('Conversación abierta: thread-elegida')).toBeInTheDocument();
+    expect(selectOfferForLifecycle).not.toHaveBeenCalled();
   });
 });

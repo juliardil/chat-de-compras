@@ -6,6 +6,7 @@ import { ChatProvider } from './ChatContext';
 import { useChat } from './chat-context';
 
 const STORAGE_KEY = 'chat_compras_chats_v1';
+const SHIPPING_DRAFT_KEY = 'chat_compras_shipping_draft_v1';
 
 function ChatProbe({ chatId = '1' }) {
   const {
@@ -83,6 +84,9 @@ const renderChat = () => render(
 describe('ChatContext', () => {
   beforeEach(() => {
     vi.useRealTimers();
+    // Cada prueba parte de un borrador vacío: el borrador existe para conservar
+    // los datos al cambiar de vendedor, no para contaminar otras pruebas.
+    sessionStorage.removeItem(SHIPPING_DRAFT_KEY);
   });
 
   afterEach(() => {

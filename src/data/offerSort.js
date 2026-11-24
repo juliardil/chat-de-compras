@@ -51,9 +51,25 @@ const getOfferComparator = (sortKey) => {
 
   if (sortKey === 'reliability') {
     return (a, b) => {
+      // La reputación integra reseñas publicadas, respuestas dentro del SLA y
+      // entregas a tiempo. Para comercios sin historial se mantiene el criterio
+      // anterior (promedio de reseñas y número de reseñas).
+      const byReputation = compareNullable(
+        a.reputationScore ?? null,
+        b.reputationScore ?? null,
+        'desc'
+      );
+      if (byReputation !== 0) return byReputation;
+
       const byRating = compareNullable(a.rating ?? null, b.rating ?? null, 'desc');
       if (byRating !== 0) return byRating;
-      return (b.ratingCount || 0) - (a.ratingCount || 0);
+      if (a.ratingCount !== b.ratingCount) return (b.ratingCount || 0) - (a.ratingCount || 0);
+
+      return compareNullable(
+        a.deliveryOnTimeRate ?? null,
+        b.deliveryOnTimeRate ?? null,
+        'desc'
+      );
     };
   }
 

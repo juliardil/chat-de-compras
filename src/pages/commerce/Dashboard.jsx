@@ -8,12 +8,15 @@ import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/Modu
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import {
+  expireOfferLifecycles,
+  fetchActiveOfferLifecycles,
   fetchCommerceIdForUser,
   fetchOpenRequests,
   fetchCommerceSales,
   mapOpportunity,
   createOffer,
   formatCurrency,
+  runOfferLifecycleAction,
   NOTICES,
 } from '../../data/appData';
 import { fetchMyInventory, mapInventoryItem } from '../../data/businessInventory';
@@ -162,6 +165,8 @@ export default function Dashboard() {
   const [offerError, setOfferError] = useState('');
   const [offerSuccess, setOfferSuccess] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [acceptingRequestId, setAcceptingRequestId] = useState(null);
+  const [lifecycleError, setLifecycleError] = useState('');
   const menuRef = useRef(null);
 
   const menuItems = [
@@ -200,10 +205,14 @@ export default function Dashboard() {
       };
     }
 
-    const [requests, sales, inventory] = await Promise.all([
+    // Resuelve vencimientos del SLA antes de consultar: una solicitud vencida
+    // deja de bloquear al comprador y ya no aparece como pendiente aquí.
+    await expireOfferLifecycles();
+    const [requests, sales, inventory, lifecycles] = await Promise.all([
       fetchOpenRequests(commerce.item.id),
       fetchCommerceSales(commerce.item.id),
       fetchMyInventory(),
+      fetchActiveOfferLifecycles(user?.id, 'commerce'),
     ]);
 
     return {
@@ -217,12 +226,17 @@ export default function Dashboard() {
         access: !requests.error && !sales.error,
         // El inventario es aditivo: si falla, la cotización manual sigue igual.
         inventory: inventory.items.map(mapInventoryItem),
+        lifecycles: lifecycles.items,
       },
     };
   }, [user?.id]);
 
   const opportunities = items;
   const inventory = Array.isArray(extra?.inventory) ? extra.inventory : [];
+  const lifecycles = Array.isArray(extra?.lifecycles) ? extra.lifecycles : [];
+  const pendingRequests = lifecycles.filter(
+    (thread) => thread.state === 'ESPERANDO_ACEPTACION'
+  );
   const hasAccess = Boolean(extra?.access);
   const sales = Array.isArray(extra?.sales) ? extra.sales : [];
   const completedSales = sales.filter((sale) => ['completed', 'delivered'].includes(sale.status));
@@ -257,6 +271,24 @@ export default function Dashboard() {
   const handleMenuNavigate = (path) => {
     setIsMenuOpen(false);
     navigate(path);
+  };
+
+  const handleAcceptRequest = async (thread) => {
+    setAcceptingRequestId(thread.id);
+    setLifecycleError('');
+    try {
+      const result = await runOfferLifecycleAction({
+        action: 'acceptRequest',
+        chatId: thread.id,
+      });
+      if (!result.ok) {
+        setLifecycleError(result.error || 'No se pudo aceptar la solicitud.');
+        return;
+      }
+      navigate(`/chat/${thread.id}`);
+    } finally {
+      setAcceptingRequestId(null);
+    }
   };
 
   useEffect(() => {
@@ -639,6 +671,55 @@ export default function Dashboard() {
           <DataNotice tone={error ? 'error' : 'info'} className="mb-4">
             {error || notice}
           </DataNotice>
+        ) : null}
+
+        {!loading && lifecycleError ? (
+          <DataNotice tone="error" className="mb-4">
+            {lifecycleError}
+          </DataNotice>
+        ) : null}
+
+        {!loading && pendingRequests.length > 0 ? (
+          <div className="mb-5 rounded-2xl border border-[#00EED0]/40 bg-white/80 p-4 shadow-sm">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-[#006E7A]">
+              <Clock className="h-4 w-4" />
+              Solicitudes esperando tu respuesta
+            </h3>
+            <p className="mb-3 text-xs text-gray-600">
+              El comprador ya eligió tu oferta. Acepta antes de que venza el plazo para pasar a la
+              negociación.
+            </p>
+            <div className="flex flex-col gap-2">
+              {pendingRequests.map((thread) => {
+                const opp = opportunities.find((item) => item.id === thread.requestId);
+                return (
+                  <div
+                    key={thread.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-[#0197AF]/20 bg-[#0197AF]/5 p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-gray-800">
+                        {opp?.product || 'Solicitud de compra'}
+                      </p>
+                      <p className="text-[11px] text-gray-600">
+                        {thread.responseDeadlineAt
+                          ? `Responde antes de ${new Date(thread.responseDeadlineAt).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                          : 'Esperando respuesta'}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => handleAcceptRequest(thread)}
+                      disabled={acceptingRequestId === thread.id}
+                      className="shrink-0 bg-[#00EED0] text-black hover:bg-[#00EED0]/90"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {acceptingRequestId === thread.id ? 'Aceptando…' : 'Aceptar solicitud'}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         ) : null}
 
         <div className="flex flex-col gap-4">

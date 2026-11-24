@@ -1,6 +1,6 @@
 
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, PackageCheck, History, Star, MessageCircle, X, User } from 'lucide-react';
 import Button from '../../components/ui/Button';
@@ -8,6 +8,11 @@ import SafeImage from '../../components/ui/SafeImage';
 import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
 import { NOTICES, formatCurrency } from '../../data/appData';
 import { useChat } from '../../context/chat-context';
+import {
+  DeliveryAgreementPanel,
+  DelayPanel,
+  LifecycleBanner,
+} from '../../components/chat/OfferLifecyclePanels';
 
 // Actualización estética Junio 2026
 
@@ -33,8 +38,12 @@ export default function Chat() {
     connected,
     chatError,
     orderInfo,
-    counterpart
+    counterpart,
+    lifecycleInfo,
+    handleLifecycleAction,
   } = useChat();
+
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   useEffect(() => {
     openChat(id);
@@ -43,6 +52,15 @@ export default function Chat() {
   const handleSend = (e) => {
     e.preventDefault();
     sendMessage('seller');
+  };
+
+  const runLifecycle = async (action, payload = {}) => {
+    setLifecycleBusy(true);
+    try {
+      return await handleLifecycleAction(action, payload);
+    } finally {
+      setLifecycleBusy(false);
+    }
   };
 
   return (
@@ -139,6 +157,40 @@ export default function Chat() {
                 : 'Los mensajes se guardan solo en este dispositivo porque no hay backend configurado.'}
             </DataNotice>
           )}
+        </div>
+
+        <div className="mb-4 space-y-3">
+          <LifecycleBanner lifecycle={lifecycleInfo} role="commerce" />
+          {lifecycleInfo?.state === 'ESPERANDO_ACEPTACION' ? (
+            <div className="rounded-2xl border border-[#00EED0]/40 bg-white/80 p-4 shadow-sm">
+              <p className="text-sm font-bold text-gray-800">Solicitud esperando tu respuesta</p>
+              <p className="mt-1 text-xs text-gray-600">
+                Acepta dentro del plazo para pasar a la negociación. Si vence, el comprador podrá
+                elegir otro vendedor.
+              </p>
+              <Button
+                fullWidth
+                disabled={lifecycleBusy}
+                onClick={() => runLifecycle('acceptRequest')}
+                className="mt-3 bg-[#00EED0] text-black hover:bg-[#00EED0]/90"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {lifecycleBusy ? 'Aceptando…' : 'Aceptar solicitud'}
+              </Button>
+            </div>
+          ) : null}
+          <DeliveryAgreementPanel
+            lifecycle={lifecycleInfo}
+            busy={lifecycleBusy}
+            onAgree={({ hours, label }) => runLifecycle('agreeDelivery', { hours, label })}
+            onCancel={() => runLifecycle('cancelNegotiation')}
+          />
+          <DelayPanel
+            lifecycle={lifecycleInfo}
+            role="commerce"
+            busy={lifecycleBusy}
+            onReportDelay={({ reason, hours }) => runLifecycle('reportDelay', { reason, hours })}
+          />
         </div>
 
         <div className="flex flex-col gap-4">

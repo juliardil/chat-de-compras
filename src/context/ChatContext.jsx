@@ -4,11 +4,15 @@ import { useAuth } from './auth-context';
 import { isInsforgeConfigured } from '../lib/insforge';
 import {
   createOrderForChat,
+  expireOfferLifecycles,
   fetchChatMessages,
   fetchChatCounterpart,
   fetchChatThread,
   fetchOrderById,
   mapChatMessage,
+  mapLifecycleThread,
+  rateOfferLifecycle,
+  runOfferLifecycleAction,
   sendChatMessage as sendChatMessageToBackend,
   updateOrderStatusForChat,
 } from '../data/appData';
@@ -124,6 +128,43 @@ const formatShippingMessage = (data) => {
     .join('\n');
 };
 
+const SHIPPING_DRAFT_KEY = 'chat_compras_shipping_draft_v1';
+
+// Los datos de envío se conservan al elegir otro vendedor: el comprador no
+// debe volver a capturar la dirección si el ciclo anterior se canceló.
+const loadShippingDraft = () => {
+  const empty = {
+    name: '',
+    phone: '',
+    street: '',
+    interior: '',
+    neighborhood: '',
+    city: '',
+    references: '',
+  };
+  try {
+    if (typeof sessionStorage === 'undefined') return empty;
+    const raw = sessionStorage.getItem(SHIPPING_DRAFT_KEY);
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return empty;
+    return Object.fromEntries(
+      Object.keys(empty).map((key) => [key, String(parsed[key] ?? '')])
+    );
+  } catch {
+    return empty;
+  }
+};
+
+const saveShippingDraft = (data) => {
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    sessionStorage.setItem(SHIPPING_DRAFT_KEY, JSON.stringify(data));
+  } catch {
+    // El flujo sigue funcionando aunque el navegador bloquee sessionStorage.
+  }
+};
+
 const loadChats = () => {
   try {
     if (typeof localStorage === 'undefined') return {};
@@ -203,16 +244,12 @@ export const ChatProvider = ({ children }) => {
     avatarUrl: null,
   });
 
-  // Datos de envío del comprador (se envían al comercio como mensaje del chat)
-  const [shippingData, setShippingData] = useState({
-    name: '',
-    phone: '',
-    street: '',
-    interior: '',
-    neighborhood: '',
-    city: '',
-    references: '',
-  });
+  // Estado real del ciclo de vida de la oferta elegida (si el hilo tiene uno).
+  const [lifecycleInfo, setLifecycleInfo] = useState(null);
+
+  // Datos de envío del comprador (se envían al comercio como mensaje del chat).
+  // Se precarga el borrador para «Quiero otro vendedor».
+  const [shippingData, setShippingData] = useState(loadShippingDraft);
 
   const activeChat = (activeChatId && chats[activeChatId]) || EMPTY_CHAT;
   const { messages, timeLeft, sellerStep, closed } = activeChat;
@@ -277,12 +314,18 @@ export const ChatProvider = ({ children }) => {
         optionNote: '',
       });
       setCounterpart({ id: null, name: '', avatarUrl: null });
+      setLifecycleInfo(null);
       return;
     }
 
     const threadResult = await fetchChatThread(chatId);
     const thread = threadResult.item;
-    if (!thread) return;
+    if (!thread) {
+      setLifecycleInfo(null);
+      return;
+    }
+
+    setLifecycleInfo(mapLifecycleThread(thread));
 
     const counterpartInfo = await fetchChatCounterpart(thread, userRole);
     setCounterpart(counterpartInfo);
@@ -415,6 +458,13 @@ export const ChatProvider = ({ children }) => {
     const interval = setInterval(tick, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [activeChatId, connected, refreshChat]);
+
+  // Resuelve vencimientos del SLA y de la entrega al abrir el chat. Después se
+  // recarga la metadata para que la interfaz vea el estado ya actualizado.
+  useEffect(() => {
+    if (!connected || !activeChatId) return;
+    void expireOfferLifecycles().then(() => refreshThreadMeta(activeChatId));
+  }, [activeChatId, connected, refreshThreadMeta]);
 
   // Carga el pedido vinculado al abrir la conversación.
   useEffect(() => {
@@ -558,6 +608,21 @@ export const ChatProvider = ({ children }) => {
 
     try {
       if (connected) {
+        // Si esta conversación nació de «Elegir esta oferta», la recepción también
+        // cierra el ciclo de vida. El flujo clásico (pedido + mensaje) se mantiene
+        // exactamente igual para los chats que no tienen ciclo.
+        if (lifecycleInfo?.state === 'EN_ENTREGA') {
+          const lifecycleResult = await runOfferLifecycleAction({
+            action: 'confirmDelivery',
+            chatId: activeChatId,
+          });
+          if (!lifecycleResult.ok) {
+            setChatError(lifecycleResult.error || 'No se pudo confirmar la entrega.');
+            return;
+          }
+          await refreshThreadMeta(activeChatId);
+        }
+
         const result = await sendChatMessageToBackend({
           chat_id: activeChatId,
           sender_type: 'system',
@@ -630,6 +695,7 @@ export const ChatProvider = ({ children }) => {
     }
 
     const body = formatShippingMessage(shippingData);
+    saveShippingDraft(shippingData);
     setChatError('');
     setShippingSubmitting(true);
 
@@ -686,6 +752,47 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // Ejecuta cualquier transición del ciclo de vida y vuelve a leer el hilo para
+  // que el estado, los deadlines y los mensajes de sistema se reflejen al instante.
+  const handleLifecycleAction = async (action, payload = {}) => {
+    if (!connected || !activeChatId) {
+      setChatError('Conecta tu sesión para usar esta acción.');
+      return { ok: false, error: 'Sin sesión activa.' };
+    }
+
+    setChatError('');
+    const result = await runOfferLifecycleAction({ action, chatId: activeChatId, payload });
+    if (!result.ok) {
+      setChatError(result.error || 'No se pudo completar la operación.');
+      return result;
+    }
+
+    await Promise.all([refreshThreadMeta(activeChatId), refreshChat(activeChatId)]);
+    return result;
+  };
+
+  const handleRateDelivery = async ({ rating, arrivedOnTime, comment }) => {
+    if (!connected || !activeChatId) {
+      setChatError('Conecta tu sesión para calificar la compra.');
+      return { ok: false, error: 'Sin sesión activa.' };
+    }
+
+    setChatError('');
+    const result = await rateOfferLifecycle({
+      chatId: activeChatId,
+      rating,
+      arrivedOnTime,
+      comment,
+    });
+    if (!result.ok) {
+      setChatError(result.error || 'No se pudo guardar la calificación.');
+      return result;
+    }
+
+    await Promise.all([refreshThreadMeta(activeChatId), refreshChat(activeChatId)]);
+    return result;
+  };
+
   // El historial del comprador requiere compras/reseñas reales (purchase_orders
   // y commerce_reviews), que hoy no están expuestas a la app. Se entrega null
   // para que la vista muestre un estado vacío en lugar de datos inventados.
@@ -708,6 +815,7 @@ export const ChatProvider = ({ children }) => {
       receiptSending,
       orderInfo,
       counterpart,
+      lifecycleInfo,
       // Entrada y modales
       inputText,
       setInputText,
@@ -728,6 +836,8 @@ export const ChatProvider = ({ children }) => {
       handleProductArrivedYes,
       handleProductArrivedNo,
       handleShippingSubmit,
+      handleLifecycleAction,
+      handleRateDelivery,
       scrollToBottom
     }}>
       {children}

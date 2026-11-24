@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPurchaseRequestPayload,
+  buildReputationScore,
   calculateDistanceKm,
   describeError,
+  expireOfferLifecycles,
   fetchCommerceSavedRecommendations,
   fetchBuyerOrders,
   formatDistance,
@@ -12,11 +14,16 @@ import {
   createPurchaseRequest,
   mapChatMessage,
   mapChatThread,
+  mapLifecycleThread,
   mapOffer,
   mapOpportunity,
   mapOrder,
   mapRequest,
   mapRequestItem,
+  normalizeSlaMinutes,
+  rateOfferLifecycle,
+  runOfferLifecycleAction,
+  selectOfferForLifecycle,
   splitOrders,
   updateOrderStatusForChat,
   uploadRecommendationPhoto,
@@ -420,6 +427,100 @@ describe('capa de datos de la app', () => {
     expect(unknown.distanceLabel).toBe('');
     expect(unknown.rating).toBeNull();
     expect(unknown.ratingCount).toBe(0);
+  });
+});
+
+describe('ciclo de vida de la oferta y reputación', () => {
+  it('acepta solo los minutos de SLA permitidos y aplica 15 por defecto', () => {
+    [5, 10, 15, 20, 30].forEach((minutes) => {
+      expect(normalizeSlaMinutes(minutes)).toBe(minutes);
+      expect(normalizeSlaMinutes(String(minutes))).toBe(minutes);
+    });
+    expect(normalizeSlaMinutes(null)).toBe(15);
+    expect(normalizeSlaMinutes(7)).toBe(15);
+    expect(normalizeSlaMinutes('no-es-numero')).toBe(15);
+  });
+
+  it('calcula reputación con reseñas, respuesta y entregas reales', () => {
+    expect(buildReputationScore()).toBeNull();
+    expect(buildReputationScore({ rating: 4, ratingCount: 0 })).toBeNull();
+
+    const perfect = buildReputationScore({
+      rating: 5,
+      ratingCount: 4,
+      responseOnTimeRate: 1,
+      deliveryOnTimeRate: 1,
+    });
+    const poor = buildReputationScore({
+      rating: 2,
+      ratingCount: 4,
+      responseOnTimeRate: 0,
+      deliveryOnTimeRate: 0,
+    });
+
+    expect(perfect).toBeCloseTo(1, 5);
+    expect(poor).toBeCloseTo(0.16, 5);
+    expect(poor).toBeLessThan(perfect);
+  });
+
+  it('mapea el hilo del ciclo con deadlines y banderas del backend', () => {
+    const thread = mapLifecycleThread({
+      id: 'thread-1',
+      request_id: 'req-1',
+      offer_id: 'offer-1',
+      commerce_id: 'commerce-1',
+      lifecycle_state: 'EN_ENTREGA',
+      response_deadline_at: '2026-11-24T10:00:00Z',
+      responded_on_time: true,
+      delivery_deadline_at: '2026-11-25T10:00:00Z',
+      delay_attempts: 1,
+      extension_reason: 'Falta de inventario',
+      delivered_on_time: false,
+    });
+
+    expect(thread).toMatchObject({
+      id: 'thread-1',
+      requestId: 'req-1',
+      offerId: 'offer-1',
+      state: 'EN_ENTREGA',
+      isActive: true,
+      respondedOnTime: true,
+      delayAttempts: 1,
+      extensionReason: 'Falta de inventario',
+      deliveredOnTime: false,
+    });
+    expect(mapLifecycleThread(null)).toBeNull();
+    expect(mapLifecycleThread({ lifecycle_state: 'CALIFICADO' }).isActive).toBe(false);
+  });
+
+  it('no simula escrituras del ciclo sin backend configurado', async () => {
+    await expect(expireOfferLifecycles()).resolves.toMatchObject({
+      ok: false,
+      skipped: true,
+      error: expect.stringContaining('No se guardó nada'),
+    });
+
+    await expect(
+      selectOfferForLifecycle({ offerId: 'offer-1' })
+    ).resolves.toMatchObject({ ok: false, item: null });
+    await expect(
+      runOfferLifecycleAction({ action: 'acceptRequest', chatId: 'thread-1' })
+    ).resolves.toMatchObject({ ok: false, error: expect.stringContaining('No se guardó nada') });
+    await expect(
+      rateOfferLifecycle({ chatId: 'thread-1', rating: 5, arrivedOnTime: true })
+    ).resolves.toMatchObject({ ok: false, error: expect.stringContaining('No se guardó nada') });
+  });
+
+  it('valida los datos de calificación antes de llamar al backend', async () => {
+    await expect(
+      rateOfferLifecycle({ chatId: 'thread-1', rating: 0, arrivedOnTime: true })
+    ).resolves.toMatchObject({ ok: false, error: /1 a 5 estrellas/ });
+    await expect(
+      rateOfferLifecycle({ rating: 5, arrivedOnTime: true })
+    ).resolves.toMatchObject({ ok: false, error: /conversación/ });
+    await expect(
+      runOfferLifecycleAction({ action: 'desconocida', chatId: 'thread-1' })
+    ).resolves.toMatchObject({ ok: false, error: /Acción de ciclo de vida desconocida/ });
   });
 });
 

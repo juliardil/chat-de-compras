@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Clock,
   MapPin,
+  CheckCircle2,
   MessageCircle,
   Package,
   Star,
@@ -23,6 +24,8 @@ import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import { sortOfferGroups } from '../../data/offerSort';
 import {
+  expireOfferLifecycles,
+  fetchActiveOfferLifecycles,
   fetchBuyerOffers,
   fetchBuyerRequests,
   formatCurrency,
@@ -31,8 +34,9 @@ import {
   mapRequest,
   offerItemAgreement,
   offerOptionAgreement,
-  openChatForOffer,
+  selectOfferForLifecycle,
   selectOfferItemBrands,
+  syncLifecycleSelections,
   selectOfferOption,
   NOTICES,
 } from '../../data/appData';
@@ -57,21 +61,35 @@ export default function Offers() {
   const [sortKey, setSortKey] = useState('distance');
 
   const { items, extra, loading, error, notice } = useModuleData(async () => {
-    const [offersResult, requestsResult] = await Promise.all([
+    // Resuelve vencimientos antes de pintar: un SLA vencido libera la solicitud
+    // y permite elegir otro vendedor en el mismo cargue de pantalla.
+    await expireOfferLifecycles();
+    const [offersResult, requestsResult, lifecyclesResult] = await Promise.all([
       fetchBuyerOffers(user?.id),
       fetchBuyerRequests(user?.id),
+      fetchActiveOfferLifecycles(user?.id),
     ]);
 
     return {
       items: offersResult.items,
-      extra: requestsResult.items,
+      extra: {
+        requests: requestsResult.items,
+        lifecycles: lifecyclesResult.items,
+      },
       error: offersResult.error || requestsResult.error || null,
       notice: offersResult.notice || requestsResult.notice || null,
     };
   }, [user?.id]);
 
   const offers = items.map((row) => mapOffer(row, user?.location));
-  const requests = (extra || []).map(mapRequest);
+  const requests = (extra?.requests || []).map(mapRequest);
+  const lifecycles = Array.isArray(extra?.lifecycles) ? extra.lifecycles : [];
+  const lifecycleByRequest = new Map(
+    lifecycles.filter((item) => item.requestId).map((item) => [item.requestId, item])
+  );
+  const lifecycleByOffer = new Map(
+    lifecycles.filter((item) => item.offerId).map((item) => [item.offerId, item])
+  );
   const requestById = new Map(requests.map((request) => [request.id, request]));
   const normalizeText = (value) => String(value || '').trim().toLowerCase();
 
@@ -215,15 +233,24 @@ export default function Offers() {
     }
 
     const itemAgreement = offerItemAgreement(chosenItemAgreement(offer));
-    const payload = {
-      userId: user?.id,
-      offer: withItemSelections(offer),
-      subject: offer.store,
-      selectedOption: offerOptionAgreement(selectedFor(offer)),
-    };
-    if (itemAgreement.length > 0) payload.selectedItemOptions = itemAgreement;
+    const selectedOption = offerOptionAgreement(selectedFor(offer));
+    const request = requestById.get(offer.requestId);
+    const category = request?.category || request?.categoryId || null;
 
-    const result = await openChatForOffer(payload);
+    // El ciclo de vida crea el hilo por solicitud + oferta y fija el SLA del
+    // comercio. La selección de marcas se conserva en el mismo hilo.
+    const result = await selectOfferForLifecycle({
+      offerId: offer.id,
+      category,
+    });
+
+    if (result.ok && result.item?.chatId) {
+      await syncLifecycleSelections({
+        chatId: result.item.chatId,
+        selectedOption,
+        selectedItemOptions: itemAgreement,
+      });
+    }
 
     setOpeningOfferId(null);
 
@@ -232,7 +259,7 @@ export default function Offers() {
       return;
     }
 
-    navigate(`/chat/${result.item.id}`);
+    navigate(`/chat/${result.item.chatId}`);
   };
 
   return (
@@ -280,6 +307,24 @@ export default function Offers() {
                 {group.offers.length} {group.offers.length === 1 ? 'oferta' : 'ofertas'}
               </span>
             </div>
+
+            {lifecycleByRequest.get(group.key) ? (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#0197AF]/30 bg-[#0197AF]/10 px-3 py-2">
+                <p className="flex items-center gap-2 text-xs font-bold text-[#006E7A]">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Te están atendiendo
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/chat/${lifecycleByRequest.get(group.key).id}`)
+                  }
+                  className="text-xs font-bold text-[#4B227A] underline"
+                >
+                  Ver conversación
+                </button>
+              </div>
+            ) : null}
 
             {group.showItems ? (
               <div className="flex flex-wrap gap-1.5 mb-3">
@@ -348,6 +393,12 @@ export default function Offers() {
                               Sin calificación
                             </span>
                           )}
+                          {!offer.isWorkshopProposal ? (
+                            <span className="flex items-center gap-1 font-semibold text-[#006E7A]">
+                              <Clock className="w-3 h-3" />
+                              Responde en máx. {offer.maxResponseMinutes} min
+                            </span>
+                          ) : null}
                           {offer.total > 0 ? (
                             <span className="flex items-center gap-1">
                               <Package className="w-3 h-3" />
@@ -462,23 +513,24 @@ export default function Offers() {
                     </div>
                   ) : null}
 
-                  {/* Abre o reutiliza el hilo real comprador ↔ comercio. */}
+                  {/* Inicia el ciclo de vida: SLA, aceptación y negociación. */}
                   <Button
                     fullWidth
                     onClick={() => handleOpenChat(offer)}
-                    disabled={openingOfferId === offer.id}
+                    disabled={
+                      openingOfferId === offer.id ||
+                      Boolean(lifecycleByRequest.get(group.key) && !lifecycleByOffer.get(offer.id))
+                    }
                     className="mt-3 py-2.5 text-sm"
                   >
                     <MessageCircle className="w-4 h-4" />
                     {openingOfferId === offer.id
                       ? 'Abriendo chat…'
-                      : chosenItemAgreement(offer).length > 0
-                        ? `Mensajes · ${chosenItemAgreement(offer).length} ${
-                            chosenItemAgreement(offer).length === 1 ? 'marca' : 'marcas'
-                          }`
-                        : selectedFor(offer)
-                          ? `Mensajes · ${selectedFor(offer).brand}`
-                          : 'Mensajes'}
+                      : lifecycleByOffer.get(offer.id)
+                        ? 'Ver conversación'
+                        : lifecycleByRequest.get(group.key)
+                          ? 'Te están atendiendo'
+                          : 'Elegir esta oferta'}
                   </Button>
                 </article>
               ))}

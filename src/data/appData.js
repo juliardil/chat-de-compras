@@ -609,6 +609,8 @@ export const mapRequest = (row) => ({
     ? Number(row.offers_count)
     : null,
   isRecommendation: Boolean(row.is_recommendation),
+  category: row.category || null,
+  categoryId: row.category_id || null,
   preferences: String(row.preferences ?? '').trim(),
   items: Array.isArray(row.items) ? row.items.map(mapRequestItem) : [],
 });
@@ -806,7 +808,9 @@ export const fetchBuyerOffers = async (userId) => {
       (db) =>
         db
           .from('commerce_profiles')
-          .select('id,trade_name,latitude,longitude,avatar_url,logo_url')
+          .select(
+            'id,trade_name,latitude,longitude,avatar_url,logo_url,max_response_minutes'
+          )
           .in('id', commerceIds),
       NOTICES.offers
     );
@@ -845,6 +849,15 @@ export const fetchBuyerOffers = async (userId) => {
         rating_count: totals.count,
       };
     });
+
+    // Señales del ciclo de vida (respuesta dentro del SLA, entregas a tiempo y
+    // calificaciones). Si la RPC falla se conserva el promedio de reseñas previo.
+    const reputation = await fetchCommerceReputation(commerceIds);
+    reputation.items.forEach((entry) => {
+      const commerceId = entry.commerce_id;
+      if (!commerceById[commerceId]) return;
+      commerceById[commerceId] = { ...commerceById[commerceId], ...entry };
+    });
   }
 
   return {
@@ -861,6 +874,11 @@ export const fetchBuyerOffers = async (userId) => {
         commerce_longitude: commerce.longitude ?? null,
         commerce_rating: commerce.rating ?? null,
         commerce_rating_count: commerce.rating_count ?? 0,
+        commerce_max_response_minutes: commerce.max_response_minutes ?? null,
+        commerce_response_on_time_rate: commerce.response_on_time_rate ?? null,
+        commerce_delivery_on_time_rate: commerce.delivery_on_time_rate ?? null,
+        commerce_completed_count: commerce.completed_count ?? 0,
+        commerce_average_rating: commerce.average_rating ?? null,
         workshop_name: workshop?.workshop_name || null,
       };
     }),
@@ -884,6 +902,68 @@ export const fetchWorkshopBadges = (buyerIds = []) => {
     (db) => db.rpc('app_workshop_b2b_badges', { p_buyer_ids: ids }),
     NOTICES.offers
   );
+};
+
+export const OFFER_LIFECYCLE_STATES = Object.freeze([
+  'SIN_CICLO',
+  'ESPERANDO_ACEPTACION',
+  'EN_NEGOCIACION',
+  'LIBERADO_POR_TIEMPO',
+  'EN_ENTREGA',
+  'ENTREGA_CONFIRMADA',
+  'NO_ENTREGADO',
+  'CALIFICADO',
+  'CANCELADO',
+]);
+
+export const ACTIVE_OFFER_LIFECYCLE_STATES = Object.freeze([
+  'ESPERANDO_ACEPTACION',
+  'EN_NEGOCIACION',
+  'EN_ENTREGA',
+]);
+
+export const DELIVERY_FAILURE_REASONS = Object.freeze([
+  'No llegó',
+  'Llegó incompleto',
+  'Llegó dañado',
+  'La empresa no respondió',
+  'Otro',
+]);
+
+export const normalizeSlaMinutes = (value) => {
+  const minutes = Number(value);
+  return [5, 10, 15, 20, 30].includes(minutes) ? minutes : 15;
+};
+
+// Reputación complementaria a las estrellas: combina reseñas publicadas con
+// el cumplimiento real de respuesta y entrega. No inventa datos: si no hay
+// señales devuelve null y el ordenamiento usa solo las reseñas.
+export const buildReputationScore = ({
+  rating = null,
+  ratingCount = 0,
+  responseOnTimeRate = null,
+  deliveryOnTimeRate = null,
+} = {}) => {
+  const signals = [];
+  // `Number(null)` es 0: sin esa guarda se inventaría una señal de "0%" para
+  // comercios que aún no tienen historial de respuesta o entrega.
+  const hasValue = (value) => value !== null && value !== undefined && value !== '';
+  const average = Number(rating);
+  if (hasValue(rating) && Number.isFinite(average) && Number(ratingCount) > 0) {
+    signals.push({ weight: 0.4, value: Math.max(0, Math.min(1, average / 5)) });
+  }
+  const response = Number(responseOnTimeRate);
+  if (hasValue(responseOnTimeRate) && Number.isFinite(response)) {
+    signals.push({ weight: 0.3, value: Math.max(0, Math.min(1, response)) });
+  }
+  const delivery = Number(deliveryOnTimeRate);
+  if (hasValue(deliveryOnTimeRate) && Number.isFinite(delivery)) {
+    signals.push({ weight: 0.3, value: Math.max(0, Math.min(1, delivery)) });
+  }
+
+  if (signals.length === 0) return null;
+  const weightSum = signals.reduce((sum, signal) => sum + signal.weight, 0);
+  return signals.reduce((sum, signal) => sum + signal.value * signal.weight, 0) / weightSum;
 };
 
 export const mapOffer = (row, buyerLocation = null) => {
@@ -1005,6 +1085,18 @@ export const mapOffer = (row, buyerLocation = null) => {
     // Confiabilidad = promedio de reseñas publicadas del comercio.
     rating: Number.isFinite(rating) ? rating : null,
     ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
+    // SLA pactado por el comercio y señales reales del ciclo de vida.
+    maxResponseMinutes: normalizeSlaMinutes(row.commerce_max_response_minutes),
+    responseOnTimeRate: finiteNumber(row.commerce_response_on_time_rate),
+    deliveryOnTimeRate: finiteNumber(row.commerce_delivery_on_time_rate),
+    completedCount: Number(row.commerce_completed_count) || 0,
+    reputationScore: buildReputationScore({
+      rating: Number.isFinite(rating) ? rating : null,
+      ratingCount: Number.isFinite(ratingCount) ? ratingCount : 0,
+      responseOnTimeRate: finiteNumber(row.commerce_response_on_time_rate),
+      deliveryOnTimeRate: finiteNumber(row.commerce_delivery_on_time_rate),
+      completedCount: Number(row.commerce_completed_count) || 0,
+    }),
     conditions: row.conditions || '',
     status: row.status,
     // Bono/descuento o servicio incluido a nivel de oferta (aditivo).
@@ -2062,6 +2154,15 @@ export const mapOpportunity = (row) => {
 // -----------------------------------------------------------------------------
 // No existe tabla de notificaciones en el backend: se devuelve vacío a
 // propósito para no inventar actividad.
+export const fetchCommerceReputation = async (commerceIds = []) => {
+  const ids = [...new Set((Array.isArray(commerceIds) ? commerceIds : []).filter(Boolean))];
+  if (!isInsforgeConfigured || ids.length === 0) return emptyResult(null);
+  return runQuery(
+    (db) => db.rpc('app_commerce_reputation', { p_commerce_ids: ids }),
+    NOTICES.reviews
+  );
+};
+
 export const fetchNotifications = async () => emptyResult(NOTICES.notifications);
 
 export const fetchBuyerReviews = async (userId) => {
@@ -2220,6 +2321,180 @@ export const createOffer = async (payload) =>
 
 export const createReview = async (payload) =>
   runWrite((db) => db.from('commerce_reviews').insert([payload]), 'No se pudo guardar la calificación.');
+
+// -----------------------------------------------------------------------------
+// Ciclo de vida de la oferta (SLA, negociación, entrega y reputación)
+// Todas las transiciones pasan por RPCs SECURITY DEFINER: la interfaz nunca
+// escribe directamente el estado, los deadlines ni la calificación.
+// -----------------------------------------------------------------------------
+const runLifecycleRpc = async (name, params, fallback) => {
+  if (!isInsforgeConfigured) {
+    return { ok: false, data: null, skipped: true, error: `No se guardó nada: ${NOTICES.demo}` };
+  }
+
+  try {
+    const { data, error } = await insforge.database.rpc(name, params);
+    if (error) return { ok: false, data: null, error: describeError(error, fallback) };
+    return { ok: true, data: data ?? null, error: null };
+  } catch (error) {
+    return { ok: false, data: null, error: describeError(error, fallback) };
+  }
+};
+
+export const mapLifecycleThread = (row) => {
+  if (!row) return null;
+  const state = row.lifecycle_state || 'SIN_CICLO';
+  return {
+    id: row.id,
+    requestId: row.request_id || null,
+    offerId: row.offer_id || null,
+    commerceId: row.commerce_id || null,
+    buyerId: row.buyer_id || null,
+    orderId: row.order_id || null,
+    category: row.category || null,
+    state,
+    isActive: ACTIVE_OFFER_LIFECYCLE_STATES.includes(state),
+    responseDeadlineAt: row.response_deadline_at || null,
+    respondedAt: row.responded_at || null,
+    respondedOnTime: row.responded_on_time ?? null,
+    agreedDeliveryHours: finiteNumber(row.agreed_delivery_hours),
+    agreedDeliveryLabel: row.agreed_delivery_label || null,
+    agreedDeadlineAt: row.agreed_deadline_at || null,
+    deliveryDeadlineAt: row.delivery_deadline_at || null,
+    delayAttempts: Number(row.delay_attempts) || 0,
+    extensionReason: row.extension_reason || null,
+    extensionDeadlineAt: row.extension_deadline_at || null,
+    deliveryConfirmedAt: row.delivery_confirmed_at || null,
+    deliveredOnTime: row.delivered_on_time ?? null,
+    failureReason: row.failure_reason || null,
+    rating: Number(row.rating) || null,
+    arrivalOnTime: row.arrival_on_time ?? null,
+    reviewComment: row.review_comment || null,
+    reviewedAt: row.reviewed_at || null,
+    releasedAt: row.released_at || null,
+  };
+};
+
+export const fetchActiveOfferLifecycles = async (userId, role = 'user') => {
+  const threads = await fetchChatThreads({ userId, role });
+  return {
+    ...threads,
+    items: threads.items
+      .filter((thread) => ACTIVE_OFFER_LIFECYCLE_STATES.includes(thread.lifecycle_state))
+      .map(mapLifecycleThread),
+  };
+};
+
+// Los vencimientos se resuelven al cargar la pantalla (bajo demanda), sin
+// depender de un job externo.
+export const expireOfferLifecycles = () =>
+  runLifecycleRpc('app_expire_offer_lifecycles', {}, 'No se pudo actualizar el tiempo de respuesta.');
+
+export const selectOfferForLifecycle = async ({ offerId, category = null }) => {
+  if (!offerId) {
+    return { ok: false, item: null, error: 'No se indicó la oferta elegida.' };
+  }
+
+  const result = await runLifecycleRpc(
+    'app_select_offer_for_lifecycle',
+    { p_offer_id: offerId, p_category: category || null },
+    'No se pudo iniciar la atención de esta oferta.'
+  );
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+
+  return {
+    ...result,
+    item: row
+      ? {
+          chatId: row.chat_id,
+          state: row.state,
+          responseDeadlineAt: row.response_deadline_at,
+          requestId: row.request_id,
+        }
+      : null,
+  };
+};
+
+// Traslada al hilo del ciclo las marcas ya elegidas en /offers. El RPC crea el
+// hilo por solicitud + oferta; esta actualización solo completa el acuerdo.
+export const syncLifecycleSelections = async ({
+  chatId,
+  selectedOption = null,
+  selectedItemOptions = [],
+}) => {
+  if (!isInsforgeConfigured || !chatId) return { ok: false, data: null, error: null };
+
+  return runWrite(
+    (db) =>
+      db
+        .from('chat_threads')
+        .update({
+          selected_offer_option: selectedOption || null,
+          selected_offer_items: Array.isArray(selectedItemOptions) ? selectedItemOptions : [],
+        })
+        .eq('id', chatId),
+    'No se pudo guardar la selección en la conversación.'
+  );
+};
+
+const LIFECYCLE_ACTIONS = Object.freeze({
+  acceptRequest: 'app_accept_offer_request',
+  cancelNegotiation: 'app_cancel_offer_negotiation',
+  agreeDelivery: 'app_agree_delivery',
+  reportDelay: 'app_report_delivery_delay',
+  keepWaiting: 'app_keep_waiting_for_delivery',
+  cancelForBreach: 'app_cancel_for_breach',
+  confirmDelivery: 'app_confirm_lifecycle_delivery',
+  reportNoDelivery: 'app_report_missing_delivery',
+  releaseForOtherSeller: 'app_release_for_other_seller',
+});
+
+const lifecycleActionParams = (action, chatId, payload) => {
+  switch (action) {
+    case 'agreeDelivery':
+      return { p_chat_id: chatId, p_hours: Number(payload.hours), p_label: String(payload.label || '') };
+    case 'reportDelay':
+      return {
+        p_chat_id: chatId,
+        p_reason: String(payload.reason || ''),
+        p_hours: Number(payload.hours),
+      };
+    case 'reportNoDelivery':
+      return { p_chat_id: chatId, p_reason: String(payload.reason || '') };
+    default:
+      return { p_chat_id: chatId };
+  }
+};
+
+export const runOfferLifecycleAction = async ({ action, chatId, payload = {} }) => {
+  const rpcName = LIFECYCLE_ACTIONS[action];
+  if (!rpcName) return { ok: false, data: null, error: 'Acción de ciclo de vida desconocida.' };
+  if (!chatId) return { ok: false, data: null, error: 'No se indicó la conversación.' };
+
+  return runLifecycleRpc(
+    rpcName,
+    lifecycleActionParams(action, chatId, payload),
+    'No se pudo completar la operación. Inténtalo de nuevo.'
+  );
+};
+
+export const rateOfferLifecycle = async ({ chatId, rating, arrivedOnTime, comment = '' }) => {
+  if (!chatId) return { ok: false, data: null, error: 'No se indicó la conversación.' };
+  if (![1, 2, 3, 4, 5].includes(Number(rating))) {
+    return { ok: false, data: null, error: 'Selecciona de 1 a 5 estrellas.' };
+  }
+
+  return runLifecycleRpc(
+    'app_rate_lifecycle_delivery',
+    {
+      p_chat_id: chatId,
+      p_rating: Number(rating),
+      p_arrived_on_time: Boolean(arrivedOnTime),
+      p_comment: String(comment || '').trim() || null,
+    },
+    'No se pudo guardar la calificación.'
+  );
+};
 
 export const sendChatMessage = async (payload) => {
   const result = await runWrite(

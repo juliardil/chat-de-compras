@@ -1,6 +1,6 @@
 
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Send, Clock, AlertTriangle, CheckCircle2, MapPin, User, Phone, X, PackageCheck, LifeBuoy, Star, Store } from 'lucide-react';
 import Button from '../../components/ui/Button';
@@ -9,6 +9,12 @@ import SafeImage from '../../components/ui/SafeImage';
 import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
 import { useChat } from '../../context/chat-context';
 import { formatCurrency } from '../../data/appData';
+import {
+  DeliveryAgreementPanel,
+  DeliveryReviewPanel,
+  DelayPanel,
+  LifecycleBanner,
+} from '../../components/chat/OfferLifecyclePanels';
 
 // Actualización estética Junio 2026
 
@@ -40,8 +46,13 @@ export default function Chat() {
     shippingSubmitting,
     receiptSending,
     orderInfo,
-    counterpart
+    counterpart,
+    lifecycleInfo,
+    handleLifecycleAction,
+    handleRateDelivery,
   } = useChat();
+
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   useEffect(() => {
     openChat(id);
@@ -50,6 +61,20 @@ export default function Chat() {
   const handleSend = (e) => {
     e.preventDefault();
     sendMessage('buyer');
+  };
+
+  const runLifecycle = async (action, payload = {}) => {
+    setLifecycleBusy(true);
+    try {
+      return await handleLifecycleAction(action, payload);
+    } finally {
+      setLifecycleBusy(false);
+    }
+  };
+
+  const handleReleaseForOtherSeller = async () => {
+    const result = await runLifecycle('releaseForOtherSeller');
+    if (result.ok) navigate('/offers');
   };
 
   return (
@@ -144,6 +169,32 @@ export default function Chat() {
                 : 'Los mensajes se guardan solo en este dispositivo porque no hay backend configurado.'}
             </DataNotice>
           )}
+        </div>
+
+        <div className="mb-4 space-y-3">
+          <LifecycleBanner lifecycle={lifecycleInfo} role="user" />
+          <DeliveryAgreementPanel
+            lifecycle={lifecycleInfo}
+            busy={lifecycleBusy}
+            onAgree={({ hours, label }) => runLifecycle('agreeDelivery', { hours, label })}
+            onCancel={() => runLifecycle('cancelNegotiation')}
+          />
+          <DelayPanel
+            lifecycle={lifecycleInfo}
+            role="user"
+            busy={lifecycleBusy}
+            onKeepWaiting={() => runLifecycle('keepWaiting')}
+            onCancelBreach={() => runLifecycle('cancelForBreach')}
+          />
+          <DeliveryReviewPanel
+            lifecycle={lifecycleInfo}
+            role="user"
+            busy={lifecycleBusy}
+            onConfirmDelivery={() => handleProductArrivedYes()}
+            onReportNoDelivery={({ reason }) => runLifecycle('reportNoDelivery', { reason })}
+            onRate={handleRateDelivery}
+            onRelease={handleReleaseForOtherSeller}
+          />
         </div>
 
         <div className="flex flex-col gap-4">
