@@ -23,6 +23,9 @@ export const RECOMMENDATION_CATEGORIES = [
 
 export const MAX_RECOMMENDED_OPTIONS = 5;
 
+// Tope de tarjetas propias que se ofrecen en el selector del comercio.
+export const MAX_SAVED_RECOMMENDED_OPTIONS = 50;
+
 // La interfaz dice «Carro», pero el matching actual reconoce «Auto». Guardamos
 // «Auto» para que el cruce vehículo ↔ comercio siga siendo el de siempre.
 export const recommendationVehicleToStorage = (value) => {
@@ -92,6 +95,39 @@ export const normalizeRecommendedOptions = (value) => {
       };
     })
     .filter(Boolean);
+};
+
+// Biblioteca privada del comercio: opciones que él mismo envió en ofertas
+// anteriores. Solo se reutilizan tarjetas con foto ya alojada en Storage; la
+// llave de deduplicación es título + imagen (sin distinguir mayúsculas ni
+// acentos en el título). Si una tarjeta aparece varias veces, gana la más
+// reciente para mostrar su último precio.
+export const normalizeSavedRecommendedOptions = (offers = []) => {
+  const rows = Array.isArray(offers) ? offers : [];
+  const newestFirst = [...rows].sort((a, b) =>
+    String(b?.created_at || '').localeCompare(String(a?.created_at || ''))
+  );
+  const seen = new Set();
+  const cards = [];
+
+  newestFirst.forEach((row) => {
+    normalizeRecommendedOptions(row?.recommended_options).forEach((option) => {
+      if (!option.image_url || cards.length >= MAX_SAVED_RECOMMENDED_OPTIONS) return;
+      const key = `${normalizeMatchingText(option.title)}|${option.image_url.toLowerCase()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      cards.push({
+        id: `${row?.id || 'offer'}-${option.id}`,
+        title: option.title,
+        price: option.price,
+        image_url: option.image_url,
+        gift_promo: option.gift_promo,
+        warranty: option.warranty,
+      });
+    });
+  });
+
+  return cards;
 };
 
 // Validación en la app: el CHECK de PostgreSQL solo puede verificar el tamaño

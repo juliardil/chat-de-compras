@@ -13,6 +13,7 @@ vi.mock('../../data/appData', async (importOriginal) => {
     fetchCommerceIdForUser: vi.fn(),
     fetchOpenRequests: vi.fn(),
     fetchCommerceSales: vi.fn(),
+    fetchCommerceSavedRecommendations: vi.fn(),
     createOffer: vi.fn(),
   };
 });
@@ -29,6 +30,7 @@ import {
   createOffer,
   fetchCommerceIdForUser,
   fetchCommerceSales,
+  fetchCommerceSavedRecommendations,
   fetchOpenRequests,
 } from '../../data/appData';
 import { fetchMyInventory } from '../../data/businessInventory';
@@ -84,6 +86,7 @@ describe('panel de oportunidades del comercio', () => {
     fetchCommerceIdForUser.mockReset();
     fetchOpenRequests.mockReset();
     fetchCommerceSales.mockReset();
+    fetchCommerceSavedRecommendations.mockReset();
     createOffer.mockReset();
     fetchMyInventory.mockReset();
 
@@ -98,6 +101,7 @@ describe('panel de oportunidades del comercio', () => {
       notice: null,
     });
     fetchCommerceSales.mockResolvedValue({ items: [], error: null, notice: null });
+    fetchCommerceSavedRecommendations.mockResolvedValue({ items: [], error: null, notice: null });
     fetchMyInventory.mockResolvedValue({ items: [], error: null, notice: null });
     createOffer.mockResolvedValue({ ok: true, data: [{ id: 'offer-1' }], error: null });
   });
@@ -468,6 +472,101 @@ describe('panel de oportunidades del comercio', () => {
     expect(screen.getByLabelText('Garantía de la opción 1')).toBeInTheDocument();
     expect(screen.getByLabelText('Foto de la opción 1')).toHaveClass('sr-only');
     expect(screen.queryByLabelText('Precio unitario de Bafles')).not.toBeInTheDocument();
+  });
+
+  it('reutiliza una tarjeta propia con foto y deja todos los campos editables', async () => {
+    const savedPhoto =
+      'https://cdn.insforge.app/avatars/offers/recommendations/user-1/bateria.jpg';
+    fetchCommerceSavedRecommendations.mockResolvedValue({
+      items: [
+        {
+          id: 'saved-casco',
+          title: 'Casco integral M',
+          price: 480,
+          image_url: 'https://cdn.insforge.app/avatars/offers/recommendations/user-1/casco.jpg',
+          gift_promo: 'Guantes gratis',
+          warranty: '1 año',
+        },
+        {
+          id: 'saved-bateria',
+          title: 'Batería YTX9-BS',
+          price: 1200,
+          image_url: savedPhoto,
+          gift_promo: '',
+          warranty: '',
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          id: 'req-rec',
+          title: 'Batería para moto',
+          is_recommendation: true,
+          budget: 1500,
+          preferences: 'Talla YTX9-BS',
+          items: [{ item: 'Batería para moto', category: 'Eléctrico', vehicleType: 'Moto' }],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+    await userEvent.click(await screen.findByRole('button', { name: /armar recomendaciones/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /reutilizar tarjeta anterior en la opción 1/i })
+    );
+
+    expect(fetchCommerceSavedRecommendations).toHaveBeenCalledWith('commerce-1');
+    expect(
+      await screen.findByRole('button', { name: /reutilizar casco integral m en la opción 1/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Guantes gratis · 1 año')).toBeInTheDocument();
+
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: /buscar tarjetas guardadas para la opción 1/i }),
+      'bateria'
+    );
+    expect(
+      screen.queryByRole('button', { name: /reutilizar casco integral m/i })
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /reutilizar batería ytx9-bs en la opción 1/i })
+    );
+
+    expect(screen.getByLabelText('Nombre del producto, opción 1')).toHaveValue('Batería YTX9-BS');
+    expect(screen.getByLabelText('Precio de la opción 1')).toHaveValue(1200);
+    expect(screen.getByLabelText('Regalo o promoción de la opción 1')).toHaveValue('');
+    expect(screen.getByLabelText('Garantía de la opción 1')).toHaveValue('');
+    expect(screen.getByAltText('Vista previa de la opción 1')).toHaveAttribute('src', savedPhoto);
+
+    await userEvent.clear(screen.getByLabelText('Nombre del producto, opción 1'));
+    await userEvent.type(
+      screen.getByLabelText('Nombre del producto, opción 1'),
+      'Batería YTX9-BS ajustada'
+    );
+    await userEvent.clear(screen.getByLabelText('Precio de la opción 1'));
+    await userEvent.type(screen.getByLabelText('Precio de la opción 1'), '1350');
+    await userEvent.type(screen.getByLabelText('Regalo o promoción de la opción 1'), 'Cargador');
+    await userEvent.type(screen.getByLabelText('Garantía de la opción 1'), '2 años');
+    await userEvent.type(screen.getByLabelText('Nombre del producto, opción 2'), 'Batería YTX4L');
+    await userEvent.type(screen.getByLabelText('Precio de la opción 2'), '950');
+    await userEvent.click(screen.getByRole('button', { name: /quitar opción 3/i }));
+    await userEvent.click(screen.getByRole('button', { name: /enviar oferta/i }));
+
+    expect(await screen.findByText('Oferta enviada')).toBeInTheDocument();
+    expect(createOffer.mock.calls[0][0].recommended_options[0]).toMatchObject({
+      title: 'Batería YTX9-BS ajustada',
+      price: 1350,
+      image_url: savedPhoto,
+      gift_promo: 'Cargador',
+      warranty: '2 años',
+    });
   });
 
   it('envía el mini-catálogo y replica las opciones para la selección existente', async () => {

@@ -762,6 +762,7 @@ export default function Dashboard() {
                             options={recommendationOptions}
                             onChange={setRecommendationOptions}
                             userId={user?.id}
+                            commerceId={extra?.commerceId}
                             disabled={sending}
                           />
                         ) : (

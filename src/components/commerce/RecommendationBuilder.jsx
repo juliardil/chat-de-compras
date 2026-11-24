@@ -8,11 +8,16 @@ import {
   X,
 } from 'lucide-react';
 import SafeImage from '../ui/SafeImage';
-import { uploadRecommendationPhoto } from '../../data/appData';
+import {
+  fetchCommerceSavedRecommendations,
+  formatCurrency,
+  uploadRecommendationPhoto,
+} from '../../data/appData';
 import {
   MAX_RECOMMENDED_OPTIONS,
   emptyRecommendedOption,
 } from '../../data/recommendations';
+import { normalizeMatchingText } from '../../utils/matching';
 
 // Constructor del mini-catálogo «Recomiéndame». Es aditivo: el flujo de
 // referencia exacta sigue usando el editor de disponibilidad del dashboard.
@@ -20,11 +25,18 @@ export default function RecommendationBuilder({
   options = [],
   onChange,
   userId,
+  commerceId,
   disabled = false,
 }) {
   const fileInputs = useRef({});
+  const savedLoaded = useRef(false);
   const [uploading, setUploading] = useState({});
   const [error, setError] = useState('');
+  const [savedOpen, setSavedOpen] = useState(null);
+  const [savedCards, setSavedCards] = useState([]);
+  const [savedSearch, setSavedSearch] = useState('');
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [savedError, setSavedError] = useState('');
 
   const patchOption = (key, patch) => {
     if (!Array.isArray(options)) return;
@@ -67,6 +79,50 @@ export default function RecommendationBuilder({
     onChange(options.filter((option) => option.key !== key));
   };
 
+  // Biblioteca privada del comercio: solo se consultan las ofertas de su propio
+  // perfil. Se carga una vez por sesión del constructor para no repetir lecturas.
+  const toggleSaved = async (key) => {
+    if (savedOpen === key) {
+      setSavedOpen(null);
+      return;
+    }
+    setSavedOpen(key);
+    setSavedSearch('');
+    setSavedError('');
+    if (savedLoaded.current) return;
+
+    setSavedLoading(true);
+    const result = await fetchCommerceSavedRecommendations(commerceId);
+    setSavedLoading(false);
+    if (result.error || result.notice) {
+      setSavedError(
+        result.error || result.notice || 'No se pudieron cargar tus tarjetas guardadas.'
+      );
+      return;
+    }
+    setSavedCards(result.items);
+    savedLoaded.current = true;
+  };
+
+  const visibleSavedCards = savedCards.filter((card) =>
+    normalizeMatchingText(card.title).includes(normalizeMatchingText(savedSearch))
+  );
+
+  // La foto ya vive en Storage: se copia su URL tal cual. El comercio puede
+  // seguir editando todos los campos (incluida la foto) antes de enviar.
+  const reuseSavedCard = (card) => {
+    if (!savedOpen) return;
+    patchOption(savedOpen, {
+      title: card.title,
+      price: String(card.price),
+      image_url: card.image_url,
+      gift_promo: card.gift_promo || '',
+      warranty: card.warranty || '',
+    });
+    setSavedOpen(null);
+    setSavedSearch('');
+  };
+
   return (
     <div className="rounded-2xl border border-[#00EED0]/40 bg-[#00EED0]/5 p-3 space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -105,6 +161,89 @@ export default function RecommendationBuilder({
               </button>
             ) : null}
           </div>
+
+          <button
+            type="button"
+            aria-label={`Reutilizar tarjeta anterior en la opción ${index + 1}`}
+            onClick={() => toggleSaved(option.key)}
+            disabled={disabled}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#0197AF]/30 bg-white px-3 py-1.5 text-[11px] font-bold text-[#006E7A] transition hover:border-[#00EED0] hover:bg-[#00EED0]/10 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/40"
+          >
+            <span aria-hidden="true">📋</span>
+            Reutilizar tarjeta anterior
+          </button>
+
+          {savedOpen === option.key ? (
+            <div className="rounded-xl border border-[#00EED0]/40 bg-white p-2.5 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#006E7A]">
+                  Mis opciones guardadas
+                </p>
+                <button
+                  type="button"
+                  aria-label={`Cerrar tarjetas guardadas de la opción ${index + 1}`}
+                  onClick={() => setSavedOpen(null)}
+                  className="p-1 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-[#00EED0]/10"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-500">
+                Tus tarjetas anteriores con foto. Al elegir una podrás editar todos los datos.
+              </p>
+              <input
+                type="search"
+                aria-label={`Buscar tarjetas guardadas para la opción ${index + 1}`}
+                placeholder="Buscar por nombre"
+                value={savedSearch}
+                onChange={(event) => setSavedSearch(event.target.value)}
+                className="w-full rounded-lg border border-[#00EED0]/40 bg-white/80 px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0]"
+              />
+              {savedLoading ? (
+                <p className="text-[11px] text-gray-600">Cargando tus tarjetas…</p>
+              ) : null}
+              {!savedLoading && savedError ? (
+                <p role="alert" className="text-[11px] text-red-700">{savedError}</p>
+              ) : null}
+              {!savedLoading && !savedError && visibleSavedCards.length === 0 ? (
+                <p className="text-[11px] text-gray-600">
+                  No tienes tarjetas guardadas con ese nombre.
+                </p>
+              ) : null}
+              {!savedLoading && !savedError && visibleSavedCards.length > 0 ? (
+                <ul className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
+                  {visibleSavedCards.map((card) => (
+                    <li key={card.id}>
+                      <button
+                        type="button"
+                        aria-label={`Reutilizar ${card.title} en la opción ${index + 1}`}
+                        onClick={() => reuseSavedCard(card)}
+                        className="flex w-full items-center gap-2.5 rounded-xl border border-gray-200 bg-white p-2 text-left transition hover:border-[#00EED0] hover:bg-[#00EED0]/5 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/40"
+                      >
+                        <SafeImage
+                          src={card.image_url}
+                          alt={`Foto de ${card.title}`}
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-semibold text-gray-800">
+                            {card.title}
+                          </span>
+                          <span className="block text-[11px] font-bold text-[#006E7A]">
+                            {formatCurrency(card.price, 'MXN')}
+                          </span>
+                          <span className="block truncate text-[10px] text-gray-500">
+                            {[card.gift_promo, card.warranty].filter(Boolean).join(' · ') ||
+                              'Sin regalo ni garantía'}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
 
           <div>
             <input

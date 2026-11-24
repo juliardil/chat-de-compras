@@ -24,6 +24,7 @@ import { fetchGroupBadges } from './community';
 import {
   normalizeRecommendedOptions,
   normalizeRecommendationBudget,
+  normalizeSavedRecommendedOptions,
 } from './recommendations';
 
 export const appMode = isInsforgeConfigured ? 'insforge' : 'demo';
@@ -413,6 +414,36 @@ export const uploadRecommendationPhoto = async ({ userId, file }) => {
 
   const path = `offers/recommendations/${userId}/option-${Date.now()}.${profilePhotoExtension(file)}`;
   return uploadToAvatars(path, file, 'No se pudo subir la foto de la opción.');
+};
+
+// Biblioteca privada del comercio para reutilizar tarjetas en el constructor de
+// «Recomiéndame». En esta BD el dueño de la oferta es `commerce_id` (equivalente
+// a business_id/seller_id); RLS ya limita la lectura a las ofertas propias. Las
+// fotos se reutilizan tal cual desde `avatars/offers/recommendations/...`: no se
+// vuelven a subir ni se copian a otro bucket.
+export const fetchCommerceSavedRecommendations = async (commerceId) => {
+  if (!isInsforgeConfigured) return emptyResult(NOTICES.demo);
+  if (!commerceId) {
+    return emptyResult(
+      NOTICES.commerceMetrics,
+      'No se pudo identificar tu comercio para cargar tus tarjetas guardadas.'
+    );
+  }
+
+  const result = await runQuery(
+    (db) =>
+      db
+        .from('purchase_offers')
+        .select('id,recommended_options,created_at')
+        .eq('commerce_id', commerceId)
+        .not('recommended_options', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(100),
+    NOTICES.offers
+  );
+
+  if (result.error || result.notice) return result;
+  return { ...result, items: normalizeSavedRecommendedOptions(result.items) };
 };
 
 // -----------------------------------------------------------------------------

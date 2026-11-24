@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_RECOMMENDED_OPTIONS,
+  MAX_SAVED_RECOMMENDED_OPTIONS,
   RECOMMENDATION_CATEGORIES,
   RECOMMENDATION_VEHICLE_TYPES,
   buildRecommendationItem,
   emptyRecommendedOption,
   normalizeRecommendedOptions,
   normalizeRecommendationBudget,
+  normalizeSavedRecommendedOptions,
   recommendationBrandOptions,
   recommendationVehicleToStorage,
   serializeRecommendedOptions,
@@ -150,6 +152,81 @@ describe('reglas del flujo «Recomiéndame»', () => {
       'opt-5',
     ]);
     expect(normalizeRecommendedOptions(null)).toEqual([]);
+  });
+
+  it('recopila solo tarjetas con foto, deduplicadas por título e imagen', () => {
+    const offers = [
+      {
+        id: 'offer-old',
+        created_at: '2026-01-01T00:00:00Z',
+        recommended_options: [
+          {
+            id: 'old-casco',
+            title: 'Casco Integral M',
+            price: 400,
+            image_url: 'https://storage.example.com/casco.jpg',
+            gift_promo: 'Guantes',
+            warranty: '6 meses',
+          },
+          { id: 'sin-foto', title: 'Sin foto', price: 100 },
+        ],
+      },
+      {
+        id: 'offer-new',
+        created_at: '2026-02-01T00:00:00Z',
+        recommended_options: [
+          {
+            id: 'new-casco',
+            title: 'casco integral m',
+            price: 480,
+            image_url: 'https://storage.example.com/casco.jpg',
+            gift_promo: 'Guantes gratis',
+            warranty: '1 año',
+          },
+          {
+            id: 'new-bateria',
+            title: 'Batería YTX9',
+            price: 1200,
+            image_url: 'https://storage.example.com/bateria.jpg',
+          },
+        ],
+      },
+    ];
+
+    const cards = normalizeSavedRecommendedOptions(offers);
+
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toMatchObject({
+      id: 'offer-new-new-casco',
+      title: 'casco integral m',
+      price: 480,
+      image_url: 'https://storage.example.com/casco.jpg',
+      gift_promo: 'Guantes gratis',
+      warranty: '1 año',
+    });
+    expect(cards[1]).toMatchObject({
+      id: 'offer-new-new-bateria',
+      title: 'Batería YTX9',
+      price: 1200,
+    });
+  });
+
+  it('limita la biblioteca privada del comercio a 50 tarjetas', () => {
+    const offers = Array.from({ length: 11 }, (_, offerIndex) => ({
+      id: `offer-${offerIndex}`,
+      created_at: `2026-01-${String(offerIndex + 1).padStart(2, '0')}T00:00:00Z`,
+      recommended_options: Array.from({ length: 5 }, (_, optionIndex) => ({
+        id: `opt-${optionIndex}`,
+        title: `Producto ${offerIndex}-${optionIndex}`,
+        price: 100 + optionIndex,
+        image_url: `https://cdn.example.com/${offerIndex}-${optionIndex}.jpg`,
+      })),
+    }));
+
+    expect(normalizeSavedRecommendedOptions(offers)).toHaveLength(
+      MAX_SAVED_RECOMMENDED_OPTIONS
+    );
+    expect(normalizeSavedRecommendedOptions(null)).toEqual([]);
   });
 
   it('valida nombre y precio de cada opción antes de enviarla', () => {

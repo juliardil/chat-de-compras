@@ -3,6 +3,7 @@ import {
   buildPurchaseRequestPayload,
   calculateDistanceKm,
   describeError,
+  fetchCommerceSavedRecommendations,
   fetchBuyerOrders,
   formatDistance,
   fetchBuyerRequests,
@@ -39,6 +40,16 @@ describe('capa de datos de la app', () => {
     const notifications = await fetchNotifications();
     expect(notifications.items).toEqual([]);
     expect(notifications.notice).toBe(NOTICES.notifications);
+
+    const saved = await fetchCommerceSavedRecommendations('commerce-1');
+    expect(saved.items).toEqual([]);
+    expect(saved.notice).toBe(NOTICES.demo);
+  });
+
+  it('mantiene el aviso de demo para las tarjetas guardadas', async () => {
+    const saved = await fetchCommerceSavedRecommendations(null);
+    expect(saved.items).toEqual([]);
+    expect(saved.notice).toBe(NOTICES.demo);
   });
 
   it('no simula éxito al escribir sin backend', async () => {
