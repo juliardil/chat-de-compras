@@ -12,8 +12,8 @@ import {
   suggestServiceSpecialty,
 } from '../../data/serviceSpecialties';
 import { SERVICE_MODALITIES } from '../../data/serviceModalities';
+import { COMMERCE_INVENTORY_LINES, getInventoryLinesForVehicle } from '../../data/vehicleLines';
 import {
-  RECOMMENDATION_CATEGORIES,
   RECOMMENDATION_VEHICLE_TYPES,
   buildRecommendationItem,
   normalizeRecommendationBudget,
@@ -38,12 +38,9 @@ import {
 // Actualización Junio 2026 - Formulario Exclusivo Automotriz
 
 const AUTOMOTIVE_FORM_FIELDS = [
-  { name: 'category', label: 'Tipo de repuesto/accesorio', type: 'select', options: [
-    'Motor', 'Frenos', 'Suspensión', 'Eléctrico',
-    'Llantas y Neumáticos', 'Interior / Exterior',
-    'Lubricantes y Fluidos', 'Taller Mecánico',
-    'Accesorios Vehiculares', 'Audio y Sonido', 'Seguridad Vehicular'
-  ]},
+  // Las opciones visibles se calculan por vehículo en renderField; esta lista
+  // es el respaldo del catálogo compartido cuando aún no hay vehículo elegido.
+  { name: 'category', label: 'Tipo de repuesto/accesorio', type: 'select', options: COMMERCE_INVENTORY_LINES },
   { name: 'item', label: 'Producto específico', placeholder: 'Ej: Pastillas de freno, filtro de aceite, batería', type: 'text' },
   { name: 'vehicleType', label: 'Tipo de vehículo', type: 'select', options: ['Auto', 'Moto', 'Camioneta', 'Camión', 'Tractor', 'Otro'] },
   { name: 'vehicleBrand', label: 'Marca del vehículo', placeholder: 'Ej: Toyota, Ford, Honda', type: 'text' },
@@ -183,6 +180,16 @@ export default function RequestForm() {
     });
   };
 
+  // «Recomiéndame» usa el mismo catálogo por vehículo que la referencia exacta.
+  const handleRecommendationVehicleChange = (event) => {
+    const vehicleType = event.target.value;
+    updateRecommendation('vehicleType', vehicleType);
+    const allowedLines = getInventoryLinesForVehicle(vehicleType);
+    if (recommendation.category && !allowedLines.includes(recommendation.category)) {
+      updateRecommendation('category', '');
+    }
+  };
+
   const handleServiceFaultChange = (event) => {
     const description = event.target.value;
     setServiceFault(description);
@@ -263,7 +270,18 @@ export default function RequestForm() {
   };
 
   const updateProduct = (id, field, value) => {
-    setProducts(products.map(p => p.id === id ? { ...p, [field]: value } : p));
+    setProducts(products.map((p) => {
+      if (p.id !== id) return p;
+      const updated = { ...p, [field]: value };
+      // Cambiar de Carro a Moto (o al revés) descarta una línea que ya no
+      // existe para ese vehículo; el desplegable muestra solo las opciones
+      // del catálogo compartido.
+      if (field === 'vehicleType' && value) {
+        const allowedLines = getInventoryLinesForVehicle(value);
+        if (!allowedLines.includes(p.category)) updated.category = '';
+      }
+      return updated;
+    }));
 
     setErrors((prev) => {
       const fieldsToClear = field === 'yearFrom' || field === 'yearTo'
@@ -542,7 +560,12 @@ export default function RequestForm() {
 
   // Render compartido para no duplicar estilos entre los campos principales y
   // los del acordeón. Las sugerencias solo acompañan al producto específico.
-  const renderField = (product, field) => (
+  const renderField = (product, field) => {
+    const options = field.name === 'category'
+      ? getInventoryLinesForVehicle(product.vehicleType)
+      : field.options;
+
+    return (
     <div key={field.name}>
       {field.type === 'select' ? (
         <div className="flex flex-col gap-1.5">
@@ -554,7 +577,7 @@ export default function RequestForm() {
               className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
             >
               <option value="">Selecciona una opción</option>
-              {field.options.map((opt) => (
+              {options.map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
@@ -608,7 +631,8 @@ export default function RequestForm() {
         <p className="text-xs text-red-700 mt-1">{errors[product.id][field.name]}</p>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] flex flex-col">
@@ -865,7 +889,7 @@ export default function RequestForm() {
                       id="recommendation-vehicle"
                       aria-label="Tipo de vehículo para recomendaciones"
                       value={recommendation.vehicleType}
-                      onChange={(event) => updateRecommendation('vehicleType', event.target.value)}
+                      onChange={handleRecommendationVehicleChange}
                       className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
                     >
                       <option value="">Selecciona una opción</option>
@@ -893,7 +917,7 @@ export default function RequestForm() {
                       className="w-full bg-white/70 border border-white/30 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#00EED0]/30 focus:border-[#00EED0] appearance-none cursor-pointer"
                     >
                       <option value="">Selecciona una opción</option>
-                      {RECOMMENDATION_CATEGORIES.map((category) => (
+                      {getInventoryLinesForVehicle(recommendation.vehicleType).map((category) => (
                         <option key={category} value={category}>{category}</option>
                       ))}
                     </select>

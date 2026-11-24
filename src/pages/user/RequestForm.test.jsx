@@ -85,6 +85,27 @@ describe('publicación de una solicitud', () => {
     });
   });
 
+  it('actualiza la línea/categoría al cambiar entre Carro y Moto', async () => {
+    renderForm();
+
+    const [category, vehicleType] = screen.getAllByRole('combobox');
+    await userEvent.selectOptions(vehicleType, 'Auto');
+    expect(within(category).getByRole('option', { name: 'Audio y Sonido' })).toBeInTheDocument();
+    expect(
+      within(category).queryByRole('option', { name: 'Kit de Arrastre / Transmisión' })
+    ).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(category, 'Audio y Sonido');
+    await userEvent.selectOptions(vehicleType, 'Moto');
+    expect(
+      within(category).queryByRole('option', { name: 'Audio y Sonido' })
+    ).not.toBeInTheDocument();
+    expect(
+      within(category).getByRole('option', { name: 'Kit de Arrastre / Transmisión' })
+    ).toBeInTheDocument();
+    expect(category).toHaveValue('');
+  });
+
   it('no muestra la confirmación si la publicación falla', async () => {
     createPurchaseRequest.mockResolvedValue({
       ok: false,
@@ -446,6 +467,31 @@ describe('solicitudes con «Recomiéndame»', () => {
     expect(screen.queryByLabelText('Año del vehículo')).not.toBeInTheDocument();
   });
 
+  it('filtra la línea del mini-catálogo según el vehículo elegido', async () => {
+    await activateRecommendation();
+
+    const vehicleType = screen.getByRole('combobox', {
+      name: 'Tipo de vehículo para recomendaciones',
+    });
+    const category = screen.getByRole('combobox', {
+      name: 'Línea o categoría para recomendaciones',
+    });
+
+    await userEvent.selectOptions(vehicleType, 'Carro');
+    expect(within(category).getByRole('option', { name: 'Seguridad Vehicular' })).toBeInTheDocument();
+    expect(
+      within(category).queryByRole('option', { name: 'Cascos e Indumentaria / Seguridad' })
+    ).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(vehicleType, 'Moto');
+    expect(
+      within(category).queryByRole('option', { name: 'Seguridad Vehicular' })
+    ).not.toBeInTheDocument();
+    expect(
+      within(category).getByRole('option', { name: 'Cascos e Indumentaria / Seguridad' })
+    ).toBeInTheDocument();
+  });
+
   it('oculta la referencia exacta y pide solo los datos de asesoría', async () => {
     await activateRecommendation();
 
@@ -551,7 +597,7 @@ describe('solicitudes con «Recomiéndame»', () => {
     await activateRecommendation();
     await fillRecommendation({
       vehicle: 'Moto',
-      category: 'Accesorios Vehiculares',
+      category: 'Accesorios y Lujos',
       product: 'Casco',
     });
 
@@ -560,7 +606,7 @@ describe('solicitudes con «Recomiéndame»', () => {
     expect(await screen.findByText('Confirmación de publicación')).toBeInTheDocument();
     expect(createPurchaseRequest.mock.calls[0][0]).toMatchObject({
       vehicle_type: 'Moto',
-      category: 'Accesorios Vehiculares',
+      category: 'Accesorios y Lujos',
       title: 'Casco',
     });
   });

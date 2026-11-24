@@ -22,10 +22,23 @@ import {
 } from '../utils/matching';
 import { fetchGroupBadges } from './community';
 import {
+  getInventoryLinesForVehicles,
+  normalizeCommerceVehicleTypes,
+} from './vehicleLines';
+import {
   normalizeRecommendedOptions,
   normalizeRecommendationBudget,
   normalizeSavedRecommendedOptions,
 } from './recommendations';
+
+export {
+  COMMERCE_INVENTORY_LINES,
+  COMMERCE_INVENTORY_LINES_BY_VEHICLE,
+  COMMERCE_VEHICLE_TYPES,
+  getInventoryLinesForVehicle,
+  getInventoryLinesForVehicles,
+  normalizeCommerceVehicleTypes,
+} from './vehicleLines';
 
 export const appMode = isInsforgeConfigured ? 'insforge' : 'demo';
 
@@ -57,27 +70,6 @@ export const NOTICES = {
   write:
     'No se pudo guardar la operación. Verifica tu sesión y tus permisos.',
 };
-
-// Valores canónicos de segmentación. La RPC de matching del backend compara
-// estas mismas cadenas (normalizadas) con la solicitud del comprador.
-export const COMMERCE_VEHICLE_TYPES = [
-  { value: 'carros', label: 'Carros' },
-  { value: 'motos', label: 'Motos' },
-];
-
-export const COMMERCE_INVENTORY_LINES = [
-  'Motor',
-  'Frenos',
-  'Suspensión',
-  'Eléctrico',
-  'Llantas y Neumáticos',
-  'Interior / Exterior',
-  'Lubricantes y Fluidos',
-  'Taller Mecánico',
-  'Accesorios Vehiculares',
-  'Audio y Sonido',
-  'Seguridad Vehicular',
-];
 
 const PERMISSION_PATTERN =
   /permission|denied|not authorized|row[- ]level|rls|policy|jwt|401|403|insufficient privilege/i;
@@ -2387,18 +2379,21 @@ export const updateCommerceMaxResponseMinutes = async (minutes) => {
 
 // Segmentación del comercio: la RPC actualiza commerce_profiles y el matching
 // de /dashboard lee esas mismas columnas a través de RLS.
-export const updateCommerceSegmentation = async ({ vehicleTypes, inventorySystems }) => {
-  const vehicles = Array.isArray(vehicleTypes) ? [...new Set(vehicleTypes)] : [];
-  const lines = Array.isArray(inventorySystems) ? [...new Set(inventorySystems)] : [];
-  const allowedVehicles = COMMERCE_VEHICLE_TYPES.map((item) => item.value);
-  const invalidVehicles = vehicles.filter((value) => !allowedVehicles.includes(value));
-  const invalidLines = lines.filter((value) => !COMMERCE_INVENTORY_LINES.includes(value));
+export const updateCommerceSegmentation = async ({ vehicleTypes, inventorySystems } = {}) => {
+  // Se normalizan los vehículos antes de validar: así una selección antigua
+  // ("Auto") sigue guardándose como "carros", que es lo que lee el matching.
+  const vehicles = normalizeCommerceVehicleTypes(vehicleTypes);
+  const lines = Array.isArray(inventorySystems)
+    ? [...new Set(inventorySystems.map((line) => String(line ?? '').trim()).filter(Boolean))]
+    : [];
+  const allowedLines = getInventoryLinesForVehicles(vehicles);
+  const invalidLines = lines.filter((line) => !allowedLines.includes(line));
 
-  if (invalidVehicles.length > 0 || invalidLines.length > 0 || !vehicles.length || !lines.length) {
+  if (!vehicles.length || !lines.length || invalidLines.length > 0) {
     return {
       ok: false,
       item: null,
-      error: 'Selecciona al menos un tipo de vehículo y una línea de inventario válidos.',
+      error: 'Selecciona al menos un tipo de vehículo y una línea de inventario válidos para esos vehículos.',
     };
   }
 

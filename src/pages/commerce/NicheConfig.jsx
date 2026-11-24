@@ -6,9 +6,11 @@ import { DataNotice } from '../../components/ui/ModuleState';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/auth-context';
 import {
-  COMMERCE_INVENTORY_LINES,
   COMMERCE_VEHICLE_TYPES,
   fetchCommerceIdForUser,
+  getInventoryLinesForVehicle,
+  getInventoryLinesForVehicles,
+  normalizeCommerceVehicleTypes,
   normalizeSlaMinutes,
   updateCommerceMaxResponseMinutes,
   updateCommerceSegmentation,
@@ -43,22 +45,22 @@ export default function NicheConfig() {
     async () => {
       const commerce = await fetchCommerceIdForUser(user?.id);
       const row = commerce.item || {};
+      const vehicleTypes = normalizeCommerceVehicleTypes(
+        asList(row.vehicle_types, business.vehicleTypes, business.vehicle_types)
+      );
+      const allowedLines = getInventoryLinesForVehicles(vehicleTypes);
       return {
         items: [],
         error: commerce.error,
         notice: commerce.notice,
         extra: {
           minutes: normalizeSlaMinutes(row.max_response_minutes),
-          vehicleTypes: asList(
-            row.vehicle_types,
-            business.vehicleTypes,
-            business.vehicle_types
-          ),
+          vehicleTypes,
           inventorySystems: asList(
             row.inventory_systems,
             business.inventorySystems,
             business.inventory_systems
-          ),
+          ).filter((line) => allowedLines.includes(line)),
         },
       };
     },
@@ -80,9 +82,30 @@ export default function NicheConfig() {
     if (Array.isArray(extra.inventorySystems)) setSelectedInventorySystems(extra.inventorySystems);
   }, [extra]);
 
+  // Cada familia muestra solo sus líneas. Las compartidas (Motor, Frenos…)
+  // aparecen en ambos grupos y comparten el mismo valor guardado.
+  const linesByVehicle = selectedVehicleTypes.map((family) => ({
+    family,
+    label: COMMERCE_VEHICLE_TYPES.find((item) => item.value === family)?.label || family,
+    lines: getInventoryLinesForVehicle(family),
+  }));
+
   const toggleValue = (setter) => (value) => {
     setter((current) =>
       current.includes(value) ? current.filter((item) => item !== value) : [...current, value]
+    );
+  };
+
+  // Al quitar un vehículo también se quitan las líneas que solo aplicaban a él,
+  // para que la combinación guardada siga siendo válida en el matching.
+  const toggleVehicleType = (family) => {
+    const nextVehicleTypes = selectedVehicleTypes.includes(family)
+      ? selectedVehicleTypes.filter((item) => item !== family)
+      : [...selectedVehicleTypes, family];
+    const allowedLines = getInventoryLinesForVehicles(nextVehicleTypes);
+    setSelectedVehicleTypes(nextVehicleTypes);
+    setSelectedInventorySystems((current) =>
+      current.filter((line) => allowedLines.includes(line))
     );
   };
 
@@ -117,10 +140,12 @@ export default function NicheConfig() {
     setSavingNiches(true);
     setNicheMessage(null);
     try {
-      const result = await updateCommerceSegmentation({
-        vehicleTypes: selectedVehicleTypes,
-        inventorySystems: selectedInventorySystems,
-      });
+      const vehicleTypes = normalizeCommerceVehicleTypes(selectedVehicleTypes);
+      const allowedLines = getInventoryLinesForVehicles(vehicleTypes);
+      const inventorySystems = selectedInventorySystems.filter((line) =>
+        allowedLines.includes(line)
+      );
+      const result = await updateCommerceSegmentation({ vehicleTypes, inventorySystems });
 
       // En modo demostración no hay RPC: se conserva la edición local del perfil.
       if (!result.ok && !result.skipped) {
@@ -131,8 +156,8 @@ export default function NicheConfig() {
         return;
       }
 
-      const vehicleTypes = result.item?.vehicleTypes || selectedVehicleTypes;
-      const inventorySystems = result.item?.inventorySystems || selectedInventorySystems;
+      const savedVehicleTypes = result.item?.vehicleTypes || vehicleTypes;
+      const savedInventorySystems = result.item?.inventorySystems || inventorySystems;
 
       // Mantiene auth.users.profile.business alineado y refresca el usuario en
       // memoria. app_ensure_profile ya sincronizó esas mismas listas a la BD.
@@ -140,8 +165,8 @@ export default function NicheConfig() {
         await updateProfile({
           business: {
             ...business,
-            vehicleTypes,
-            inventorySystems,
+            vehicleTypes: savedVehicleTypes,
+            inventorySystems: savedInventorySystems,
           },
         });
       } catch {
@@ -176,6 +201,7 @@ export default function NicheConfig() {
     >
       <input
         type="checkbox"
+        aria-label={label}
         checked={checked}
         onChange={() => onChange(value)}
         className="h-4 w-4 accent-[#0197AF]"
@@ -262,29 +288,50 @@ export default function NicheConfig() {
                 value: item.value,
                 label: item.label,
                 checked: selectedVehicleTypes.includes(item.value),
-                onChange: toggleValue(setSelectedVehicleTypes),
+                onChange: toggleVehicleType,
                 icon: Car,
               })
             )}
           </div>
 
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#4B227A]">
-            Líneas de inventario
+            Líneas de inventario por vehículo
           </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {COMMERCE_INVENTORY_LINES.map((line) =>
-              renderCheckCard({
-                value: line,
-                label: line,
-                checked: selectedInventorySystems.includes(line),
-                onChange: toggleValue(setSelectedInventorySystems),
-              })
-            )}
-          </div>
+          {linesByVehicle.length === 0 ? (
+            <DataNotice tone="info" className="mb-3">
+              Marca al menos un tipo de vehículo para ver sus líneas disponibles.
+            </DataNotice>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {linesByVehicle.map(({ family, label, lines }) => (
+                <div
+                  key={family}
+                  role="group"
+                  aria-label={`Líneas para ${label}`}
+                  className="rounded-xl border border-[#4B227A]/15 bg-white/60 p-3"
+                >
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#006E7A]">
+                    {label}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {lines.map((line) =>
+                      renderCheckCard({
+                        value: line,
+                        label: line,
+                        checked: selectedInventorySystems.includes(line),
+                        onChange: toggleValue(setSelectedInventorySystems),
+                      })
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <p className="mt-3 text-[11px] text-gray-600">
+            Las líneas compartidas (Motor, Frenos…) aparecen en ambos grupos y se marcan una sola vez.
             Marcas {selectedVehicleTypes.length} tipos de vehículo y {selectedInventorySystems.length}{' '}
-            líneas. Al guardar, las solicitudes entrantes de esas líneas aparecen de inmediato en tu panel.
+            líneas. Al guardar, las solicitudes entrantes de esa combinación aparecen de inmediato en tu panel.
           </p>
           <Button
             onClick={handleSaveNiches}

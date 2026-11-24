@@ -557,6 +557,9 @@ describe('ciclo de vida de la oferta y reputación', () => {
       'Accesorios Vehiculares',
       'Audio y Sonido',
       'Seguridad Vehicular',
+      'Kit de Arrastre / Transmisión',
+      'Accesorios y Lujos',
+      'Cascos e Indumentaria / Seguridad',
     ]);
   });
 
@@ -572,6 +575,30 @@ describe('ciclo de vida de la oferta y reputación', () => {
 
     await expect(
       updateCommerceSegmentation({ vehicleTypes: ['carros'], inventorySystems: ['Suspensión'] })
+    ).resolves.toMatchObject({ ok: false, skipped: true, item: null });
+  });
+
+  it('rechaza líneas que no corresponden al vehículo seleccionado', async () => {
+    await expect(
+      updateCommerceSegmentation({
+        vehicleTypes: ['carros'],
+        inventorySystems: ['Cascos e Indumentaria / Seguridad'],
+      })
+    ).resolves.toMatchObject({ ok: false, item: null, error: /para esos vehículos/ });
+
+    await expect(
+      updateCommerceSegmentation({
+        vehicleTypes: ['motos'],
+        inventorySystems: ['Cascos e Indumentaria / Seguridad'],
+      })
+    ).resolves.toMatchObject({ ok: false, skipped: true, item: null });
+
+    // El formulario envía "Auto"; la RPC debe recibir el valor canónico.
+    await expect(
+      updateCommerceSegmentation({
+        vehicleTypes: ['Auto', 'Moto'],
+        inventorySystems: ['Motor', 'Kit de Arrastre / Transmisión'],
+      })
     ).resolves.toMatchObject({ ok: false, skipped: true, item: null });
   });
 });

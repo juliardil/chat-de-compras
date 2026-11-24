@@ -92,6 +92,27 @@ const CATEGORY_KEYS = [
   },
   { key: 'audio', aliases: ['audio', 'audio y sonido', 'sonido', 'estereo'] },
   { key: 'seguridad', aliases: ['seguridad', 'seguridad vehicular'] },
+  // Líneas específicas de moto del catálogo compartido (vehicleLines.js).
+  // Claves propias para que una combinación Moto + Cascos no se confunda con
+  // Carro + Seguridad Vehicular.
+  {
+    key: 'kit arrastre',
+    aliases: [
+      'kit arrastre',
+      'kit de arrastre',
+      'kit arrastre transmision',
+      'kit de arrastre transmision',
+    ],
+  },
+  { key: 'accesorios lujos', aliases: ['accesorios lujos', 'accesorios y lujos'] },
+  {
+    key: 'cascos indumentaria seguridad',
+    aliases: [
+      'cascos',
+      'cascos indumentaria seguridad',
+      'cascos e indumentaria seguridad',
+    ],
+  },
 ];
 
 const CATEGORY_KEY_BY_ALIAS = new Map(

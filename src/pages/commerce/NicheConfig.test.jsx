@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,6 +35,9 @@ const renderConfig = () =>
     </AuthContext.Provider>
   );
 
+const carGroup = () => screen.getByRole('group', { name: 'Líneas para Carros' });
+const motoGroup = () => screen.getByRole('group', { name: 'Líneas para Motos' });
+
 beforeEach(() => {
   fetchCommerceIdForUser.mockReset();
   fetchCommerceIdForUser.mockResolvedValue({
@@ -64,58 +67,72 @@ describe('nichos y líneas activas del comercio', () => {
       await screen.findByRole('checkbox', { name: 'Carros', checked: true })
     ).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Motos' })).not.toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Frenos' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Motor' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Suspensión' })).not.toBeChecked();
+    expect(within(carGroup()).getByRole('checkbox', { name: 'Frenos' })).toBeChecked();
+    expect(within(carGroup()).getByRole('checkbox', { name: 'Motor' })).toBeChecked();
+    expect(within(carGroup()).getByRole('checkbox', { name: 'Suspensión' })).not.toBeChecked();
+    expect(screen.queryByRole('group', { name: 'Líneas para Motos' })).not.toBeInTheDocument();
   });
 
-  it('ofrece todos los tipos de vehículo y líneas de inventario', async () => {
+  it('muestra las líneas de cada vehículo al marcar Carros y Motos', async () => {
+    const user = userEvent.setup();
     renderConfig();
 
-    expect(await screen.findByText('Tipos de vehículo')).toBeInTheDocument();
-    expect(screen.getByText('Líneas de inventario')).toBeInTheDocument();
-    ['Carros', 'Motos'].forEach((label) => {
-      expect(screen.getByRole('checkbox', { name: label })).toBeInTheDocument();
-    });
-    [
-      'Motor',
-      'Frenos',
-      'Suspensión',
-      'Eléctrico',
-      'Llantas y Neumáticos',
-      'Interior / Exterior',
-      'Lubricantes y Fluidos',
-      'Taller Mecánico',
-      'Accesorios Vehiculares',
-      'Audio y Sonido',
-      'Seguridad Vehicular',
-    ].forEach((label) => {
-      expect(screen.getByRole('checkbox', { name: label })).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Líneas de inventario por vehículo')).toBeInTheDocument();
+    const carLineGroup = await screen.findByRole('group', { name: 'Líneas para Carros' });
+    expect(within(carLineGroup).getByRole('checkbox', { name: 'Audio y Sonido' })).toBeInTheDocument();
+    expect(
+      within(carGroup()).queryByRole('checkbox', { name: 'Kit de Arrastre / Transmisión' })
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Motos' }));
+
+    expect(within(motoGroup()).getByRole('checkbox', { name: 'Kit de Arrastre / Transmisión' })).toBeInTheDocument();
+    expect(within(motoGroup()).getByRole('checkbox', { name: 'Accesorios y Lujos' })).toBeInTheDocument();
+    expect(within(motoGroup()).getByRole('checkbox', { name: 'Cascos e Indumentaria / Seguridad' })).toBeInTheDocument();
+    expect(within(motoGroup()).queryByRole('checkbox', { name: 'Audio y Sonido' })).not.toBeInTheDocument();
   });
 
-  it('marca/desmarca valores, guarda en la BD y refresca el perfil', async () => {
+  it('marca/desmarca líneas por vehículo, guarda en la BD y refresca el perfil', async () => {
     const user = userEvent.setup();
     renderConfig();
 
     await user.click(await screen.findByRole('checkbox', { name: 'Motos' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Frenos' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Suspensión' }));
+    await user.click(within(carGroup()).getByRole('checkbox', { name: 'Frenos' }));
+    await user.click(within(carGroup()).getByRole('checkbox', { name: 'Suspensión' }));
+    await user.click(
+      within(motoGroup()).getByRole('checkbox', { name: 'Kit de Arrastre / Transmisión' })
+    );
     await user.click(screen.getByRole('button', { name: 'Guardar nichos y líneas' }));
 
     expect(updateCommerceSegmentation).toHaveBeenCalledWith({
       vehicleTypes: ['carros', 'motos'],
-      inventorySystems: ['Motor', 'Suspensión'],
+      inventorySystems: ['Motor', 'Suspensión', 'Kit de Arrastre / Transmisión'],
     });
     expect(updateProfile).toHaveBeenCalledWith({
       business: {
         vehicleTypes: ['carros', 'motos'],
-        inventorySystems: ['Motor', 'Suspensión'],
+        inventorySystems: ['Motor', 'Suspensión', 'Kit de Arrastre / Transmisión'],
       },
     });
-    expect(
-      await screen.findByText(/Nichos y líneas guardados/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Nichos y líneas guardados/i)).toBeInTheDocument();
+  });
+
+  it('descarta las líneas exclusivas al desmarcar su vehículo', async () => {
+    const user = userEvent.setup();
+    renderConfig();
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Motos' }));
+    await user.click(
+      within(motoGroup()).getByRole('checkbox', { name: 'Cascos e Indumentaria / Seguridad' })
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Motos' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar nichos y líneas' }));
+
+    expect(screen.queryByRole('group', { name: 'Líneas para Motos' })).not.toBeInTheDocument();
+    expect(updateCommerceSegmentation).toHaveBeenCalledWith({
+      vehicleTypes: ['carros'],
+      inventorySystems: ['Frenos', 'Motor'],
+    });
   });
 
   it('muestra el error del backend y no actualiza el perfil local', async () => {
@@ -126,7 +143,12 @@ describe('nichos y líneas activas del comercio', () => {
     });
     renderConfig();
 
-    await user.click(await screen.findByRole('checkbox', { name: 'Suspensión' }));
+    await user.click(
+      within(await screen.findByRole('group', { name: 'Líneas para Carros' })).getByRole(
+        'checkbox',
+        { name: 'Suspensión' }
+      )
+    );
     await user.click(screen.getByRole('button', { name: 'Guardar nichos y líneas' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

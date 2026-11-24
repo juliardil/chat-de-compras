@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
+import { getInventoryLinesForVehicles } from '../../data/vehicleLines';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { Store, FileText, Mail, Lock, ArrowLeft, CheckCircle2, Car, Bike, ShieldCheck } from 'lucide-react';
@@ -111,7 +112,16 @@ export default function RegisterCommerce() {
     } else {
       newVehicleTypes.push(type);
     }
-    setFormData({...formData, vehicleTypes: newVehicleTypes});
+    // Las líneas se recalculan con el catálogo compartido: al quitar un
+    // vehículo se descartan las líneas que ya no le corresponden.
+    const allowedLines = getInventoryLinesForVehicles(newVehicleTypes);
+    setFormData({
+      ...formData,
+      vehicleTypes: newVehicleTypes,
+      inventorySystems: formData.inventorySystems.filter((system) =>
+        allowedLines.includes(system)
+      ),
+    });
   };
 
   const handleInventorySystemChange = (system) => {
@@ -313,12 +323,7 @@ export default function RegisterCommerce() {
                     ¿Qué sistemas o líneas abarca tu inventario? <span className="text-red-700">*</span>
                   </label>
                   <div className="space-y-2">
-                    {[
-                      'Motor', 'Frenos', 'Suspensión', 'Eléctrico',
-                      'Llantas y Neumáticos', 'Interior / Exterior',
-                      'Lubricantes y Fluidos', 'Taller Mecánico',
-                      'Accesorios Vehiculares', 'Audio y Sonido', 'Seguridad Vehicular'
-                    ].map((system) => (
+                    {getInventoryLinesForVehicles(formData.vehicleTypes).map((system) => (
                       <label key={system} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                         formData.inventorySystems.includes(system) 
                           ? 'border-[#0197AF] bg-[#0197AF]/5' 

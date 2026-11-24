@@ -35,6 +35,11 @@ describe('normalización de segmentación', () => {
     expect(normalizeCategoryKey('Taller Mecánico')).toBe('taller');
     expect(normalizeCategoryKey('Audio y Sonido')).toBe('audio');
     expect(normalizeCategoryKey('Suspensión')).toBe('suspension');
+    expect(normalizeCategoryKey('Kit de Arrastre / Transmisión')).toBe('kit arrastre');
+    expect(normalizeCategoryKey('Accesorios y Lujos')).toBe('accesorios lujos');
+    expect(normalizeCategoryKey('Cascos e Indumentaria / Seguridad')).toBe(
+      'cascos indumentaria seguridad'
+    );
     expect(normalizeCategoryKey('')).toBe('');
   });
 });
@@ -199,5 +204,53 @@ describe('enrutamiento del flujo «Recomiéndame»', () => {
       )
     ).toHaveLength(1);
     expect(normalizeCategoryKey('Eléctrico')).toBe('electrico');
+  });
+});
+
+describe('combinación exacta vehículo + línea del catálogo', () => {
+  const request = (vehicleType, category) => ({
+    vehicle_type: vehicleType,
+    category,
+    items: [{ vehicleType, category, item: 'Producto' }],
+  });
+
+  it('dirige las líneas exclusivas de moto solo a comercios de motos', () => {
+    ['Kit de Arrastre / Transmisión', 'Accesorios y Lujos', 'Cascos e Indumentaria / Seguridad'].forEach(
+      (category) => {
+        expect(
+          isRequestCompatibleWithCommerce(
+            request('Moto', category),
+            commerce({ vehicle_types: ['motos'], inventory_systems: [category] })
+          )
+        ).toBe(true);
+        expect(
+          isRequestCompatibleWithCommerce(
+            request('Moto', category),
+            commerce({ vehicle_types: ['carros'], inventory_systems: [category] })
+          )
+        ).toBe(false);
+      }
+    );
+  });
+
+  it('no cruza una línea de moto con la línea de carros parecida', () => {
+    expect(
+      isRequestCompatibleWithCommerce(
+        request('Moto', 'Cascos e Indumentaria / Seguridad'),
+        commerce({ vehicle_types: ['motos'], inventory_systems: ['Seguridad Vehicular'] })
+      )
+    ).toBe(false);
+    expect(
+      isRequestCompatibleWithCommerce(
+        request('Moto', 'Accesorios y Lujos'),
+        commerce({ vehicle_types: ['motos'], inventory_systems: ['Accesorios Vehiculares'] })
+      )
+    ).toBe(false);
+    expect(
+      isRequestCompatibleWithCommerce(
+        request('Auto', 'Suspensión'),
+        commerce({ vehicle_types: ['carros'], inventory_systems: ['Suspensión'] })
+      )
+    ).toBe(true);
   });
 });
