@@ -12,8 +12,10 @@ import {
   formatDistance,
   fetchBuyerRequests,
   fetchNotifications,
+  classifyChatSalesStage,
   createOrderForChat,
   createPurchaseRequest,
+  fetchChatStageBoard,
   mapChatMessage,
   mapChatThread,
   mapLifecycleThread,
@@ -330,6 +332,23 @@ describe('capa de datos de la app', () => {
     expect(thread.avatar).toBe('https://cdn.example.com/taller.jpg');
     expect(thread.status).toBe('active');
     expect(thread.unread).toBe(0);
+    expect(thread.salesStage).toBe('negotiating');
+  });
+
+  it('clasifica las conversaciones por etapa sin inventar estados', () => {
+    expect(classifyChatSalesStage({ sales_stage: 'pending' })).toBe('pending');
+    expect(classifyChatSalesStage({ sales_stage: 'delivered' })).toBe('delivered');
+    expect(classifyChatSalesStage({ order_status: 'shipped' })).toBe('pending');
+    expect(classifyChatSalesStage({ lifecycle_state: 'ENTREGA_CONFIRMADA' })).toBe('delivered');
+    expect(classifyChatSalesStage({ delivery_confirmed_at: new Date().toISOString() })).toBe('delivered');
+    expect(classifyChatSalesStage({ lifecycle_state: 'SIN_CICLO' })).toBe('negotiating');
+    expect(classifyChatSalesStage({ sales_stage: 'inventado' })).toBe('negotiating');
+  });
+
+  it('no inventa contadores de etapas sin backend', async () => {
+    const board = await fetchChatStageBoard();
+    expect(board.counts).toEqual({ negotiating: 0, pending: 0, delivered: 0 });
+    expect(board.stages).toEqual({});
   });
 
   it('conserva la atribución del vendedor en la conversación del comprador', () => {

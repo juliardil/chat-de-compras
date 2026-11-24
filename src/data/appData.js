@@ -1785,6 +1785,33 @@ const fetchChatThreadsBy = async (column, id, role) => {
   return { ...result, items: await attachChatCounterparts(result.items, role) };
 };
 
+export const CHAT_SALES_STAGES = ['negotiating', 'pending', 'delivered'];
+
+const PENDING_ORDER_STATUSES = new Set(['pending', 'confirmed', 'preparing', 'shipped', 'disputed']);
+const DELIVERED_ORDER_STATUSES = new Set(['delivered', 'completed']);
+const DELIVERED_LIFECYCLE_STATES = new Set(['ENTREGA_CONFIRMADA', 'CALIFICADO']);
+
+// Espejo de la regla del trigger `app_chat_sales_stage_sync`. La columna
+// `sales_stage` ya viene calculada de InsForge; las señales del ciclo y del
+// pedido cubren respaldos y datos en modo demostración.
+export const classifyChatSalesStage = (row) => {
+  const lifecycle = String(row?.lifecycle_state || row?.lifecycleState || '').toUpperCase();
+  const orderStatus = String(row?.order_status || row?.orderStatus || '').toLowerCase();
+
+  if (
+    DELIVERED_LIFECYCLE_STATES.has(lifecycle)
+    || row?.delivery_confirmed_at
+    || row?.deliveryConfirmedAt
+    || DELIVERED_ORDER_STATUSES.has(orderStatus)
+  ) {
+    return 'delivered';
+  }
+  if (PENDING_ORDER_STATUSES.has(orderStatus) || lifecycle === 'EN_ENTREGA') return 'pending';
+
+  const stage = row?.sales_stage || row?.salesStage;
+  return CHAT_SALES_STAGES.includes(stage) ? stage : 'negotiating';
+};
+
 export const mapChatThread = (row) => ({
   id: row.id,
   subject: row.subject || 'Conversación',
@@ -1796,6 +1823,7 @@ export const mapChatThread = (row) => ({
   storeName: row.store_name || '',
   storeAvatarUrl: row.store_avatar_url || null,
   status: row.status || 'active',
+  salesStage: classifyChatSalesStage(row),
   lastMessageAt: row.last_message_at || row.created_at,
   time: formatRelativeDate(row.last_message_at || row.created_at),
   unread: Number(row.unread_count) || 0,
@@ -2431,6 +2459,28 @@ const runLifecycleRpc = async (name, params, fallback) => {
   } catch (error) {
     return { ok: false, data: null, error: describeError(error, fallback) };
   }
+};
+
+// Contadores y etapas de la bandeja, calculados en la base de datos y
+// limitados por RLS al comercio del dueño o del vendedor afiliado activo.
+export const fetchChatStageBoard = async () => {
+  const emptyCounts = { negotiating: 0, pending: 0, delivered: 0 };
+  const result = await runLifecycleRpc('app_chat_stage_board', {});
+  if (!result.ok || !result.data) return { counts: emptyCounts, stages: {}, error: result.error };
+
+  const payload = Array.isArray(result.data) ? result.data[0] : result.data;
+  const counts = payload?.counts || {};
+  const stages = payload?.stages;
+
+  return {
+    counts: {
+      negotiating: Number(counts.negotiating) || 0,
+      pending: Number(counts.pending) || 0,
+      delivered: Number(counts.delivered) || 0,
+    },
+    stages: stages && typeof stages === 'object' && !Array.isArray(stages) ? stages : {},
+    error: null,
+  };
 };
 
 // El comercio elige su propio SLA. La RPC valida los valores permitidos y

@@ -1,0 +1,127 @@
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import ChatList from './ChatList';
+import { AuthContext } from '../../context/auth-context';
+
+vi.mock('../../data/appData', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchChatThreads: vi.fn(),
+    fetchChatStageBoard: vi.fn(),
+  };
+});
+
+import { fetchChatStageBoard, fetchChatThreads } from '../../data/appData';
+
+const threads = [
+  {
+    id: 'chat-neg-1',
+    subject: 'Consulta de precio',
+    counterpart_name: 'Taller Uno',
+    sales_stage: 'negotiating',
+    last_message_at: new Date().toISOString(),
+  },
+  {
+    id: 'chat-neg-2',
+    subject: 'Bafles',
+    counterpart_name: 'Taller Dos',
+    sales_stage: 'negotiating',
+    last_message_at: new Date().toISOString(),
+  },
+  {
+    id: 'chat-pend',
+    subject: 'Aceite',
+    counterpart_name: 'Taller Tres',
+    sales_stage: 'pending',
+    last_message_at: new Date().toISOString(),
+  },
+  {
+    id: 'chat-ent',
+    subject: 'Pastillas',
+    counterpart_name: 'Taller Cuatro',
+    sales_stage: 'delivered',
+    last_message_at: new Date().toISOString(),
+  },
+];
+
+const stageBoard = {
+  counts: { negotiating: 2, pending: 1, delivered: 1 },
+  stages: Object.fromEntries(threads.map((thread) => [thread.id, thread.sales_stage])),
+  error: null,
+};
+
+function LocationProbe() {
+  const { pathname } = useLocation();
+  return <span>Ruta actual: {pathname}</span>;
+}
+
+const renderChatList = (user) =>
+  render(
+    <AuthContext.Provider value={{ user }}>
+      <MemoryRouter initialEntries={['/chat-list']}>
+        <LocationProbe />
+        <ChatList />
+      </MemoryRouter>
+    </AuthContext.Provider>
+  );
+
+describe('bandeja de mensajes con etapas', () => {
+  beforeEach(() => {
+    fetchChatThreads.mockReset().mockResolvedValue({ items: threads, error: null, notice: null });
+    fetchChatStageBoard.mockReset().mockResolvedValue(stageBoard);
+  });
+
+  it('muestra tres píldoras con los contadores de InsForge sin ocultar chats', async () => {
+    renderChatList({ id: 'user-1', role: 'commerce' });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Negociando (2)' })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregados (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Etapas de conversación' })).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'Negociando (2)' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Abrir conversación Consulta de precio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir conversación Bafles' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir conversación Aceite' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir conversación Pastillas' })).toBeInTheDocument();
+  });
+
+  it('filtra por etapa, resalta la píldora activa y permite volver a ver todas', async () => {
+    const user = userEvent.setup();
+    renderChatList({ id: 'user-1', role: 'seller', sellerCommerceName: 'Taller Real' });
+
+    const pending = await screen.findByRole('button', { name: 'Pendientes (1)' });
+    await user.click(pending);
+
+    expect(pending).toHaveAttribute('aria-pressed', 'true');
+    expect(pending).toHaveClass('bg-[#00EED0]');
+    expect(screen.getByRole('button', { name: 'Abrir conversación Aceite' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir conversación Bafles' })).not.toBeInTheDocument();
+
+    await user.click(pending);
+    expect(pending).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Abrir conversación Bafles' })).toBeInTheDocument();
+  });
+
+  it('abre exactamente el chat actual al tocar una conversación filtrada', async () => {
+    const user = userEvent.setup();
+    renderChatList({ id: 'user-1', role: 'commerce' });
+
+    await user.click(await screen.findByRole('button', { name: 'Entregados (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Abrir conversación Pastillas' }));
+
+    expect(screen.getByText('Ruta actual: /chat/chat-ent')).toBeInTheDocument();
+  });
+
+  it('conserva la vista del comprador sin píldoras de etapas', async () => {
+    renderChatList({ id: 'buyer-1', role: 'buyer' });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Abrir conversación Aceite' })).toBeInTheDocument());
+    expect(screen.queryByRole('group', { name: 'Etapas de conversación' })).not.toBeInTheDocument();
+    expect(fetchChatStageBoard).not.toHaveBeenCalled();
+  });
+});

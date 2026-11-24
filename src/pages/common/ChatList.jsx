@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, ChevronRight } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
@@ -7,9 +7,15 @@ import { EmptyModule, LoadingModule } from '../../components/ui/ModuleState';
 import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
-import { fetchChatThreads, mapChatThread, NOTICES } from '../../data/appData';
+import { fetchChatStageBoard, fetchChatThreads, mapChatThread, NOTICES } from '../../data/appData';
 
 // Actualización estética Junio 2026
+
+const CHAT_STAGE_TABS = [
+  { key: 'negotiating', label: 'Negociando' },
+  { key: 'pending', label: 'Pendientes' },
+  { key: 'delivered', label: 'Entregados' },
+];
 
 const initialsOf = (name) =>
   String(name || '')
@@ -23,13 +29,59 @@ const initialsOf = (name) =>
 export default function ChatList() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isSalesInbox = ['commerce', 'seller'].includes(user?.role);
+  const [activeStage, setActiveStage] = useState(null);
+  const [stageBoard, setStageBoard] = useState({ counts: null, stages: {}, error: null });
 
   const { items, loading, error, notice } = useModuleData(
     () => fetchChatThreads({ userId: user?.id, role: user?.role }),
     [user?.id, user?.role]
   );
 
-  const chats = items.map(mapChatThread);
+  // Los contadores y la etapa de cada hilo se leen de InsForge. Se refrescan
+  // al volver a la pestaña (navegar de vuelta desde el chat remonta la vista)
+  // y mientras la bandeja permanece abierta, sin cambiar el estado local.
+  useEffect(() => {
+    if (!isSalesInbox) return undefined;
+    let cancelled = false;
+
+    const loadBoard = () => {
+      fetchChatStageBoard().then((board) => {
+        if (!cancelled) setStageBoard(board);
+      });
+    };
+
+    loadBoard();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadBoard();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    const interval = window.setInterval(refreshWhenVisible, 30000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      window.clearInterval(interval);
+    };
+  }, [isSalesInbox]);
+
+  const chats = useMemo(() => items.map(mapChatThread), [items]);
+  const stageCounts = useMemo(() => {
+    const fallback = { negotiating: 0, pending: 0, delivered: 0 };
+    chats.forEach((chat) => {
+      const stage = stageBoard.stages?.[chat.id] || chat.salesStage;
+      if (fallback[stage] !== undefined) fallback[stage] += 1;
+    });
+    return stageBoard.counts || fallback;
+  }, [chats, stageBoard.counts, stageBoard.stages]);
+  const visibleChats = useMemo(
+    () => (activeStage
+      ? chats.filter((chat) => (stageBoard.stages?.[chat.id] || chat.salesStage) === activeStage)
+      : chats),
+    [chats, stageBoard.stages, activeStage]
+  );
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-20">
@@ -47,10 +99,45 @@ export default function ChatList() {
         </div>
       </header>
 
+      {isSalesInbox ? (
+        <div className="px-4 py-2 border-b border-white/30">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Etapas de conversación">
+            {CHAT_STAGE_TABS.map((tab) => {
+              const active = activeStage === tab.key;
+              const count = Number(stageCounts[tab.key]) || 0;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={`${tab.label} (${count})`}
+                  title={active ? 'Ver todas las conversaciones' : `Filtrar por ${tab.label}`}
+                  onClick={() => setActiveStage(active ? null : tab.key)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-[#00EED0]/40 ${
+                    active
+                      ? 'bg-[#00EED0] text-[#006E7A] border-[#00EED0] font-bold'
+                      : 'bg-white/80 text-[#006E7A] border-[#0197AF]/20 font-semibold hover:bg-white'
+                  }`}
+                >
+                  {tab.label}
+                  <span
+                    className={`rounded-full px-1.5 text-[10px] font-black ${
+                      active ? 'bg-white/70 text-[#006E7A]' : 'bg-[#00EED0]/25 text-[#006E7A]'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-col">
         {loading ? <LoadingModule label="Cargando conversaciones…" /> : null}
 
-        {!loading && chats.map((chat) => (
+        {!loading && visibleChats.map((chat) => (
           <div
             key={chat.id}
             role="button"
@@ -104,12 +191,14 @@ export default function ChatList() {
           </div>
         ))}
 
-        {!loading && chats.length === 0 && (
+        {!loading && visibleChats.length === 0 && (
           <div className="p-4">
             <EmptyModule
               icon={MessageSquare}
               title="Sin chats"
-              description="Cuando inicies una conversación con un comercio aparecerá aquí."
+              description={activeStage
+                ? 'No hay conversaciones en esta etapa.'
+                : 'Cuando inicies una conversación con un comercio aparecerá aquí.'}
               notice={error || notice || NOTICES.chats}
               tone={error ? 'error' : 'info'}
             />
