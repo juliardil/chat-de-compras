@@ -1,57 +1,64 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
-import { Car, Check, Clock, User, ChevronRight, Lock, SlidersHorizontal } from 'lucide-react';
-import { DataNotice, EmptyModule } from '../../components/ui/ModuleState';
+import { Car, Clock, User, ChevronRight, Lock, SlidersHorizontal } from 'lucide-react';
+import { DataNotice } from '../../components/ui/ModuleState';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/auth-context';
 import {
+  COMMERCE_INVENTORY_LINES,
+  COMMERCE_VEHICLE_TYPES,
   fetchCommerceIdForUser,
   normalizeSlaMinutes,
   updateCommerceMaxResponseMinutes,
+  updateCommerceSegmentation,
 } from '../../data/appData';
 import { useModuleData } from '../../data/useModuleData';
 
 // Actualización estética Junio 2026
 
-const CATEGORY_LABELS = {
-  repuestos: 'Repuestos Originales / Genéricos',
-  taller: 'Taller / Servicios',
-};
-
-const VEHICLE_LABELS = {
-  car: 'Automotriz',
-  bike: 'Motos',
-};
-
 const RESPONSE_MINUTES = [5, 10, 15, 20, 30];
+
+const asList = (...values) => {
+  for (const value of values) {
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+};
 
 export default function NicheConfig() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const business = user?.business || {};
 
-  // Los nichos se derivan del perfil comercial real que ya está guardado en
-  // auth.users.profile.business. No hay interruptores porque el guardado de
-  // preferencias de nicho todavía no existe en el backend.
-  const niches = [
-    ...(business.mainCategory ? [CATEGORY_LABELS[business.mainCategory] || business.mainCategory] : []),
-    ...(Array.isArray(business.vehicleTypes)
-      ? business.vehicleTypes.map((type) => VEHICLE_LABELS[type] || type)
-      : []),
-  ];
-
-  // Tiempo máximo de respuesta: se lee del perfil comercial real y se guarda
-  // por RPC (RLS no permite UPDATE directo sobre commerce_profiles).
-  const { extra, loading: loadingSla, error: slaError, notice: slaNotice, reload } = useModuleData(
+  // La fuente de verdad es commerce_profiles (la misma que usa el matching de
+  // /dashboard). auth.users.profile.business se usa solo como respaldo en demo.
+  const {
+    extra,
+    loading: loadingCommerce,
+    error: commerceError,
+    notice: commerceNotice,
+    reload,
+  } = useModuleData(
     async () => {
       const commerce = await fetchCommerceIdForUser(user?.id);
+      const row = commerce.item || {};
       return {
         items: [],
         error: commerce.error,
         notice: commerce.notice,
         extra: {
-          minutes: normalizeSlaMinutes(commerce.item?.max_response_minutes),
+          minutes: normalizeSlaMinutes(row.max_response_minutes),
+          vehicleTypes: asList(
+            row.vehicle_types,
+            business.vehicleTypes,
+            business.vehicle_types
+          ),
+          inventorySystems: asList(
+            row.inventory_systems,
+            business.inventorySystems,
+            business.inventory_systems
+          ),
         },
       };
     },
@@ -59,12 +66,25 @@ export default function NicheConfig() {
   );
 
   const [selectedMinutes, setSelectedMinutes] = useState(15);
+  const [selectedVehicleTypes, setSelectedVehicleTypes] = useState([]);
+  const [selectedInventorySystems, setSelectedInventorySystems] = useState([]);
   const [savingSla, setSavingSla] = useState(false);
+  const [savingNiches, setSavingNiches] = useState(false);
   const [slaMessage, setSlaMessage] = useState(null);
+  const [nicheMessage, setNicheMessage] = useState(null);
 
   useEffect(() => {
-    if (extra?.minutes) setSelectedMinutes(extra.minutes);
-  }, [extra?.minutes]);
+    if (!extra) return;
+    if (extra.minutes) setSelectedMinutes(extra.minutes);
+    if (Array.isArray(extra.vehicleTypes)) setSelectedVehicleTypes(extra.vehicleTypes);
+    if (Array.isArray(extra.inventorySystems)) setSelectedInventorySystems(extra.inventorySystems);
+  }, [extra]);
+
+  const toggleValue = (setter) => (value) => {
+    setter((current) =>
+      current.includes(value) ? current.filter((item) => item !== value) : [...current, value]
+    );
+  };
 
   const handleSaveResponseTime = async () => {
     setSavingSla(true);
@@ -92,6 +112,78 @@ export default function NicheConfig() {
       setSavingSla(false);
     }
   };
+
+  const handleSaveNiches = async () => {
+    setSavingNiches(true);
+    setNicheMessage(null);
+    try {
+      const result = await updateCommerceSegmentation({
+        vehicleTypes: selectedVehicleTypes,
+        inventorySystems: selectedInventorySystems,
+      });
+
+      // En modo demostración no hay RPC: se conserva la edición local del perfil.
+      if (!result.ok && !result.skipped) {
+        setNicheMessage({
+          tone: 'error',
+          text: result.error || 'No se pudieron guardar los nichos y líneas.',
+        });
+        return;
+      }
+
+      const vehicleTypes = result.item?.vehicleTypes || selectedVehicleTypes;
+      const inventorySystems = result.item?.inventorySystems || selectedInventorySystems;
+
+      // Mantiene auth.users.profile.business alineado y refresca el usuario en
+      // memoria. app_ensure_profile ya sincronizó esas mismas listas a la BD.
+      try {
+        await updateProfile({
+          business: {
+            ...business,
+            vehicleTypes,
+            inventorySystems,
+          },
+        });
+      } catch {
+        // La RPC ya guardó commerce_profiles; la sesión se rehidrata al recargar.
+      }
+
+      setNicheMessage({
+        tone: 'info',
+        text: result.skipped
+          ? 'Nichos y líneas guardados en esta sesión (modo demostración).'
+          : 'Nichos y líneas guardados. Tu panel ya usará las líneas activadas para mostrar solicitudes.',
+      });
+      reload();
+    } catch (err) {
+      setNicheMessage({
+        tone: 'error',
+        text: err?.message || 'No se pudieron guardar los nichos y líneas.',
+      });
+    } finally {
+      setSavingNiches(false);
+    }
+  };
+
+  const renderCheckCard = ({ value, label, checked, onChange, icon: Icon }) => (
+    <label
+      key={value}
+      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+        checked
+          ? 'border-[#00EED0] bg-[#00EED0]/20 text-[#006E7A]'
+          : 'border-[#4B227A]/20 bg-white/70 text-gray-600 hover:bg-white'
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() => onChange(value)}
+        className="h-4 w-4 accent-[#0197AF]"
+      />
+      {Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+      {label}
+    </label>
+  );
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-20">
@@ -135,6 +227,74 @@ export default function NicheConfig() {
           <ChevronRight className="w-5 h-5 text-gray-600" />
         </div>
 
+        {/* Nichos y líneas: controles reales conectados a commerce_profiles. */}
+        <section className="bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white/30">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-[#0197AF]/20 rounded-full flex items-center justify-center text-[#006E7A]">
+              <SlidersHorizontal className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800 text-sm">Nichos Activos</h3>
+              <p className="text-xs text-gray-600">Elige qué solicitudes quieres recibir</p>
+            </div>
+          </div>
+
+          {loadingCommerce ? (
+            <p className="mb-3 text-xs text-gray-600">Cargando tus nichos y líneas…</p>
+          ) : null}
+          {!loadingCommerce && (commerceError || commerceNotice) ? (
+            <DataNotice tone={commerceError ? 'error' : 'info'} className="mb-3">
+              {commerceError || commerceNotice}
+            </DataNotice>
+          ) : null}
+          {nicheMessage ? (
+            <DataNotice tone={nicheMessage.tone} className="mb-3">
+              {nicheMessage.text}
+            </DataNotice>
+          ) : null}
+
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#4B227A]">
+            Tipos de vehículo
+          </p>
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            {COMMERCE_VEHICLE_TYPES.map((item) =>
+              renderCheckCard({
+                value: item.value,
+                label: item.label,
+                checked: selectedVehicleTypes.includes(item.value),
+                onChange: toggleValue(setSelectedVehicleTypes),
+                icon: Car,
+              })
+            )}
+          </div>
+
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#4B227A]">
+            Líneas de inventario
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {COMMERCE_INVENTORY_LINES.map((line) =>
+              renderCheckCard({
+                value: line,
+                label: line,
+                checked: selectedInventorySystems.includes(line),
+                onChange: toggleValue(setSelectedInventorySystems),
+              })
+            )}
+          </div>
+
+          <p className="mt-3 text-[11px] text-gray-600">
+            Marcas {selectedVehicleTypes.length} tipos de vehículo y {selectedInventorySystems.length}{' '}
+            líneas. Al guardar, las solicitudes entrantes de esas líneas aparecen de inmediato en tu panel.
+          </p>
+          <Button
+            onClick={handleSaveNiches}
+            disabled={savingNiches || loadingCommerce}
+            className="mt-3 w-full py-2.5 text-sm"
+          >
+            {savingNiches ? 'Guardando…' : 'Guardar nichos y líneas'}
+          </Button>
+        </section>
+
         {/* Tiempo de respuesta (SLA) que ven los compradores en cada oferta. */}
         <div className="bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-white/30">
           <div className="flex items-center gap-3 mb-3">
@@ -147,10 +307,10 @@ export default function NicheConfig() {
             </div>
           </div>
 
-          {loadingSla ? <p className="text-xs text-gray-600">Cargando tu tiempo de respuesta…</p> : null}
-          {!loadingSla && (slaError || slaNotice) ? (
-            <DataNotice tone={slaError ? 'error' : 'info'} className="mb-3">
-              {slaError || slaNotice}
+          {loadingCommerce ? <p className="text-xs text-gray-600">Cargando tu tiempo de respuesta…</p> : null}
+          {!loadingCommerce && (commerceError || commerceNotice) ? (
+            <DataNotice tone={commerceError ? 'error' : 'info'} className="mb-3">
+              {commerceError || commerceNotice}
             </DataNotice>
           ) : null}
           {slaMessage ? (
@@ -180,69 +340,12 @@ export default function NicheConfig() {
           </p>
           <Button
             onClick={handleSaveResponseTime}
-            disabled={savingSla || loadingSla}
+            disabled={savingSla || loadingCommerce}
             className="mt-3 w-full py-2.5 text-sm"
           >
             {savingSla ? 'Guardando…' : 'Guardar tiempo de respuesta'}
           </Button>
         </div>
-
-        <h2 className="font-bold text-gray-800 text-lg px-2 pt-2">Nichos Activos</h2>
-        <p className="text-sm text-gray-600 px-2 -mt-2 mb-2">Selecciona qué solicitudes quieres recibir</p>
-
-        {niches.length === 0 ? (
-          <EmptyModule
-            icon={SlidersHorizontal}
-            title="Sin nichos configurados"
-            description="Añade tu categoría principal y los tipos de vehículo en tu perfil comercial para recibir solicitudes."
-          >
-            <button
-              onClick={() => navigate('/edit-profile')}
-              className="w-full py-2.5 rounded-xl bg-[#00EED0] text-gray-900 text-sm font-bold"
-            >
-              Ir a Editar Perfil
-            </button>
-          </EmptyModule>
-        ) : (
-          <div className="bg-white/80 backdrop-blur-md rounded-xl shadow-sm border border-white/30 overflow-hidden">
-            <div className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-[#00EED0] text-gray-900">
-                {business.mainCategory === 'taller' ? (
-                  <SlidersHorizontal className="w-6 h-6" />
-                ) : (
-                  <Car className="w-6 h-6" />
-                )}
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800">
-                  {niches[0] || 'Categoría principal'}
-                </h3>
-                <p className="text-xs text-gray-600">Datos tomados de tu perfil comercial</p>
-              </div>
-            </div>
-
-            {niches.length > 1 && (
-              <div className="bg-[#E7E7E7]/80 p-4 border-t border-white/30">
-                <div className="flex flex-wrap gap-2">
-                  {niches.slice(1).map((niche) => (
-                    <span
-                      key={niche}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium border bg-[#00EED0]/20 border-[#00EED0]/30 text-[#4B227A] flex items-center gap-1.5"
-                    >
-                      {niche}
-                      <Check className="w-3 h-3" />
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <p className="text-xs text-gray-600 px-2">
-          Para cambiar tus nichos actualiza la categoría y los tipos de vehículo desde
-          «Editar Perfil». La edición directa de preferencias aún no está conectada al backend.
-        </p>
       </div>
 
       <CommerceBottomNav />

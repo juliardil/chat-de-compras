@@ -58,6 +58,27 @@ export const NOTICES = {
     'No se pudo guardar la operación. Verifica tu sesión y tus permisos.',
 };
 
+// Valores canónicos de segmentación. La RPC de matching del backend compara
+// estas mismas cadenas (normalizadas) con la solicitud del comprador.
+export const COMMERCE_VEHICLE_TYPES = [
+  { value: 'carros', label: 'Carros' },
+  { value: 'motos', label: 'Motos' },
+];
+
+export const COMMERCE_INVENTORY_LINES = [
+  'Motor',
+  'Frenos',
+  'Suspensión',
+  'Eléctrico',
+  'Llantas y Neumáticos',
+  'Interior / Exterior',
+  'Lubricantes y Fluidos',
+  'Taller Mecánico',
+  'Accesorios Vehiculares',
+  'Audio y Sonido',
+  'Seguridad Vehicular',
+];
+
 const PERMISSION_PATTERN =
   /permission|denied|not authorized|row[- ]level|rls|policy|jwt|401|403|insufficient privilege/i;
 const NETWORK_PATTERN = /network|failed to fetch|fetch failed|timeout|timed out|offline|connection/i;
@@ -2362,6 +2383,42 @@ export const updateCommerceMaxResponseMinutes = async (minutes) => {
     { p_minutes: value },
     'No se pudo guardar el tiempo de respuesta.'
   );
+};
+
+// Segmentación del comercio: la RPC actualiza commerce_profiles y el matching
+// de /dashboard lee esas mismas columnas a través de RLS.
+export const updateCommerceSegmentation = async ({ vehicleTypes, inventorySystems }) => {
+  const vehicles = Array.isArray(vehicleTypes) ? [...new Set(vehicleTypes)] : [];
+  const lines = Array.isArray(inventorySystems) ? [...new Set(inventorySystems)] : [];
+  const allowedVehicles = COMMERCE_VEHICLE_TYPES.map((item) => item.value);
+  const invalidVehicles = vehicles.filter((value) => !allowedVehicles.includes(value));
+  const invalidLines = lines.filter((value) => !COMMERCE_INVENTORY_LINES.includes(value));
+
+  if (invalidVehicles.length > 0 || invalidLines.length > 0 || !vehicles.length || !lines.length) {
+    return {
+      ok: false,
+      item: null,
+      error: 'Selecciona al menos un tipo de vehículo y una línea de inventario válidos.',
+    };
+  }
+
+  const result = await runLifecycleRpc(
+    'app_set_commerce_segmentation',
+    { p_vehicle_types: vehicles, p_inventory_systems: lines },
+    'No se pudieron guardar los nichos y líneas.'
+  );
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+
+  return {
+    ...result,
+    item: row
+      ? {
+          commerceId: row.commerceId ?? row.commerce_id ?? null,
+          vehicleTypes: row.vehicleTypes ?? row.vehicle_types ?? vehicles,
+          inventorySystems: row.inventorySystems ?? row.inventory_systems ?? lines,
+        }
+      : null,
+  };
 };
 
 export const mapLifecycleThread = (row) => {

@@ -12,32 +12,131 @@ vi.mock('../../data/appData', async (importOriginal) => {
     ...actual,
     fetchCommerceIdForUser: vi.fn(),
     updateCommerceMaxResponseMinutes: vi.fn(),
+    updateCommerceSegmentation: vi.fn(),
   };
 });
 
-import { fetchCommerceIdForUser, updateCommerceMaxResponseMinutes } from '../../data/appData';
+import {
+  fetchCommerceIdForUser,
+  updateCommerceMaxResponseMinutes,
+  updateCommerceSegmentation,
+} from '../../data/appData';
+
+const updateProfile = vi.fn();
 
 const renderConfig = () =>
   render(
-    <AuthContext.Provider value={{ user: { id: 'user-1', role: 'commerce', business: {} } }}>
+    <AuthContext.Provider
+      value={{ user: { id: 'user-1', role: 'commerce', business: {} }, updateProfile }}
+    >
       <MemoryRouter initialEntries={['/niche-config']}>
         <NicheConfig />
       </MemoryRouter>
     </AuthContext.Provider>
   );
 
-describe('configuración del tiempo de respuesta del comercio', () => {
-  beforeEach(() => {
-    fetchCommerceIdForUser.mockReset();
-    fetchCommerceIdForUser.mockResolvedValue({
-      item: { id: 'commerce-1', max_response_minutes: 15 },
-      error: null,
-      notice: null,
-    });
-    updateCommerceMaxResponseMinutes.mockReset();
-    updateCommerceMaxResponseMinutes.mockResolvedValue({ ok: true, data: null, error: null });
+beforeEach(() => {
+  fetchCommerceIdForUser.mockReset();
+  fetchCommerceIdForUser.mockResolvedValue({
+    item: {
+      id: 'commerce-1',
+      max_response_minutes: 15,
+      vehicle_types: ['carros'],
+      inventory_systems: ['Frenos', 'Motor'],
+    },
+    error: null,
+    notice: null,
+  });
+  updateCommerceMaxResponseMinutes.mockReset();
+  updateCommerceMaxResponseMinutes.mockResolvedValue({ ok: true, data: null, error: null });
+  updateCommerceSegmentation.mockReset();
+  updateCommerceSegmentation.mockResolvedValue({ ok: true, data: null, error: null });
+  updateProfile.mockReset();
+  updateProfile.mockResolvedValue(null);
+});
+
+describe('nichos y líneas activas del comercio', () => {
+  it('carga la segmentación guardada en commerce_profiles', async () => {
+    renderConfig();
+
+    expect(await screen.findByText('Nichos Activos')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('checkbox', { name: 'Carros', checked: true })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Motos' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Frenos' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Motor' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Suspensión' })).not.toBeChecked();
   });
 
+  it('ofrece todos los tipos de vehículo y líneas de inventario', async () => {
+    renderConfig();
+
+    expect(await screen.findByText('Tipos de vehículo')).toBeInTheDocument();
+    expect(screen.getByText('Líneas de inventario')).toBeInTheDocument();
+    ['Carros', 'Motos'].forEach((label) => {
+      expect(screen.getByRole('checkbox', { name: label })).toBeInTheDocument();
+    });
+    [
+      'Motor',
+      'Frenos',
+      'Suspensión',
+      'Eléctrico',
+      'Llantas y Neumáticos',
+      'Interior / Exterior',
+      'Lubricantes y Fluidos',
+      'Taller Mecánico',
+      'Accesorios Vehiculares',
+      'Audio y Sonido',
+      'Seguridad Vehicular',
+    ].forEach((label) => {
+      expect(screen.getByRole('checkbox', { name: label })).toBeInTheDocument();
+    });
+  });
+
+  it('marca/desmarca valores, guarda en la BD y refresca el perfil', async () => {
+    const user = userEvent.setup();
+    renderConfig();
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Motos' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Frenos' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Suspensión' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar nichos y líneas' }));
+
+    expect(updateCommerceSegmentation).toHaveBeenCalledWith({
+      vehicleTypes: ['carros', 'motos'],
+      inventorySystems: ['Motor', 'Suspensión'],
+    });
+    expect(updateProfile).toHaveBeenCalledWith({
+      business: {
+        vehicleTypes: ['carros', 'motos'],
+        inventorySystems: ['Motor', 'Suspensión'],
+      },
+    });
+    expect(
+      await screen.findByText(/Nichos y líneas guardados/i)
+    ).toBeInTheDocument();
+  });
+
+  it('muestra el error del backend y no actualiza el perfil local', async () => {
+    const user = userEvent.setup();
+    updateCommerceSegmentation.mockResolvedValue({
+      ok: false,
+      error: 'No hay un perfil de comercio asociado a esta cuenta.',
+    });
+    renderConfig();
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Suspensión' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar nichos y líneas' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No hay un perfil de comercio asociado a esta cuenta.'
+    );
+    expect(updateProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe('configuración del tiempo de respuesta del comercio', () => {
   it('carga el SLA guardado y ofrece solo los valores permitidos', async () => {
     renderConfig();
 

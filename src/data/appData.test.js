@@ -3,6 +3,8 @@ import {
   buildPurchaseRequestPayload,
   buildReputationScore,
   calculateDistanceKm,
+  COMMERCE_INVENTORY_LINES,
+  COMMERCE_VEHICLE_TYPES,
   describeError,
   expireOfferLifecycles,
   fetchCommerceSavedRecommendations,
@@ -26,6 +28,7 @@ import {
   selectOfferForLifecycle,
   splitOrders,
   updateCommerceMaxResponseMinutes,
+  updateCommerceSegmentation,
   updateOrderStatusForChat,
   uploadRecommendationPhoto,
   validateProfilePhoto,
@@ -538,6 +541,38 @@ describe('ciclo de vida de la oferta y reputación', () => {
       skipped: true,
       error: expect.stringContaining('No se guardó nada'),
     });
+  });
+
+  it('expone los valores canónicos que consume el matching del backend', () => {
+    expect(COMMERCE_VEHICLE_TYPES.map((item) => item.value)).toEqual(['carros', 'motos']);
+    expect(COMMERCE_INVENTORY_LINES).toEqual([
+      'Motor',
+      'Frenos',
+      'Suspensión',
+      'Eléctrico',
+      'Llantas y Neumáticos',
+      'Interior / Exterior',
+      'Lubricantes y Fluidos',
+      'Taller Mecánico',
+      'Accesorios Vehiculares',
+      'Audio y Sonido',
+      'Seguridad Vehicular',
+    ]);
+  });
+
+  it('valida la segmentación antes de escribir y no simula guardado en demo', async () => {
+    const invalid = await updateCommerceSegmentation({
+      vehicleTypes: ['carros'],
+      inventorySystems: ['Línea inexistente'],
+    });
+    expect(invalid).toMatchObject({ ok: false, item: null, error: /válidos/ });
+
+    const empty = await updateCommerceSegmentation({ vehicleTypes: [], inventorySystems: [] });
+    expect(empty).toMatchObject({ ok: false, item: null });
+
+    await expect(
+      updateCommerceSegmentation({ vehicleTypes: ['carros'], inventorySystems: ['Suspensión'] })
+    ).resolves.toMatchObject({ ok: false, skipped: true, item: null });
   });
 });
 
