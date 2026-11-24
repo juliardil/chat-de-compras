@@ -39,7 +39,8 @@ export default function History() {
                 <span className="text-[#006E7A] font-bold text-sm">{item.price}</span>
               </div>
               <p className="text-xs text-gray-600 mb-2">
-                {item.store} {item.statusDetail ? `• ${item.statusDetail}` : ''}
+                {item.store} {item.seller ? `· Vendedor: ${item.seller}` : ''}{' '}
+                {item.statusDetail ? `• ${item.statusDetail}` : ''}
               </p>
 
               <div className="flex items-center justify-between mt-2">

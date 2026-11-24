@@ -3,6 +3,7 @@ import { ChatContext } from './chat-context';
 import { useAuth } from './auth-context';
 import { isInsforgeConfigured } from '../lib/insforge';
 import {
+  archiveChatThreadForDelivery,
   createOrderForChat,
   expireOfferLifecycles,
   fetchChatMessages,
@@ -662,9 +663,15 @@ export const ChatProvider = ({ children }) => {
 
         if (orderUpdate.error) {
           setChatError(orderUpdate.error);
-        } else {
-          await refreshThreadMeta(activeChatId);
         }
+
+        // Cierra la conversación aunque el pedido ya estuviera cerrado por la
+        // vía del ciclo de oferta: el historial queda intacto en InsForge.
+        const archive = await archiveChatThreadForDelivery(activeChatId);
+        if (!orderUpdate.error && archive.error) {
+          setChatError(archive.error);
+        }
+        await refreshThreadMeta(activeChatId);
       } else {
         setChats((prev) => {
           const chat = prev[activeChatId];

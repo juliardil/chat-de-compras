@@ -1265,8 +1265,45 @@ export const selectOfferItemBrands = async ({ offerId, selections = {} }) => {
 // -----------------------------------------------------------------------------
 // Pedidos
 // -----------------------------------------------------------------------------
-const fetchOrdersBy = (column, id, notice) =>
-  runQuery(
+// El historial se lee desde `purchase_orders`. Los datos del vendedor y del
+// chat se toman de `chat_threads` (RLS ya limita la lectura a las dos partes),
+// sin tocar el snapshot inmutable del pedido.
+const attachOrderChatMetadata = async (result) => {
+  if (result.error || result.items.length === 0) return result;
+
+  const orderIds = [...new Set(result.items.map((order) => order.id).filter(Boolean))];
+  if (orderIds.length === 0) return result;
+
+  const threads = await runQuery(
+    (db) =>
+      db
+        .from('chat_threads')
+        .select('id,order_id,assigned_seller_id,assigned_seller_name')
+        .in('order_id', orderIds),
+    NOTICES.orders
+  );
+  if (threads.error || threads.items.length === 0) return result;
+
+  const byOrderId = new Map(
+    threads.items.filter((thread) => thread.order_id).map((thread) => [thread.order_id, thread])
+  );
+  return {
+    ...result,
+    items: result.items.map((order) => {
+      const thread = byOrderId.get(order.id);
+      if (!thread) return order;
+      return {
+        ...order,
+        chat_id: order.chat_id || thread.id,
+        seller_id: order.seller_id || thread.assigned_seller_id || null,
+        seller_name: order.seller_name || thread.assigned_seller_name || '',
+      };
+    }),
+  };
+};
+
+const fetchOrdersBy = async (column, id, notice) => {
+  const result = await runQuery(
     (db) =>
       db
         .from('purchase_orders')
@@ -1275,6 +1312,8 @@ const fetchOrdersBy = (column, id, notice) =>
         .order('created_at', { ascending: false }),
     notice
   );
+  return attachOrderChatMetadata(result);
+};
 
 export const fetchBuyerOrders = async (userId) => {
   const guard = requireUserId(userId, NOTICES.orders);
@@ -1295,16 +1334,21 @@ export const mapOrder = (row) => {
   const snapshot = row.snapshot && typeof row.snapshot === 'object' ? row.snapshot : {};
   const items = Array.isArray(row.items) ? row.items : [];
   const firstItem = items[0] || {};
+  const seller = snapshot.seller && typeof snapshot.seller === 'object' ? snapshot.seller : {};
+  const sellerName = String(row.seller_name || seller.name || row.sold_by_name || '').trim();
 
   return {
     id: row.id,
     number: row.order_number || `#${String(row.id).slice(0, 8)}`,
     product: snapshot.product || firstItem.name || 'Pedido',
     store: snapshot.store || snapshot.tradeName || 'Comercio',
+    seller: sellerName,
+    chatId: row.chat_id || snapshot.chatId || null,
     price: formatCurrency(row.total_amount, row.currency),
     status: row.status,
     statusLabel: ORDER_STATUS_LABELS[row.status] || row.status || 'Sin estado',
     statusDetail: formatRelativeDate(row.completed_at || row.delivered_at || row.confirmed_at || row.placed_at),
+    deliveryConfirmedAt: row.delivered_at || row.completed_at || null,
     address: snapshot.address || '',
     image: snapshot.image || null,
     tracking: snapshot.tracking || '',
@@ -1524,9 +1568,16 @@ export const createOrderForChat = async ({ chatId, shipping }) => {
 
   const normalizedShipping = normalizeShipping(shipping);
 
+  const assignedSellerId = thread.assigned_seller_id || null;
+  const assignedSellerName = String(thread.assigned_seller_name || '').trim();
+
   const snapshot = {
     product: product || 'Pedido',
     store: commerceResult.items[0]?.trade_name || '',
+    chatId,
+    seller: assignedSellerId || assignedSellerName
+      ? { id: assignedSellerId, name: assignedSellerName }
+      : null,
     address: formatShippingAddress(normalizedShipping),
     shipping: normalizedShipping,
     placedAt: new Date().toISOString(),
@@ -1649,6 +1700,31 @@ export const updateOrderStatusForChat = async ({ chatId, status, patch = {} }) =
     orderId: thread.order_id,
     error: updated.error,
   };
+};
+
+// Cierra el hilo en cuanto el comprador confirma una recepción conforme. El
+// trigger de InsForge vuelve a calcular la etapa y lo deja archivado; los
+// mensajes y el pedido siguen intactos para el historial.
+export const archiveChatThreadForDelivery = async (chatId) => {
+  if (!isInsforgeConfigured) {
+    return { ok: false, skipped: true, error: null };
+  }
+  if (!chatId) {
+    return { ok: false, error: 'No se indicó una conversación.' };
+  }
+
+  return runWrite(
+    (db) =>
+      db
+        .from('chat_threads')
+        .update({
+          status: 'archived',
+          delivery_confirmed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', chatId),
+    'No se pudo archivar la conversación.'
+  );
 };
 
 // -----------------------------------------------------------------------------
@@ -1782,7 +1858,13 @@ const fetchChatThreadsBy = async (column, id, role) => {
   );
 
   if (result.error || result.items.length === 0) return result;
-  return { ...result, items: await attachChatCounterparts(result.items, role) };
+
+  // La bandeja es solo de conversaciones en curso. Las entregas confirmadas
+  // quedan archivadas en InsForge y se consultan desde el historial de pedidos.
+  const activeThreads = result.items.filter(
+    (thread) => thread.status !== 'archived' && classifyChatSalesStage(thread) !== 'delivered'
+  );
+  return { ...result, items: await attachChatCounterparts(activeThreads, role) };
 };
 
 export const CHAT_SALES_STAGES = ['negotiating', 'pending', 'delivered'];
@@ -2219,7 +2301,7 @@ export const fetchOpenRequests = async (commerceId) => {
 export const fetchCommerceSales = async (commerceId) => {
   if (!commerceId) return emptyResult(NOTICES.commerceMetrics);
 
-  return runQuery(
+  const result = await runQuery(
     (db) =>
       db
         .from('purchase_orders')
@@ -2229,6 +2311,7 @@ export const fetchCommerceSales = async (commerceId) => {
         .limit(200),
     NOTICES.commerceMetrics
   );
+  return attachOrderChatMetadata(result);
 };
 
 const cleanRecommendationText = (value) => String(value ?? '').trim();

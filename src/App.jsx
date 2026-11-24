@@ -172,7 +172,10 @@ function AppRoutes() {
           path="/inventory"
           element={<RequireRole role="commerce"><Inventory /></RequireRole>}
         />
-        <Route path="/sales-history" element={<RequireRole role="commerce"><SalesHistory /></RequireRole>} />
+        <Route
+          path="/sales-history"
+          element={<RequireRole role="commerce" allowSeller><SalesHistory /></RequireRole>}
+        />
         <Route path="/profile" element={<RequireRole role="commerce"><Profile /></RequireRole>} />
         <Route path="/edit-profile" element={<RequireRole role="commerce"><EditProfile /></RequireRole>} />
         <Route path="/change-password" element={<RequireRole allowSeller><ChangePassword /></RequireRole>} />

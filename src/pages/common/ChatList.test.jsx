@@ -22,6 +22,7 @@ const threads = [
     id: 'chat-neg-1',
     subject: 'Consulta de precio',
     counterpart_name: 'Taller Uno',
+    status: 'active',
     sales_stage: 'negotiating',
     last_message_at: new Date().toISOString(),
   },
@@ -29,6 +30,7 @@ const threads = [
     id: 'chat-neg-2',
     subject: 'Bafles',
     counterpart_name: 'Taller Dos',
+    status: 'active',
     sales_stage: 'negotiating',
     last_message_at: new Date().toISOString(),
   },
@@ -36,6 +38,7 @@ const threads = [
     id: 'chat-pend',
     subject: 'Aceite',
     counterpart_name: 'Taller Tres',
+    status: 'active',
     sales_stage: 'pending',
     last_message_at: new Date().toISOString(),
   },
@@ -43,14 +46,17 @@ const threads = [
     id: 'chat-ent',
     subject: 'Pastillas',
     counterpart_name: 'Taller Cuatro',
+    status: 'archived',
     sales_stage: 'delivered',
     last_message_at: new Date().toISOString(),
   },
 ];
 
 const stageBoard = {
-  counts: { negotiating: 2, pending: 1, delivered: 1 },
-  stages: Object.fromEntries(threads.map((thread) => [thread.id, thread.sales_stage])),
+  counts: { negotiating: 2, pending: 1, delivered: 0 },
+  stages: Object.fromEntries(
+    threads.filter((thread) => thread.status !== 'archived').map((thread) => [thread.id, thread.sales_stage])
+  ),
   error: null,
 };
 
@@ -75,19 +81,19 @@ describe('bandeja de mensajes con etapas', () => {
     fetchChatStageBoard.mockReset().mockResolvedValue(stageBoard);
   });
 
-  it('muestra tres píldoras con los contadores de InsForge sin ocultar chats', async () => {
+  it('muestra tres píldoras y deja fuera de la bandeja los chats entregados', async () => {
     renderChatList({ id: 'user-1', role: 'commerce' });
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Negociando (2)' })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Entregados (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregados (0)' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Etapas de conversación' })).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Negociando (2)' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: 'Abrir conversación Consulta de precio' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abrir conversación Bafles' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abrir conversación Aceite' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Abrir conversación Pastillas' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir conversación Pastillas' })).not.toBeInTheDocument();
   });
 
   it('muestra las píldoras a un dueño detectado por su membresía activa', async () => {
@@ -98,7 +104,7 @@ describe('bandeja de mensajes con etapas', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Negociando (2)' })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Entregados (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregados (0)' })).toBeInTheDocument();
     expect(fetchChatThreads).toHaveBeenCalledWith({ userId: 'user-1', role: 'commerce' });
   });
 
@@ -123,10 +129,10 @@ describe('bandeja de mensajes con etapas', () => {
     const user = userEvent.setup();
     renderChatList({ id: 'user-1', role: 'commerce' });
 
-    await user.click(await screen.findByRole('button', { name: 'Entregados (1)' }));
-    await user.click(screen.getByRole('button', { name: 'Abrir conversación Pastillas' }));
+    await user.click(await screen.findByRole('button', { name: 'Negociando (2)' }));
+    await user.click(screen.getByRole('button', { name: 'Abrir conversación Bafles' }));
 
-    expect(screen.getByText('Ruta actual: /chat/chat-ent')).toBeInTheDocument();
+    expect(screen.getByText('Ruta actual: /chat/chat-neg-2')).toBeInTheDocument();
   });
 
   it('conserva la vista del comprador sin píldoras de etapas', async () => {

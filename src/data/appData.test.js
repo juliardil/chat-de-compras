@@ -300,7 +300,13 @@ describe('capa de datos de la app', () => {
       status: 'preparing',
       total_amount: 1200,
       currency: 'MXN',
-      snapshot: { product: 'Bujías', store: 'Auto Real' },
+      snapshot: {
+        product: 'Bujías',
+        store: 'Auto Real',
+        chatId: 'chat-1',
+        seller: { id: 'seller-1', name: 'Lucía' },
+      },
+      delivered_at: '2026-11-24T12:00:00.000Z',
       placed_at: new Date().toISOString(),
     });
 
@@ -308,6 +314,9 @@ describe('capa de datos de la app', () => {
     expect(order.statusLabel).toBe('En preparación');
     expect(order.product).toBe('Bujías');
     expect(order.active).toBe(true);
+    expect(order.seller).toBe('Lucía');
+    expect(order.chatId).toBe('chat-1');
+    expect(order.deliveryConfirmedAt).toBe('2026-11-24T12:00:00.000Z');
 
     const { active, completed } = splitOrders([
       mapOrder({ id: 'a', status: 'preparing', order_number: 'A' }),

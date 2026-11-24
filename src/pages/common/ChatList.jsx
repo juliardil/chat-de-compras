@@ -80,7 +80,12 @@ export default function ChatList() {
     };
   }, [isSalesInbox]);
 
-  const chats = useMemo(() => items.map(mapChatThread), [items]);
+  // Doble respaldo de la regla del backend: aunque una respuesta en caché
+  // todavía traiga un hilo entregado, no debe aparecer en la bandeja activa.
+  const chats = useMemo(
+    () => items.map(mapChatThread).filter((chat) => chat.status !== 'archived' && chat.salesStage !== 'delivered'),
+    [items]
+  );
   const stageCounts = useMemo(() => {
     const fallback = { negotiating: 0, pending: 0, delivered: 0 };
     chats.forEach((chat) => {
