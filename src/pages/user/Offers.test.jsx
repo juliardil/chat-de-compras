@@ -866,4 +866,34 @@ describe('sección Ofertas del comprador', () => {
     expect(await screen.findByText('Conversación abierta: thread-elegida')).toBeInTheDocument();
     expect(selectOfferForLifecycle).not.toHaveBeenCalled();
   });
+
+  it('muestra el contador en las ofertas recibidas y oculta las ya vencidas', async () => {
+    const now = Date.now();
+    fetchBuyerRequests.mockResolvedValue({
+      items: [request('req-1', 'Pastillas de freno')],
+      error: null,
+      notice: null,
+    });
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          ...offer('offer-viva', 'req-1', 'Comercio Vigente', 900),
+          expires_at: new Date(now + 5 * 60000).toISOString(),
+        },
+        {
+          ...offer('offer-vencida', 'req-1', 'Comercio Vencido', 950),
+          created_at: new Date(now - 31 * 60000).toISOString(),
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderOffers();
+
+    expect(await screen.findByText('Comercio Vigente')).toBeInTheDocument();
+    expect(screen.queryByText('Comercio Vencido')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('timer').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0);
+  });
 });

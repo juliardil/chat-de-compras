@@ -18,6 +18,8 @@ import SafeImage from '../../components/ui/SafeImage';
 import OfferSortBar from '../../components/ui/OfferSortBar';
 import BrandOptionPicker from '../../components/ui/BrandOptionPicker';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
+import { CountdownBar, OfferExpiryBadge } from '../../components/ui/OfferExpiryBadge';
+import { getExpiryDeadline, useExpiryNow } from '../../data/offerExpiry';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import { sortOffers } from '../../data/offerSort';
@@ -63,7 +65,12 @@ export default function Responses() {
   );
 
   const offers = items.map((row) => mapOffer(row, user?.location));
-  const sortedOffers = sortOffers(offers, sortKey);
+  const now = useExpiryNow(offers.map(getExpiryDeadline).filter(Boolean));
+  const visibleOffers = offers.filter((offer) => {
+    const deadline = getExpiryDeadline(offer);
+    return deadline === null || deadline > now;
+  });
+  const sortedOffers = sortOffers(visibleOffers, sortKey);
   const requestTitle = requestDraft?.item || (requestId ? 'Solicitud de compra' : 'Sin solicitud seleccionada');
   const requestDetail = requestDraft
     ? [requestDraft.vehicleBrand, requestDraft.vehicleModel, requestDraft.yearFrom]
@@ -198,7 +205,7 @@ export default function Responses() {
         <div>
           <h1 className="text-lg font-bold text-gray-800">Respuestas</h1>
           <p className="text-xs text-[#006E7A] font-medium">
-            {loading ? 'Cargando ofertas…' : `${offers.length} ${offers.length === 1 ? 'oferta recibida' : 'ofertas recibidas'}`}
+            {loading ? 'Cargando ofertas…' : `${visibleOffers.length} ${visibleOffers.length === 1 ? 'oferta recibida' : 'ofertas recibidas'}`}
           </p>
         </div>
       </header>
@@ -252,7 +259,7 @@ export default function Responses() {
       <div className="flex-1 p-4 flex flex-col gap-4">
         {loading ? <LoadingModule label="Cargando ofertas…" /> : null}
 
-        {!loading && offers.length > 1 ? (
+        {!loading && visibleOffers.length > 1 ? (
           <OfferSortBar value={sortKey} onChange={setSortKey} />
         ) : null}
 
@@ -300,6 +307,11 @@ export default function Responses() {
                       {offer.distanceLabel || 'Sin ubicación'}
                     </div>
                   </div>
+                </div>
+
+                <div className="mb-2 flex flex-col items-start gap-1">
+                  <OfferExpiryBadge item={offer} now={now} />
+                  <CountdownBar item={offer} now={now} />
                 </div>
 
                 <div className="flex items-center gap-1 mb-2">
@@ -412,7 +424,7 @@ export default function Responses() {
           </div>
         ))}
 
-        {!loading && offers.length === 0 && (
+        {!loading && visibleOffers.length === 0 && (
           <EmptyModule
             icon={Package}
             title="Sin ofertas"

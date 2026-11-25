@@ -20,6 +20,8 @@ import OfferSortBar from '../../components/ui/OfferSortBar';
 import BrandOptionPicker from '../../components/ui/BrandOptionPicker';
 import RecommendationCarousel from '../../components/offers/RecommendationCarousel';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
+import { CountdownBar, OfferExpiryBadge } from '../../components/ui/OfferExpiryBadge';
+import { getExpiryDeadline, useExpiryNow } from '../../data/offerExpiry';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import { sortOfferGroups } from '../../data/offerSort';
@@ -84,13 +86,31 @@ export default function Offers() {
   const offers = items.map((row) => mapOffer(row, user?.location));
   const requests = (extra?.requests || []).map(mapRequest);
   const lifecycles = Array.isArray(extra?.lifecycles) ? extra.lifecycles : [];
+
+  const pendingDeadline = (thread) => getExpiryDeadline({
+    deadlineAt: thread.responseDeadlineAt,
+    createdAt: thread.createdAt,
+  });
+  const now = useExpiryNow([
+    ...requests.map(getExpiryDeadline),
+    ...offers.map(getExpiryDeadline),
+    ...lifecycles.map(pendingDeadline),
+  ].filter(Boolean));
+  const visibleRequests = requests.filter((request) => {
+    const deadline = getExpiryDeadline(request);
+    return deadline === null || deadline > now;
+  });
+  const visibleOffers = offers.filter((offer) => {
+    const deadline = getExpiryDeadline(offer);
+    return deadline === null || deadline > now;
+  });
   const lifecycleByRequest = new Map(
     lifecycles.filter((item) => item.requestId).map((item) => [item.requestId, item])
   );
   const lifecycleByOffer = new Map(
     lifecycles.filter((item) => item.offerId).map((item) => [item.offerId, item])
   );
-  const requestById = new Map(requests.map((request) => [request.id, request]));
+  const requestById = new Map(visibleRequests.map((request) => [request.id, request]));
   const normalizeText = (value) => String(value || '').trim().toLowerCase();
 
   // Agrupa por solicitud (producto publicado), conservando el orden en que
@@ -98,7 +118,7 @@ export default function Offers() {
   const groups = [];
   const groupIndex = new Map();
 
-  offers.forEach((offer) => {
+  visibleOffers.forEach((offer) => {
     const key = offer.requestId || offer.id;
     let index = groupIndex.get(key);
 
@@ -272,7 +292,7 @@ export default function Offers() {
         <p className="text-xs text-[#006E7A] font-medium">
           {loading
             ? 'Cargando ofertas…'
-            : `${offers.length} ${offers.length === 1 ? 'oferta recibida' : 'ofertas recibidas'}`}
+            : `${visibleOffers.length} ${visibleOffers.length === 1 ? 'oferta recibida' : 'ofertas recibidas'}`}
         </p>
       </header>
 
@@ -281,7 +301,7 @@ export default function Offers() {
         {selectionError ? <DataNotice tone="error">{selectionError}</DataNotice> : null}
         {loading ? <LoadingModule label="Cargando ofertas…" /> : null}
 
-        {!loading && offers.length > 1 ? (
+        {!loading && visibleOffers.length > 1 ? (
           <OfferSortBar value={sortKey} onChange={setSortKey} />
         ) : null}
 
@@ -299,6 +319,10 @@ export default function Offers() {
                     ✨ Recomiéndame
                   </span>
                 ) : null}
+                <div className="mt-2 flex flex-col items-start gap-1">
+                  <OfferExpiryBadge item={requestById.get(group.key)} now={now} />
+                  <CountdownBar item={requestById.get(group.key)} now={now} />
+                </div>
                 {group.showDescription ? (
                   <p className="text-sm text-gray-600 line-clamp-2">{group.description}</p>
                 ) : null}
@@ -420,6 +444,11 @@ export default function Offers() {
                         {effectivePriceLabel(offer)}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="mt-2 flex flex-col items-start gap-1">
+                    <OfferExpiryBadge item={offer} now={now} />
+                    <CountdownBar item={offer} now={now} />
                   </div>
 
                   {offer.conditions ? (

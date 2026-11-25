@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import { MessageCircle, ChevronRight, ClipboardList } from 'lucide-react';
 import { EmptyModule, LoadingModule } from '../../components/ui/ModuleState';
+import { CountdownBar, OfferExpiryBadge } from '../../components/ui/OfferExpiryBadge';
+import { getExpiryDeadline, useExpiryNow } from '../../data/offerExpiry';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import { fetchBuyerRequests, mapRequest, NOTICES } from '../../data/appData';
@@ -18,6 +20,11 @@ export default function Tracking() {
   );
 
   const activeRequests = items.map(mapRequest);
+  const now = useExpiryNow(activeRequests.map(getExpiryDeadline).filter(Boolean));
+  const visibleRequests = activeRequests.filter((req) => {
+    const deadline = getExpiryDeadline(req);
+    return deadline === null || deadline > now;
+  });
 
   return (
     <div className="min-h-screen bg-[#E7E7E7] pb-20">
@@ -28,11 +35,16 @@ export default function Tracking() {
       <div className="p-4 flex flex-col gap-4">
         {loading ? <LoadingModule label="Cargando solicitudes…" /> : null}
 
-        {!loading && activeRequests.map((req) => (
+        {!loading && visibleRequests.map((req) => (
           <div key={req.id} className="bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-white/30">
             <div className="flex justify-between items-start mb-3">
               <h3 className="font-bold text-gray-800">{req.product}</h3>
               <span className="text-xs text-gray-600">{req.time}</span>
+            </div>
+
+            <div className="mb-3 flex flex-col items-start gap-1">
+              <OfferExpiryBadge item={req} now={now} />
+              <CountdownBar item={req} now={now} />
             </div>
 
             <div className="flex items-center justify-between">
@@ -57,7 +69,7 @@ export default function Tracking() {
           </div>
         ))}
 
-        {!loading && activeRequests.length === 0 && (
+        {!loading && visibleRequests.length === 0 && (
           <EmptyModule
             icon={ClipboardList}
             title="Sin solicitudes activas"

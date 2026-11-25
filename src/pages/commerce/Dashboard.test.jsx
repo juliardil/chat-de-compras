@@ -842,4 +842,33 @@ describe('panel de oportunidades del comercio', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Ruta actual: /dashboard')).toBeInTheDocument();
   });
+
+  it('muestra el contador y deja fuera de la bandeja las oportunidades vencidas', async () => {
+    const now = Date.now();
+    fetchOpenRequests.mockResolvedValue({
+      items: [
+        {
+          ...requestWithItems,
+          id: 'req-vigente',
+          title: 'Oferta vigente',
+          expires_at: new Date(now + 5 * 60000).toISOString(),
+        },
+        {
+          ...requestWithItems,
+          id: 'req-vencida',
+          title: 'Oferta vencida',
+          expires_at: new Date(now - 60000).toISOString(),
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderDashboard();
+
+    expect(await screen.findByText('Oferta vigente')).toBeInTheDocument();
+    expect(screen.getByRole('timer')).toHaveTextContent(/Por acabar/);
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.queryByText('Oferta vencida')).not.toBeInTheDocument();
+  });
 });

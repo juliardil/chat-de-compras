@@ -5,6 +5,8 @@ import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import RecommendationBuilder from '../../components/commerce/RecommendationBuilder';
 import { EmptyModule, LoadingModule, DataNotice } from '../../components/ui/ModuleState';
+import { CountdownBar, OfferExpiryBadge } from '../../components/ui/OfferExpiryBadge';
+import { getExpiryDeadline, useExpiryNow } from '../../data/offerExpiry';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
 import {
@@ -247,6 +249,26 @@ export default function Dashboard() {
   const pendingRequests = lifecycles.filter(
     (thread) => thread.state === 'ESPERANDO_ACEPTACION'
   );
+
+  // El vencimiento se calcula en el cliente con la misma regla de 30 minutos;
+  // al llegar a cero la tarjeta desaparece sin recargar la página.
+  const pendingDeadline = (thread) => getExpiryDeadline({
+    deadlineAt: thread.responseDeadlineAt,
+    createdAt: thread.createdAt,
+  });
+  const now = useExpiryNow([
+    ...opportunities.map(getExpiryDeadline),
+    ...pendingRequests.map(pendingDeadline),
+  ].filter(Boolean));
+  const visibleOpportunities = opportunities.filter((opp) => {
+    const deadline = getExpiryDeadline(opp);
+    return deadline === null || deadline > now;
+  });
+  const visiblePendingRequests = pendingRequests.filter((thread) => {
+    const deadline = pendingDeadline(thread);
+    return deadline === null || deadline > now;
+  });
+
   const hasAccess = Boolean(extra?.access);
   const sales = Array.isArray(extra?.sales) ? extra.sales : [];
   const completedSales = sales.filter((sale) => ['completed', 'delivered'].includes(sale.status));
@@ -263,7 +285,7 @@ export default function Dashboard() {
     },
     {
       label: 'Leads activos',
-      value: hasAccess ? String(opportunities.length) : '—',
+      value: hasAccess ? String(visibleOpportunities.length) : '—',
       icon: Users,
       color: 'bg-gradient-to-br from-[#4B227A]/20 to-[#00EED0]/20 text-[#4B227A]',
     },
@@ -757,7 +779,7 @@ export default function Dashboard() {
 
         {loading ? <LoadingModule label="Cargando oportunidades…" /> : null}
 
-        {!loading && (error || notice) && opportunities.length > 0 ? (
+        {!loading && (error || notice) && visibleOpportunities.length > 0 ? (
           <DataNotice tone={error ? 'error' : 'info'} className="mb-4">
             {error || notice}
           </DataNotice>
@@ -769,7 +791,7 @@ export default function Dashboard() {
           </DataNotice>
         ) : null}
 
-        {!loading && pendingRequests.length > 0 ? (
+        {!loading && visiblePendingRequests.length > 0 ? (
           <div className="mb-5 rounded-2xl border border-[#00EED0]/40 bg-white/80 p-4 shadow-sm">
             <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-[#006E7A]">
               <Clock className="h-4 w-4" />
@@ -780,8 +802,8 @@ export default function Dashboard() {
               negociación.
             </p>
             <div className="flex flex-col gap-2">
-              {pendingRequests.map((thread) => {
-                const opp = opportunities.find((item) => item.id === thread.requestId);
+              {visiblePendingRequests.map((thread) => {
+                const opp = visibleOpportunities.find((item) => item.id === thread.requestId);
                 return (
                   <div
                     key={thread.id}
@@ -796,6 +818,17 @@ export default function Dashboard() {
                           ? `Responde antes de ${new Date(thread.responseDeadlineAt).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
                           : 'Esperando respuesta'}
                       </p>
+                      <div className="mt-1 flex flex-col items-start gap-1">
+                        <OfferExpiryBadge
+                          item={{ deadlineAt: thread.responseDeadlineAt, createdAt: thread.createdAt }}
+                          now={now}
+                        />
+                        <CountdownBar
+                          item={{ deadlineAt: thread.responseDeadlineAt, createdAt: thread.createdAt }}
+                          now={now}
+                          className="max-w-[220px]"
+                        />
+                      </div>
                     </div>
                     <Button
                       onClick={() => handleAcceptRequest(thread)}
@@ -813,10 +846,14 @@ export default function Dashboard() {
         ) : null}
 
         <div className="flex flex-col gap-4">
-          {!loading && opportunities.map((opp) => (
+          {!loading && visibleOpportunities.map((opp) => (
             <div key={opp.id} className="bg-white/70 backdrop-blur-md p-4 rounded-[24px] shadow-sm border border-white/30 relative overflow-hidden transition-all hover:shadow-md">
               <div className="absolute top-2 right-4 text-[13px] font-bold text-[#006E7A] flex items-center gap-1">
                 {opp.timeLeft}
+              </div>
+              <div className="absolute top-7 right-4 flex flex-col items-end gap-1">
+                <OfferExpiryBadge item={opp} now={now} />
+                <CountdownBar item={opp} now={now} className="w-24" />
               </div>
 
               {/* Header Content: Image + Text */}
@@ -1277,7 +1314,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {!loading && opportunities.length === 0 ? (
+        {!loading && visibleOpportunities.length === 0 ? (
           <EmptyModule
             icon={Package}
             title="Sin oportunidades"
@@ -1309,6 +1346,10 @@ export default function Dashboard() {
             <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
               <Clock className="w-4 h-4" /> {selectedOpp.timeLeft}
             </p>
+            <div className="mb-3 flex flex-col items-start gap-1">
+              <OfferExpiryBadge item={selectedOpp} now={now} />
+              <CountdownBar item={selectedOpp} now={now} />
+            </div>
 
             <div className="flex items-center gap-3 mb-5 rounded-xl border border-white/40 bg-white/70 p-3">
               <div className="w-10 h-10 rounded-full bg-[#4B227A]/10 border-2 border-white shadow-sm flex items-center justify-center overflow-hidden shrink-0">

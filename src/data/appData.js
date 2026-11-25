@@ -625,6 +625,9 @@ export const mapRequest = (row) => ({
   statusLabel: REQUEST_STATUS_LABELS[row.status] || row.status || 'Sin estado',
   budget: formatCurrency(row.budget_amount, row.currency),
   time: formatRelativeDate(row.created_at),
+  // Fechas crudas para el contador de 30 minutos; `time` se conserva intacto.
+  createdAt: row.created_at || null,
+  expiresAt: row.expires_at || null,
   offers: Number.isFinite(Number(row.offers_count)) && row.offers_count !== null
     ? Number(row.offers_count)
     : null,
@@ -1119,6 +1122,9 @@ export const mapOffer = (row, buyerLocation = null) => {
     }),
     conditions: row.conditions || '',
     status: row.status,
+    // Fechas crudas para la píldora de vencimiento de 30 minutos.
+    createdAt: row.created_at || null,
+    expiresAt: row.expires_at || null,
     // Bono/descuento o servicio incluido a nivel de oferta (aditivo).
     bonus: String(row.bonus || '').trim(),
     // Primera imagen de producto disponible para la tarjeta de la oferta.
@@ -2326,6 +2332,8 @@ export const mapOpportunity = (row) => {
     details: row.description || '',
     budget: formatCurrency(row.budget_amount, row.currency),
     timeLeft: formatRelativeDate(row.expires_at || row.created_at),
+    createdAt: row.created_at || null,
+    expiresAt: row.expires_at || null,
     image: firstImage,
     items,
     quantityTotal: items.reduce((total, item) => total + item.quantity, 0),
@@ -2637,6 +2645,7 @@ export const mapLifecycleThread = (row) => {
     category: row.category || null,
     state,
     isActive: ACTIVE_OFFER_LIFECYCLE_STATES.includes(state),
+    createdAt: row.created_at || null,
     responseDeadlineAt: row.response_deadline_at || null,
     respondedAt: row.responded_at || null,
     respondedOnTime: row.responded_on_time ?? null,
