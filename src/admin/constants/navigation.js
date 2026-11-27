@@ -158,6 +158,14 @@ export const NAVIGATION_GROUPS = [
         permission: 'sponsorships.view',
         phase: 5,
       },
+      {
+        key: 'ads',
+        label: 'Publicidad',
+        path: '/publicidad',
+        icon: 'Megaphone',
+        permission: 'ads.view',
+        phase: 5,
+      },
     ],
   },
   {

@@ -21,6 +21,9 @@ export const PERMISSION_CATALOG = [
   { key: 'sponsorships.manage', module: 'Patrocinios', label: 'Administrar tarifas, vigencia y aprobación de marcas', sensitive: true },
   { key: 'sponsorships.finance', module: 'Patrocinios', label: 'Consultar ingresos e impacto comercial', sensitive: true },
 
+  { key: 'ads.view', module: 'Publicidad', label: 'Ver campañas y métricas de publicidad', sensitive: false },
+  { key: 'ads.manage', module: 'Publicidad', label: 'Crear, editar y pausar campañas de publicidad', sensitive: true },
+
   { key: 'workshops.view', module: 'Talleres Verificados', label: 'Ver talleres verificados', sensitive: false },
   { key: 'workshops.verify', module: 'Talleres Verificados', label: 'Activar o revocar verificación de talleres', sensitive: true },
 
@@ -186,6 +189,8 @@ export const ROLE_PERMISSIONS = {
     'workshops.verify',
     'sponsorships.view',
     'sponsorships.manage',
+    'ads.view',
+    'ads.manage',
     'sellers.view',
     'sellers.manage',
     // El rol ejecuta altas/bajas de vendedores: debe poder consultar la
@@ -248,6 +253,7 @@ export const ROLE_PERMISSIONS = {
     'audit.view',
     'sponsorships.view',
     'sponsorships.finance',
+    'ads.view',
     'sellers.view',
   ],
 

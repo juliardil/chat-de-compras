@@ -15,7 +15,7 @@
 // de consultar y las escrituras se rechazan si intentan tocar datos ajenos.
 // =============================================================================
 
-import { avatarsBucket, insforge, isInsforgeConfigured } from '../lib/insforge';
+import { adBannersBucket, avatarsBucket, insforge, isInsforgeConfigured } from '../lib/insforge';
 import {
   filterCompatibleRequests,
   hasCommerceSegmentation,
@@ -67,6 +67,12 @@ export const NOTICES = {
     'Tu comercio todavía no tiene configurada su segmentación (vehículos y sistemas de inventario). Actualiza tu perfil para recibir solicitudes compatibles.',
   categories:
     'No se pudieron cargar las categorías.',
+  ads:
+    'No se pudieron cargar los anuncios activos. Se muestra la portada habitual.',
+  adsWrite:
+    'No se pudo registrar la interacción con el anuncio.',
+  adsUpload:
+    'No se pudo subir el banner de la campaña.',
   write:
     'No se pudo guardar la operación. Verifica tu sesión y tus permisos.',
 };
@@ -186,6 +192,68 @@ export const runWrite = async (build, fallback) => {
     return { ok: false, data: null, error: describeError(error, fallback) };
   }
 };
+
+// -----------------------------------------------------------------------------
+// Publicidad del carrusel de /categories
+// La clave de visitante es local y no identifica a la persona: solo permite
+// que el backend deduplique impresiones y clics por campaña.
+// -----------------------------------------------------------------------------
+const AD_VIEWER_KEY_STORAGE = 'chat_compras_ad_viewer_key';
+
+export function getAdViewerKey() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    let key = localStorage.getItem(AD_VIEWER_KEY_STORAGE);
+    if (!key || key.length < 8) {
+      key =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `ad-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem(AD_VIEWER_KEY_STORAGE, key);
+    }
+    return key;
+  } catch {
+    return null;
+  }
+}
+
+const normalizeAdRow = (row) => ({
+  id: row?.id || null,
+  name: row?.name || '',
+  headline: row?.headline || row?.name || '',
+  description: row?.description || '',
+  imageUrl: row?.image_url || '',
+  ctaLabel: row?.cta_label || 'Ver más',
+  targetPath: row?.target_path || '/request',
+  startsAt: row?.starts_at || null,
+  endsAt: row?.ends_at || null,
+});
+
+export const fetchActiveAds = async () => {
+  const result = await runQuery((db) => db.rpc('app_active_ads'), NOTICES.ads);
+  return { ...result, items: result.items.map(normalizeAdRow) };
+};
+
+const recordAdEvent = (rpcName, campaignId, viewerKey) => {
+  const key = viewerKey || getAdViewerKey();
+  if (!campaignId || !key) {
+    return Promise.resolve({
+      ok: false,
+      data: null,
+      error: 'No hay una clave de visualización válida para registrar el anuncio.',
+    });
+  }
+  return runWrite(
+    (db) => db.rpc(rpcName, { p_campaign_id: campaignId, p_viewer_key: key }),
+    NOTICES.adsWrite
+  );
+};
+
+export const recordAdImpression = (campaignId, viewerKey) =>
+  recordAdEvent('app_record_ad_impression', campaignId, viewerKey);
+
+export const recordAdClick = (campaignId, viewerKey) =>
+  recordAdEvent('app_record_ad_click', campaignId, viewerKey);
 
 const requireUserId = (userId, notice) => {
   if (!userId) {
@@ -333,6 +401,43 @@ const uploadToAvatars = async (path, file, fallbackMessage) => {
   } catch (error) {
     return { url: null, key: null, error: describeError(error, fallbackMessage) };
   }
+};
+
+// Banners de publicidad: bucket público `ad-banners`, mismas validaciones de
+// imagen y mismo contrato `{ url, key, error }` que los logos.
+const uploadToAdBanners = async (path, file, fallbackMessage) => {
+  try {
+    const bucket = insforge.storage.from(adBannersBucket);
+    const { data, error } = await bucket.upload(path, file);
+    if (error) {
+      return { url: null, key: null, error: describeError(error, fallbackMessage) };
+    }
+
+    const publicUrl = data?.url || bucket.getPublicUrl(path)?.data?.publicUrl || null;
+    if (!publicUrl) {
+      return { url: null, key: null, error: 'El banner se subió, pero no se obtuvo su URL pública.' };
+    }
+
+    return { url: publicUrl, key: data?.key || path, error: null };
+  } catch (error) {
+    return { url: null, key: null, error: describeError(error, fallbackMessage) };
+  }
+};
+
+export const uploadAdBanner = async ({ userId, file }) => {
+  const validation = validateProfilePhoto(file);
+  if (validation) return { url: null, key: null, error: validation };
+
+  if (!isInsforgeConfigured) {
+    return { url: URL.createObjectURL(file), key: null, error: null, demo: true };
+  }
+
+  if (!userId) {
+    return { url: null, key: null, error: 'No hay una sesión activa para subir el banner.' };
+  }
+
+  const path = `campaigns/${userId}/banner-${Date.now()}.${profilePhotoExtension(file)}`;
+  return uploadToAdBanners(path, file, NOTICES.adsUpload);
 };
 
 // Sube la foto al bucket público y devuelve su URL. En modo demostración se

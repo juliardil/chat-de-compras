@@ -7,6 +7,7 @@ const anonKey = (import.meta.env.VITE_INSFORGE_ANON_KEY || '').trim();
 const rawDocumentsBucket = (import.meta.env.VITE_INSFORGE_DOCUMENTS_BUCKET || '').trim();
 const rawEvidenceBucket = (import.meta.env.VITE_INSFORGE_EVIDENCE_BUCKET || '').trim();
 const rawAvatarsBucket = (import.meta.env.VITE_INSFORGE_AVATARS_BUCKET || '').trim();
+const rawAdBannersBucket = (import.meta.env.VITE_INSFORGE_AD_BANNERS_BUCKET || '').trim();
 
 export const isInsforgeConfigured = Boolean(baseUrl && anonKey);
 
@@ -19,12 +20,17 @@ export const deliveryEvidenceBucket = rawEvidenceBucket || 'delivery-evidence';
 // storage.objects (solo el dueño que sube el archivo).
 export const avatarsBucket = rawAvatarsBucket || 'avatars';
 
+// Banners de publicidad: bucket público de solo lectura para la app. Las
+// campañas se administran desde el panel con RPC SECURITY DEFINER.
+export const adBannersBucket = rawAdBannersBucket || 'ad-banners';
+
 export const insforgeConfig = {
   baseUrl,
   hasAnonKey: Boolean(anonKey),
   documentsBucket,
   deliveryEvidenceBucket,
   avatarsBucket,
+  adBannersBucket,
 };
 
 export const insforge = isInsforgeConfigured

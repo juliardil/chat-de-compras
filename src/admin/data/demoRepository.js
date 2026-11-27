@@ -1,3 +1,4 @@
+import heroBanner from '../../assets/hero-automotriz.svg';
 import { getPermissionsForRole, ROLE_BY_KEY, ROLES } from '../auth/permissions';
 import {
   COMMERCE_TRANSITIONS,
@@ -571,6 +572,119 @@ function buildSponsorshipsSeed() {
   };
 }
 
+// Campañas del módulo de Publicidad en modo demostración. Solo se usan cuando
+// no hay backend InsForge configurado; nunca se mezclan con datos reales.
+function buildAdsSeed() {
+  return {
+    adCampaigns: [
+      {
+        id: 'demo-ad-1',
+        name: 'Temporada automotriz',
+        headline: 'Autos, motos, repuestos y accesorios',
+        description: 'Encuentra lo que tu vehículo necesita',
+        imageUrl: heroBanner,
+        ctaLabel: 'Explorar',
+        targetPath: '/request',
+        startsAt: hoursAgo(24 * 8),
+        endsAt: new Date(Date.now() + 24 * 22 * 60 * 60 * 1000).toISOString(),
+        impressionLimit: 5000,
+        impressionsCount: 1240,
+        clicksCount: 86,
+        sortOrder: 0,
+        isActive: true,
+        createdAt: hoursAgo(24 * 10),
+        updatedAt: hoursAgo(24),
+      },
+      {
+        id: 'demo-ad-2',
+        name: 'Lubricantes del Norte',
+        headline: 'Hasta 30% en lubricantes',
+        description: 'Marcas verificadas para tu motor',
+        imageUrl: heroBanner,
+        ctaLabel: 'Ver ofertas',
+        targetPath: '/request',
+        startsAt: hoursAgo(24 * 3),
+        endsAt: new Date(Date.now() + 24 * 9 * 60 * 60 * 1000).toISOString(),
+        impressionLimit: 3000,
+        impressionsCount: 2984,
+        clicksCount: 142,
+        sortOrder: 1,
+        isActive: true,
+        createdAt: hoursAgo(24 * 5),
+        updatedAt: hoursAgo(12),
+      },
+      {
+        id: 'demo-ad-3',
+        name: 'Rodada de verano',
+        headline: 'Rodada patrocinada',
+        description: 'Chequeo de suspensión incluido',
+        imageUrl: heroBanner,
+        ctaLabel: 'Ver más',
+        targetPath: '/request',
+        startsAt: null,
+        endsAt: new Date(Date.now() + 24 * 30 * 60 * 60 * 1000).toISOString(),
+        impressionLimit: 1000,
+        impressionsCount: 0,
+        clicksCount: 0,
+        sortOrder: 2,
+        isActive: false,
+        createdAt: hoursAgo(24 * 2),
+        updatedAt: hoursAgo(24),
+      },
+      {
+        id: 'demo-ad-4',
+        name: 'Neumáticos Premium',
+        headline: 'Neumáticos con garantía',
+        description: 'Instalación en talleres verificados',
+        imageUrl: heroBanner,
+        ctaLabel: 'Cotizar',
+        targetPath: '/request',
+        startsAt: new Date(Date.now() + 24 * 4 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(Date.now() + 24 * 34 * 60 * 60 * 1000).toISOString(),
+        impressionLimit: 2000,
+        impressionsCount: 0,
+        clicksCount: 0,
+        sortOrder: 3,
+        isActive: true,
+        createdAt: hoursAgo(24),
+        updatedAt: hoursAgo(24),
+      },
+      {
+        id: 'demo-ad-5',
+        name: 'Campaña de invierno',
+        headline: 'Prepara tu auto para el frío',
+        description: 'Revisión preventiva',
+        imageUrl: heroBanner,
+        ctaLabel: 'Ver más',
+        targetPath: '/request',
+        startsAt: hoursAgo(24 * 60),
+        endsAt: hoursAgo(24 * 30),
+        impressionLimit: 800,
+        impressionsCount: 800,
+        clicksCount: 24,
+        sortOrder: 4,
+        isActive: true,
+        createdAt: hoursAgo(24 * 62),
+        updatedAt: hoursAgo(24 * 30),
+      },
+    ],
+  };
+}
+
+function adCampaignLifecycle(campaign) {
+  if (!campaign.isActive) return 'paused';
+  if (
+    campaign.impressionLimit != null
+    && Number(campaign.impressionsCount || 0) >= Number(campaign.impressionLimit)
+  ) {
+    return 'exhausted';
+  }
+  const now = Date.now();
+  if (campaign.endsAt && new Date(campaign.endsAt).getTime() <= now) return 'expired';
+  if (campaign.startsAt && new Date(campaign.startsAt).getTime() > now) return 'scheduled';
+  return 'active';
+}
+
 function clubSponsorLifecycle(sponsor) {
   const status = sponsor.moderationStatus || 'pending';
   if (status !== 'approved') return status;
@@ -615,6 +729,7 @@ function buildSeed() {
     ...buildWorkshopsSeed(),
     ...buildSellersSeed(),
     ...buildSponsorshipsSeed(),
+    ...buildAdsSeed(),
     members,
     invitations: [
       {
@@ -739,6 +854,7 @@ function upgradeStore(stored) {
       ? stored.clubSponsors
       : buildSponsorshipsSeed().clubSponsors,
     sponsorImpact: stored.sponsorImpact || buildSponsorshipsSeed().sponsorImpact,
+    adCampaigns: Array.isArray(stored.adCampaigns) ? stored.adCampaigns : buildAdsSeed().adCampaigns,
     audit: Array.isArray(stored.audit) ? stored.audit : [],
   };
 
@@ -4697,6 +4813,190 @@ export const demoRepository = {
         billingCycle: sponsor.billingCycle,
       };
     });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Publicidad (modo demostración)
+  // ---------------------------------------------------------------------------
+  async listAdCampaigns({ search = '', status = 'all', actor } = {}) {
+    requirePermission(actor, 'ads.view', 'No tienes permiso para ver la publicidad.');
+    const term = String(search || '').trim().toLowerCase();
+    const store = readStore();
+    const campaigns = Array.isArray(store.adCampaigns) ? store.adCampaigns : [];
+
+    return campaigns
+      .filter((campaign) => {
+        const lifecycle = adCampaignLifecycle(campaign);
+        if (status !== 'all' && lifecycle !== status) return false;
+        if (!term) return true;
+        return [campaign.name, campaign.headline, campaign.description]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term));
+      })
+      .map((campaign) => ({
+        ...campaign,
+        lifecycleStatus: adCampaignLifecycle(campaign),
+        remainingImpressions:
+          campaign.impressionLimit == null
+            ? null
+            : Math.max(Number(campaign.impressionLimit) - Number(campaign.impressionsCount || 0), 0),
+      }))
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  },
+
+  async saveAdCampaign({
+    id,
+    name,
+    headline,
+    description,
+    imageUrl,
+    ctaLabel,
+    targetPath,
+    startsAt,
+    endsAt,
+    impressionLimit,
+    isActive,
+    sortOrder,
+    actor,
+  } = {}) {
+    requirePermission(actor, 'ads.manage', 'No tienes permiso para administrar la publicidad.');
+
+    const normalizedName = String(name || '').trim();
+    const normalizedHeadline = String(headline || '').trim();
+    const normalizedImage = String(imageUrl || '').trim();
+    const safeCta = String(ctaLabel || 'Ver más').trim() || 'Ver más';
+    const safePath = String(targetPath || '/request').trim() || '/request';
+    const limit = impressionLimit === '' || impressionLimit == null
+      ? null
+      : Number(impressionLimit);
+
+    if (normalizedName.length < 2 || normalizedName.length > 120) {
+      throw new Error('El nombre debe tener entre 2 y 120 caracteres.');
+    }
+    if (normalizedHeadline.length < 2 || normalizedHeadline.length > 120) {
+      throw new Error('El titular debe tener entre 2 y 120 caracteres.');
+    }
+    if (!normalizedImage) throw new Error('La campaña necesita una imagen de banner.');
+    if (!safePath.startsWith('/') || safePath.startsWith('//')) {
+      throw new Error('El destino debe ser una ruta interna de la aplicación.');
+    }
+    if (startsAt && endsAt && endsAt <= startsAt) {
+      throw new Error('La fecha de fin debe ser posterior a la de inicio.');
+    }
+    if (limit != null && (!Number.isFinite(limit) || limit <= 0)) {
+      throw new Error('El límite de impresiones debe ser mayor a cero.');
+    }
+
+    const store = readStore();
+    const campaigns = Array.isArray(store.adCampaigns) ? store.adCampaigns : [];
+    const index = id ? campaigns.findIndex((campaign) => campaign.id === id) : -1;
+    const previous = index >= 0 ? campaigns[index] : null;
+    const record = {
+      id: previous?.id || makeId(),
+      name: normalizedName,
+      headline: normalizedHeadline,
+      description: String(description || '').trim(),
+      imageUrl: normalizedImage,
+      ctaLabel: safeCta,
+      targetPath: safePath,
+      startsAt: startsAt || null,
+      endsAt: endsAt || null,
+      impressionLimit: limit,
+      impressionsCount: Number(previous?.impressionsCount || 0),
+      clicksCount: Number(previous?.clicksCount || 0),
+      sortOrder: Number(sortOrder || 0),
+      isActive: Boolean(isActive),
+      createdAt: previous?.createdAt || nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    store.adCampaigns = index >= 0
+      ? campaigns.map((campaign, position) => (position === index ? record : campaign))
+      : [...campaigns, record];
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || null,
+      actorRole: actor?.roleKey || null,
+      action: previous ? 'ads.campaign.update' : 'ads.campaign.create',
+      module: 'Publicidad',
+      entityType: 'ad_campaign',
+      entityId: record.id,
+      metadata: { name: record.name, mode: 'demo' },
+    });
+    saveStore(store);
+    return { ...record, lifecycleStatus: adCampaignLifecycle(record) };
+  },
+
+  async setAdCampaignStatus({ id, isActive, reason = '', actor } = {}) {
+    requirePermission(actor, 'ads.manage', 'No tienes permiso para pausar campañas.');
+    requireReason(reason);
+
+    const store = readStore();
+    const campaigns = Array.isArray(store.adCampaigns) ? store.adCampaigns : [];
+    const index = campaigns.findIndex((campaign) => campaign.id === id);
+    if (index === -1) throw new Error('La campaña de publicidad no existe.');
+
+    const previous = campaigns[index];
+    const record = {
+      ...previous,
+      isActive: Boolean(isActive),
+      updatedAt: nowIso(),
+    };
+    store.adCampaigns = campaigns.map((campaign, position) =>
+      position === index ? record : campaign
+    );
+
+    appendAudit(store, {
+      actorId: actor?.memberId || null,
+      actorName: actor?.name || null,
+      actorRole: actor?.roleKey || null,
+      action: isActive ? 'ads.campaign.resume' : 'ads.campaign.pause',
+      module: 'Publicidad',
+      entityType: 'ad_campaign',
+      entityId: id,
+      reasonCode: 'ads.status.change',
+      reasonText: String(reason).trim(),
+      metadata: { name: record.name, mode: 'demo' },
+    });
+    saveStore(store);
+    return { ...record, lifecycleStatus: adCampaignLifecycle(record) };
+  },
+
+  async getAdsOverview({ actor } = {}) {
+    const campaigns = await this.listAdCampaigns({ actor });
+    const countStatus = (status) => campaigns.filter((campaign) => campaign.lifecycleStatus === status).length;
+
+    return {
+      totalCampaigns: campaigns.length,
+      activeCampaigns: countStatus('active'),
+      pausedCampaigns: countStatus('paused'),
+      scheduledCampaigns: countStatus('scheduled'),
+      expiredCampaigns: countStatus('expired'),
+      exhaustedCampaigns: countStatus('exhausted'),
+      totalImpressions: campaigns.reduce((sum, campaign) => sum + Number(campaign.impressionsCount || 0), 0),
+      totalClicks: campaigns.reduce((sum, campaign) => sum + Number(campaign.clicksCount || 0), 0),
+      activeImpressionsRemaining: campaigns
+        .filter((campaign) => campaign.lifecycleStatus === 'active')
+        .reduce((sum, campaign) => sum + Number(campaign.remainingImpressions || 0), 0),
+    };
+  },
+
+  async getAdPerformanceReport({ actor } = {}) {
+    const campaigns = await this.listAdCampaigns({ actor });
+    return campaigns.map((campaign) => ({
+      campaignId: campaign.id,
+      name: campaign.name,
+      lifecycleStatus: campaign.lifecycleStatus,
+      impressionsCount: Number(campaign.impressionsCount || 0),
+      clicksCount: Number(campaign.clicksCount || 0),
+      remainingImpressions: campaign.remainingImpressions,
+      ctr: campaign.impressionsCount
+        ? Number(((campaign.clicksCount / campaign.impressionsCount) * 100).toFixed(2))
+        : 0,
+      startsAt: campaign.startsAt || null,
+      endsAt: campaign.endsAt || null,
+    }));
   },
 
   async globalSearch({ query = '', actor } = {}) {

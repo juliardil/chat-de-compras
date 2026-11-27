@@ -4,12 +4,46 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import ViewSwitcher from '../../components/layout/ViewSwitcher';
+import AdCarousel from '../../components/ads/AdCarousel';
 import { Car, Search } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import SafeImage from '../../components/ui/SafeImage';
 import heroAutomotriz from '../../assets/hero-automotriz.svg';
 
 // Actualización Junio 2026 - Página Exclusiva Automotriz
+
+// Portada habitual: se mantiene intacta cuando no hay campañas activas o cuando
+// el backend no está disponible. El carrusel la reutiliza como fallback.
+function FallbackHero() {
+  return (
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl aspect-[4/5] relative"
+    >
+      <SafeImage
+        src={heroAutomotriz}
+        alt="Automóvil en un taller mecánico"
+        className="w-full h-full object-cover"
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-t from-[#00EED0]/90 to-[#4B227A]/70 via-black/20 to-transparent" />
+
+      <div className="absolute inset-0 p-10 flex flex-col justify-end items-start">
+        <div className="flex items-center gap-4 mb-3">
+          <div className="w-14 h-14 rounded-2xl bg-[#00EED0] flex items-center justify-center shadow-lg border-2 border-white/30">
+            <Car className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-4xl font-black text-white leading-tight">Automotriz</h2>
+        </div>
+        <p className="text-white/90 text-lg font-medium leading-tight max-w-[200px]">
+          Autos, motos, repuestos y accesorios
+        </p>
+      </div>
+    </motion.div>
+  );
+}
 
 export default function Categories() {
   const navigate = useNavigate();
@@ -21,43 +55,15 @@ export default function Categories() {
         <ViewSwitcher />
       </header>
 
-      {/* Hero Section */}
+      {/* Hero Section: campañas activas con portada habitual como fallback */}
       <div className="flex-1 flex items-center justify-center p-6">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-full max-w-sm rounded-[40px] overflow-hidden shadow-2xl aspect-[4/5] relative"
-        >
-          {/* Background Image */}
-          <SafeImage
-            src={heroAutomotriz}
-            alt="Automóvil en un taller mecánico"
-            className="w-full h-full object-cover"
-          />
-          
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#00EED0]/90 to-[#4B227A]/70 via-black/20 to-transparent" />
-
-          {/* Content */}
-          <div className="absolute inset-0 p-10 flex flex-col justify-end items-start">
-            <div className="flex items-center gap-4 mb-3">
-              <div className="w-14 h-14 rounded-2xl bg-[#00EED0] flex items-center justify-center shadow-lg border-2 border-white/30">
-                <Car className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-4xl font-black text-white leading-tight">Automotriz</h2>
-            </div>
-            <p className="text-white/90 text-lg font-medium leading-tight max-w-[200px]">
-              Autos, motos, repuestos y accesorios
-            </p>
-          </div>
-        </motion.div>
+        <AdCarousel fallback={<FallbackHero />} />
       </div>
 
       {/* Action Button */}
       <div className="px-6 py-4 bg-white/80 backdrop-blur-md border-t border-white/30">
-        <Button 
-          fullWidth 
+        <Button
+          fullWidth
           onClick={() => navigate('/request')}
           className="py-4 text-lg shadow-lg shadow-[#00EED0]/30"
         >

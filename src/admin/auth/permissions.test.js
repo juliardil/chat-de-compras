@@ -37,6 +37,10 @@ const HARDENING_MIGRATION = path.resolve(
   MIGRATIONS_DIR,
   '20261127162416_security-hardening.sql'
 );
+const ADS_MIGRATION = path.resolve(
+  MIGRATIONS_DIR,
+  '20261127165029_ads-module.sql'
+);
 
 const readMigration = (migrationPath) => readFileSync(migrationPath, 'utf8');
 
@@ -115,6 +119,18 @@ describe('catálogo de permisos', () => {
     expect(getPermissionsForRole('support')).not.toContain('sellers.view');
   });
 
+  it('reserva la gestión de publicidad a los roles operativos', () => {
+    expect(getPermissionsForRole('admin')).toEqual(
+      expect.arrayContaining(['ads.view', 'ads.manage'])
+    );
+    expect(getPermissionsForRole('commerce_manager')).toEqual(
+      expect.arrayContaining(['ads.view', 'ads.manage'])
+    );
+    expect(getPermissionsForRole('analyst')).toContain('ads.view');
+    expect(getPermissionsForRole('analyst')).not.toContain('ads.manage');
+    expect(getPermissionsForRole('support')).not.toContain('ads.view');
+  });
+
   it('no inventa permisos para roles desconocidos', () => {
     expect(getPermissionsForRole('inexistente')).toEqual([]);
   });
@@ -155,6 +171,7 @@ describe('consistencia con la migración de Fase 1', () => {
       WORKSHOPS_MIGRATION,
       SPONSORSHIPS_MIGRATION,
       SELLERS_MIGRATION,
+      ADS_MIGRATION,
     ]
       .flatMap((migrationPath) => extractSeededPermissionKeys(readMigration(migrationPath)))
       .sort();
@@ -164,6 +181,15 @@ describe('consistencia con la migración de Fase 1', () => {
   it('siembra exactamente los roles del catálogo', () => {
     const seeded = extractSeededRoleKeys(readMigration(FOUNDATION_MIGRATION)).sort();
     expect(seeded).toEqual(ROLES.map((role) => role.key).sort());
+  });
+
+  it('siembra los permisos de publicidad con los mismos roles que el frontend', () => {
+    const sql = readMigration(ADS_MIGRATION);
+    expect(extractSeededPermissionKeys(sql).sort()).toEqual(['ads.manage', 'ads.view']);
+    expect(sql).toMatch(/r\.key in \('superadmin', 'admin', 'commerce_manager'\)/);
+    expect(sql).toMatch(/r\.key = 'analyst'/);
+    expect(sql).toMatch(/p\.key in \('ads\.view', 'ads\.manage'\)/);
+    expect(sql).toMatch(/p\.key = 'ads\.view'/);
   });
 });
 

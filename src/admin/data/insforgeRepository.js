@@ -60,6 +60,54 @@ const mapSellerChatRow = (row) => ({
   })),
 });
 
+const mapAdCampaignRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  headline: row.headline,
+  description: row.description || '',
+  imageUrl: row.image_url,
+  ctaLabel: row.cta_label || 'Ver más',
+  targetPath: row.target_path || '/request',
+  startsAt: row.starts_at || null,
+  endsAt: row.ends_at || null,
+  impressionLimit: row.impression_limit == null ? null : Number(row.impression_limit),
+  impressionsCount: Number(row.impressions_count || 0),
+  clicksCount: Number(row.clicks_count || 0),
+  remainingImpressions:
+    row.remaining_impressions == null ? null : Number(row.remaining_impressions),
+  sortOrder: Number(row.sort_order || 0),
+  isActive: Boolean(row.is_active),
+  lifecycleStatus: row.lifecycle_status || (row.is_active ? 'active' : 'paused'),
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  createdBy: row.created_by || null,
+});
+
+const mapAdOverviewRow = (row) => ({
+  totalCampaigns: Number(row.total_campaigns || 0),
+  activeCampaigns: Number(row.active_campaigns || 0),
+  pausedCampaigns: Number(row.paused_campaigns || 0),
+  scheduledCampaigns: Number(row.scheduled_campaigns || 0),
+  expiredCampaigns: Number(row.expired_campaigns || 0),
+  exhaustedCampaigns: Number(row.exhausted_campaigns || 0),
+  totalImpressions: Number(row.total_impressions || 0),
+  totalClicks: Number(row.total_clicks || 0),
+  activeImpressionsRemaining: Number(row.active_impressions_remaining || 0),
+});
+
+const mapAdPerformanceRow = (row) => ({
+  campaignId: row.campaign_id,
+  name: row.name,
+  lifecycleStatus: row.lifecycle_status,
+  impressionsCount: Number(row.impressions_count || 0),
+  clicksCount: Number(row.clicks_count || 0),
+  remainingImpressions:
+    row.remaining_impressions == null ? null : Number(row.remaining_impressions),
+  ctr: Number(row.ctr || 0),
+  startsAt: row.starts_at || null,
+  endsAt: row.ends_at || null,
+});
+
 const mapSession = (payload) => {
   if (!payload) return null;
   const data = Array.isArray(payload) ? payload[0] : payload;
@@ -1461,6 +1509,72 @@ export function createInsforgeRepository(insforge) {
         amount: Number(row.amount || 0),
         billingCycle: row.billing_cycle || 'monthly',
       }));
+    },
+
+    // -------------------------------------------------------------------------
+    // Publicidad
+    // -------------------------------------------------------------------------
+    async listAdCampaigns({ search = '', status = 'all' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_list_ad_campaigns', {
+        p_search: String(search || '').trim() || null,
+        p_status: status || 'all',
+      });
+      throwIfError(error, 'No se pudieron cargar las campañas de publicidad.');
+      return asArray(data).map(mapAdCampaignRow);
+    },
+
+    async saveAdCampaign({
+      id = null,
+      name,
+      headline,
+      description = '',
+      imageUrl,
+      ctaLabel = 'Ver más',
+      targetPath = '/request',
+      startsAt = null,
+      endsAt = null,
+      impressionLimit = null,
+      isActive = true,
+      sortOrder = 0,
+    } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_save_ad_campaign', {
+        p_id: id || null,
+        p_name: name,
+        p_headline: headline,
+        p_description: description || null,
+        p_image_url: imageUrl,
+        p_cta_label: ctaLabel || 'Ver más',
+        p_target_path: targetPath || '/request',
+        p_starts_at: startsAt || null,
+        p_ends_at: endsAt || null,
+        p_impression_limit: impressionLimit == null || impressionLimit === '' ? null : Number(impressionLimit),
+        p_is_active: Boolean(isActive),
+        p_sort_order: Number(sortOrder || 0),
+      });
+      throwIfError(error, 'No se pudo guardar la campaña de publicidad.');
+      return mapAdCampaignRow(asArray(data)[0] || {});
+    },
+
+    async setAdCampaignStatus({ id, isActive, reason = '' } = {}) {
+      const { data, error } = await insforge.database.rpc('admin_set_ad_campaign_status', {
+        p_id: id,
+        p_is_active: Boolean(isActive),
+        p_reason: reason || null,
+      });
+      throwIfError(error, 'No se pudo actualizar el estado de la campaña.');
+      return mapAdCampaignRow(asArray(data)[0] || {});
+    },
+
+    async getAdsOverview() {
+      const { data, error } = await insforge.database.rpc('admin_ad_overview');
+      throwIfError(error, 'No se pudieron cargar las métricas de publicidad.');
+      return mapAdOverviewRow(asArray(data)[0] || {});
+    },
+
+    async getAdPerformanceReport() {
+      const { data, error } = await insforge.database.rpc('admin_ad_performance_report');
+      throwIfError(error, 'No se pudo cargar el rendimiento de publicidad.');
+      return asArray(data).map(mapAdPerformanceRow);
     },
 
     async globalSearch({ query = '' } = {}) {
