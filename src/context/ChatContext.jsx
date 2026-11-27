@@ -6,6 +6,7 @@ import {
   archiveChatThreadForDelivery,
   createOrderForChat,
   expireOfferLifecycles,
+  fetchBuyerHistory,
   fetchChatMessages,
   fetchChatCounterpart,
   fetchChatThread,
@@ -255,6 +256,10 @@ export const ChatProvider = ({ children }) => {
   // Estado real del ciclo de vida de la oferta elegida (si el hilo tiene uno).
   const [lifecycleInfo, setLifecycleInfo] = useState(null);
 
+  // Historial real de compras/entregas, consultable por comprador, comercio y
+  // vendedor. Se lee de InsForge; sin backend queda vacío (nunca inventado).
+  const [buyerHistory, setBuyerHistory] = useState(null);
+
   // Datos de envío del comprador (se envían al comercio como mensaje del chat).
   // Se precarga el borrador para «Quiero otro vendedor».
   const [shippingData, setShippingData] = useState(loadShippingDraft);
@@ -399,6 +404,24 @@ export const ChatProvider = ({ children }) => {
         '',
     });
   }, [connected, userRole]);
+
+  // El historial se consulta con la RPC que resuelve el alcance por rol en la
+  // base de datos. Se refresca al entrar y después de confirmar/calificar una
+  // entrega para que compre, comercio y vendedor vean el mismo historial real.
+  const refreshBuyerHistory = useCallback(async () => {
+    if (!connected) {
+      setBuyerHistory(null);
+      return null;
+    }
+
+    const result = await fetchBuyerHistory();
+    setBuyerHistory(result.item);
+    return result.item;
+  }, [connected]);
+
+  useEffect(() => {
+    void refreshBuyerHistory();
+  }, [refreshBuyerHistory, userId]);
 
   // Abrir (o crear) el chat indicado por la ruta y limpiar modales al cambiar de conversación
   const openChat = useCallback((chatId) => {
@@ -672,6 +695,7 @@ export const ChatProvider = ({ children }) => {
           setChatError(archive.error);
         }
         await refreshThreadMeta(activeChatId);
+        void refreshBuyerHistory();
       } else {
         setChats((prev) => {
           const chat = prev[activeChatId];
@@ -813,13 +837,9 @@ export const ChatProvider = ({ children }) => {
     }
 
     await Promise.all([refreshThreadMeta(activeChatId), refreshChat(activeChatId)]);
+    void refreshBuyerHistory();
     return result;
   };
-
-  // El historial del comprador requiere compras/reseñas reales (purchase_orders
-  // y commerce_reviews), que hoy no están expuestas a la app. Se entrega null
-  // para que la vista muestre un estado vacío en lugar de datos inventados.
-  const buyerHistory = null;
 
   return (
     <ChatContext.Provider value={{

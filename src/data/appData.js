@@ -2556,22 +2556,157 @@ const runLifecycleRpc = async (name, params, fallback) => {
 // limitados por RLS al comercio del dueño o del vendedor afiliado activo.
 export const fetchChatStageBoard = async () => {
   const emptyCounts = { negotiating: 0, pending: 0, delivered: 0 };
+  const emptyBoard = { counts: emptyCounts, stages: {}, deliveredIds: [] };
   const result = await runLifecycleRpc('app_chat_stage_board', {});
-  if (!result.ok || !result.data) return { counts: emptyCounts, stages: {}, error: result.error };
+  if (!result.ok || !result.data) return { ...emptyBoard, error: result.error };
 
   const payload = Array.isArray(result.data) ? result.data[0] : result.data;
   const counts = payload?.counts || {};
   const stages = payload?.stages;
+  const deliveredIds = payload?.deliveredIds;
 
   return {
     counts: {
       negotiating: Number(counts.negotiating) || 0,
       pending: Number(counts.pending) || 0,
+      // El backend cuenta los hilos entregados (incluidos los archivados).
       delivered: Number(counts.delivered) || 0,
     },
     stages: stages && typeof stages === 'object' && !Array.isArray(stages) ? stages : {},
+    deliveredIds: Array.isArray(deliveredIds)
+      ? deliveredIds.filter((id) => typeof id === 'string')
+      : [],
     error: null,
   };
+};
+
+// -----------------------------------------------------------------------------
+// Historial de entregas (comprador, comercio/vendedor y admin)
+// -----------------------------------------------------------------------------
+// La RPC resuelve el alcance en la base de datos; aquí solo se traducen columnas
+// reales a un modelo de vista. Nunca se inventan importes ni calificaciones.
+const finiteOrNull = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+export const mapDeliveryHistoryItem = (row) => {
+  if (!row || typeof row !== 'object') return null;
+
+  const messages = Array.isArray(row.recent_messages) ? row.recent_messages : [];
+  const reviews = Array.isArray(row.reviews) ? row.reviews : [];
+
+  return {
+    chatId: row.chat_id || null,
+    orderId: row.order_id || null,
+    subject: String(row.subject || '').trim() || 'Compra entregada',
+    orderNumber: String(row.order_number || '').trim() || null,
+    total: finiteOrNull(row.total_amount),
+    currency: String(row.currency || 'MXN').trim() || 'MXN',
+    status: String(row.order_status || 'delivered'),
+    deliveredAt: row.delivered_at || row.delivery_confirmed_at || null,
+    placedAt: row.placed_at || null,
+    store: String(row.commerce_name || '').trim(),
+    seller: String(row.seller_name || '').trim(),
+    sellerId: row.seller_id || null,
+    rating: finiteOrNull(row.rating),
+    reviewComment: String(row.review_comment || '').trim(),
+    deliveredOnTime: row.delivered_on_time ?? null,
+    lifecycleState: String(row.lifecycle_state || ''),
+    messages: messages
+      .filter((message) => message && typeof message.body === 'string')
+      .map((message) => ({
+        sender: String(message.sender_type || ''),
+        senderName: String(message.sender_name || ''),
+        text: message.body,
+        at: message.created_at || null,
+      })),
+    reviews: reviews
+      .filter((review) => review && finiteOrNull(review.rating) !== null)
+      .map((review) => ({
+        id: review.id || null,
+        stars: Number(review.rating),
+        comment: String(review.comment || '').trim(),
+        status: String(review.status || ''),
+        at: review.created_at || null,
+      })),
+  };
+};
+
+// Las filas de la RPC llegan en snake_case; `fetchDeliveredPurchaseHistory`
+// ya las tradujo a camelCase. Aceptar ambos evita una doble conversión que
+// dejaría los campos derivados vacíos.
+const asHistoryItem = (row) => {
+  if (!row || typeof row !== 'object') return null;
+  if (Object.prototype.hasOwnProperty.call(row, 'chat_id')) return mapDeliveryHistoryItem(row);
+  return row;
+};
+
+// Modelo que consume el modal «Historial de Compras» del chat: compras reales,
+// promedio de reseñas publicadas y comentarios con nombre del comercio.
+export const mapPurchaseHistory = (payload) => {
+  const items = Array.isArray(payload?.items)
+    ? payload.items.map(asHistoryItem).filter(Boolean)
+    : [];
+  if (items.length === 0) return null;
+
+  const reviews = items.flatMap((item) => (Array.isArray(item.reviews) ? item.reviews : []).map((review) => ({
+    id: review.id || `${item.chatId || item.orderId}-${review.at || ''}`,
+    seller: item.store || item.seller || 'Comercio',
+    stars: review.stars,
+    comment: review.comment,
+    date: formatRelativeDate(review.at || item.deliveredAt),
+  })));
+
+  const rated = reviews.filter((review) => finiteOrNull(review.stars) !== null);
+  const rating = rated.length > 0
+    ? Math.round((rated.reduce((sum, review) => sum + review.stars, 0) / rated.length) * 10) / 10
+    : null;
+
+  return {
+    rating,
+    totalPurchases: items.length,
+    reviews,
+    purchases: items.map((item) => ({
+      id: item.orderId || item.chatId,
+      chatId: item.chatId,
+      number: item.orderNumber,
+      product: item.subject,
+      store: item.store,
+      seller: item.seller,
+      total: item.total,
+      currency: item.currency,
+      deliveredAt: item.deliveredAt,
+      status: item.status,
+    })),
+  };
+};
+
+export const fetchDeliveredPurchaseHistory = async (limit = 50) => {
+  if (!isInsforgeConfigured) return emptyResult(NOTICES.demo);
+
+  const result = await runLifecycleRpc(
+    'app_delivered_purchase_history',
+    { p_limit: limit },
+    'No se pudo cargar el historial de entregas.'
+  );
+  if (!result.ok) return emptyResult(NOTICES.orders, result.error);
+
+  const payload = Array.isArray(result.data) ? result.data[0] : result.data;
+  const rows = Array.isArray(payload?.items) ? payload.items : [];
+
+  return {
+    items: rows.map(mapDeliveryHistoryItem).filter(Boolean),
+    total: Number(payload?.total) || rows.length,
+    error: null,
+    notice: null,
+  };
+};
+
+export const fetchBuyerHistory = async () => {
+  const result = await fetchDeliveredPurchaseHistory();
+  return { item: mapPurchaseHistory(result), error: result.error, notice: result.notice };
 };
 
 // El comercio elige su propio SLA. La RPC valida los valores permitidos y

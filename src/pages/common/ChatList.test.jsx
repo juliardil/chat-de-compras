@@ -12,10 +12,11 @@ vi.mock('../../data/appData', async (importOriginal) => {
     ...actual,
     fetchChatThreads: vi.fn(),
     fetchChatStageBoard: vi.fn(),
+    fetchDeliveredPurchaseHistory: vi.fn(),
   };
 });
 
-import { fetchChatStageBoard, fetchChatThreads } from '../../data/appData';
+import { fetchChatStageBoard, fetchChatThreads, fetchDeliveredPurchaseHistory } from '../../data/appData';
 
 const threads = [
   {
@@ -53,12 +54,29 @@ const threads = [
 ];
 
 const stageBoard = {
-  counts: { negotiating: 2, pending: 1, delivered: 0 },
+  // El contador viene de la RPC: dos entregas reales aunque la bandeja activa
+  // solo traiga un hilo archivado en este fixture.
+  counts: { negotiating: 2, pending: 1, delivered: 2 },
   stages: Object.fromEntries(
     threads.filter((thread) => thread.status !== 'archived').map((thread) => [thread.id, thread.sales_stage])
   ),
+  deliveredIds: ['chat-ent-1', 'chat-ent-2'],
   error: null,
 };
+
+const deliveryHistory = [
+  {
+    chatId: 'chat-ent-1',
+    orderId: 'order-1',
+    subject: 'Pastillas',
+    orderNumber: 'GO-100',
+    total: 450,
+    currency: 'MXN',
+    deliveredAt: new Date().toISOString(),
+    store: 'Taller Cuatro',
+    seller: 'Ana Torres',
+  },
+];
 
 function LocationProbe() {
   const { pathname } = useLocation();
@@ -79,6 +97,12 @@ describe('bandeja de mensajes con etapas', () => {
   beforeEach(() => {
     fetchChatThreads.mockReset().mockResolvedValue({ items: threads, error: null, notice: null });
     fetchChatStageBoard.mockReset().mockResolvedValue(stageBoard);
+    fetchDeliveredPurchaseHistory.mockReset().mockResolvedValue({
+      items: deliveryHistory,
+      total: 1,
+      error: null,
+      notice: null,
+    });
   });
 
   it('muestra tres píldoras y deja fuera de la bandeja los chats entregados', async () => {
@@ -86,7 +110,7 @@ describe('bandeja de mensajes con etapas', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Negociando (2)' })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Entregados (0)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregados (2)' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Etapas de conversación' })).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Negociando (2)' })).toHaveAttribute('aria-pressed', 'false');
@@ -104,7 +128,7 @@ describe('bandeja de mensajes con etapas', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Negociando (2)' })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Pendientes (1)' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Entregados (0)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregados (2)' })).toBeInTheDocument();
     expect(fetchChatThreads).toHaveBeenCalledWith({ userId: 'user-1', role: 'commerce' });
   });
 
@@ -145,5 +169,52 @@ describe('bandeja de mensajes con etapas', () => {
     expect(screen.queryByRole('group', { name: 'Etapas de conversación' })).not.toBeInTheDocument();
     expect(fetchChatThreads).toHaveBeenCalledWith({ userId: 'buyer-1', role: 'buyer' });
     expect(fetchChatStageBoard).not.toHaveBeenCalled();
+  });
+
+  it('muestra el contador real de entregados y abre el historial desde la píldora', async () => {
+    const user = userEvent.setup();
+    renderChatList({ id: 'user-1', role: 'seller', sellerCommerceName: 'Taller Real' });
+
+    await user.click(await screen.findByRole('button', { name: 'Entregados (2)' }));
+
+    expect(fetchDeliveredPurchaseHistory).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('button', { name: 'Abrir historial Pastillas' })).toBeInTheDocument();
+    expect(screen.getByText('Taller Cuatro')).toBeInTheDocument();
+    expect(screen.getByText('Entregado')).toBeInTheDocument();
+    expect(screen.getByText(/450/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir conversación Bafles' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Abrir historial Pastillas' }));
+    expect(screen.getByText('Ruta actual: /chat/chat-ent-1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ver conversaciones' }));
+    expect(screen.getByRole('button', { name: 'Abrir conversación Bafles' })).toBeInTheDocument();
+  });
+
+  it('da al comprador acceso al historial sin mostrar píldoras de ventas', async () => {
+    const user = userEvent.setup();
+    renderChatList({ id: 'buyer-1', role: 'buyer' });
+
+    await user.click(await screen.findByRole('button', { name: 'Ver historial de entregas' }));
+
+    expect(await screen.findByRole('button', { name: 'Abrir historial Pastillas' })).toBeInTheDocument();
+    expect(fetchDeliveredPurchaseHistory).toHaveBeenCalledTimes(1);
+    expect(fetchChatStageBoard).not.toHaveBeenCalled();
+    expect(screen.queryByRole('group', { name: 'Etapas de conversación' })).not.toBeInTheDocument();
+  });
+
+  it('muestra un estado vacío explícito cuando no hay entregas', async () => {
+    const user = userEvent.setup();
+    fetchDeliveredPurchaseHistory.mockReset().mockResolvedValue({
+      items: [],
+      total: 0,
+      error: null,
+      notice: null,
+    });
+    renderChatList({ id: 'user-1', role: 'commerce' });
+
+    await user.click(await screen.findByRole('button', { name: 'Entregados (2)' }));
+
+    expect(await screen.findByText('Sin entregas todavía')).toBeInTheDocument();
   });
 });

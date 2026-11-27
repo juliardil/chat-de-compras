@@ -1,13 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, MessageSquare, ChevronRight, History } from 'lucide-react';
 import UserBottomNav from '../../components/layout/UserBottomNav';
 import CommerceBottomNav from '../../components/layout/CommerceBottomNav';
 import { EmptyModule, LoadingModule } from '../../components/ui/ModuleState';
 import SafeImage from '../../components/ui/SafeImage';
 import { useAuth } from '../../context/auth-context';
 import { useModuleData } from '../../data/useModuleData';
-import { fetchChatStageBoard, fetchChatThreads, mapChatThread, NOTICES } from '../../data/appData';
+import {
+  fetchChatStageBoard,
+  fetchChatThreads,
+  fetchDeliveredPurchaseHistory,
+  formatCurrency,
+  formatRelativeDate,
+  mapChatThread,
+  NOTICES,
+} from '../../data/appData';
 
 // Actualización estética Junio 2026
 
@@ -44,7 +52,9 @@ export default function ChatList() {
   const isSalesInbox = Boolean(salesRole);
   const dataRole = salesRole || user?.role;
   const [activeStage, setActiveStage] = useState(null);
-  const [stageBoard, setStageBoard] = useState({ counts: null, stages: {}, error: null });
+  const [stageBoard, setStageBoard] = useState({ counts: null, stages: {}, deliveredIds: [], error: null });
+  const [showBuyerHistory, setShowBuyerHistory] = useState(false);
+  const [deliveryHistory, setDeliveryHistory] = useState({ items: [], loading: false, error: null });
 
   const { items, loading, error, notice } = useModuleData(
     () => fetchChatThreads({ userId: user?.id, role: dataRole }),
@@ -79,6 +89,29 @@ export default function ChatList() {
       window.clearInterval(interval);
     };
   }, [isSalesInbox]);
+
+  // La píldora «Entregados» y el acceso del comprador leen el historial real
+  // de InsForge. Los hilos entregados siguen fuera de la bandeja activa.
+  const showHistoryView = isSalesInbox
+    ? activeStage === 'delivered'
+    : showBuyerHistory;
+
+  useEffect(() => {
+    if (!showHistoryView) return undefined;
+    let cancelled = false;
+    setDeliveryHistory({ items: [], loading: true, error: null });
+
+    fetchDeliveredPurchaseHistory().then((result) => {
+      if (cancelled) return;
+      setDeliveryHistory({
+        items: result.items,
+        loading: false,
+        error: result.error || result.notice || null,
+      });
+    });
+
+    return () => { cancelled = true; };
+  }, [showHistoryView]);
 
   // Doble respaldo de la regla del backend: aunque una respuesta en caché
   // todavía traiga un hilo entregado, no debe aparecer en la bandeja activa.
@@ -115,6 +148,18 @@ export default function ChatList() {
             </p>
           ) : null}
         </div>
+        {!isSalesInbox ? (
+          <button
+            type="button"
+            aria-label="Ver historial de entregas"
+            aria-pressed={showBuyerHistory}
+            onClick={() => setShowBuyerHistory((visible) => !visible)}
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#0197AF]/20 bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#006E7A] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#00EED0]/40"
+          >
+            <History className="w-3.5 h-3.5" />
+            Historial
+          </button>
+        ) : null}
       </header>
 
       {isSalesInbox ? (
@@ -153,6 +198,97 @@ export default function ChatList() {
       ) : null}
 
       <div className="flex flex-col">
+        {showHistoryView ? (
+          <div>
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/30">
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-gray-800">Entregas confirmadas</h2>
+                <p className="text-[10px] font-bold text-[#006E7A] uppercase tracking-widest mt-1">
+                  Historial de compras
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setActiveStage(null); setShowBuyerHistory(false); }}
+                className="shrink-0 rounded-full border border-[#0197AF]/20 bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#006E7A] hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#00EED0]/40"
+              >
+                Ver conversaciones
+              </button>
+            </div>
+
+            {deliveryHistory.loading ? <LoadingModule label="Cargando historial…" /> : null}
+
+            {!deliveryHistory.loading && deliveryHistory.items.map((item) => {
+              const openable = Boolean(item.chatId);
+              return (
+                <div
+                  key={`${item.chatId || item.orderId || item.subject}`}
+                  role={openable ? 'button' : undefined}
+                  tabIndex={openable ? 0 : undefined}
+                  aria-label={openable ? `Abrir historial ${item.subject}` : undefined}
+                  onClick={openable ? () => navigate(`/chat/${item.chatId}`) : undefined}
+                  onKeyDown={openable ? (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(`/chat/${item.chatId}`);
+                    }
+                  } : undefined}
+                  className={`bg-white/80 backdrop-blur-md p-4 border-b border-white/30 flex gap-4 ${
+                    openable ? 'hover:bg-white/90 transition-colors cursor-pointer' : ''
+                  }`}
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#00EED0]/30 to-[#4B227A]/30 rounded-full flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-6 h-6 text-[#006E7A]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2 mb-1">
+                      <h3 className="font-bold text-gray-800 text-sm truncate">
+                        {item.store || item.seller || item.subject}
+                      </h3>
+                      <span className="text-[10px] text-gray-600 whitespace-nowrap ml-2">
+                        {formatRelativeDate(item.deliveredAt)}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-[#006E7A] truncate">{item.subject}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      <span className="rounded-full bg-[#00EED0]/25 px-2 py-0.5 text-[10px] font-black text-[#006E7A]">
+                        Entregado
+                      </span>
+                      {Number.isFinite(item.total) ? (
+                        <span className="text-[11px] font-bold text-[#4B227A]">
+                          {formatCurrency(item.total, item.currency)}
+                        </span>
+                      ) : null}
+                      {item.seller ? (
+                        <span className="text-[10px] text-gray-600 truncate">
+                          Vendedor: {item.seller}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  {openable ? (
+                    <div className="self-center">
+                      <ChevronRight className="w-5 h-5 text-gray-500" />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            {!deliveryHistory.loading && deliveryHistory.items.length === 0 ? (
+              <div className="p-4">
+                <EmptyModule
+                  icon={History}
+                  title="Sin entregas todavía"
+                  description="Cuando confirmes que el producto llegó y todo está bien, la compra aparecerá aquí."
+                  notice={deliveryHistory.error}
+                  tone={deliveryHistory.error ? 'error' : 'info'}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
         {loading ? <LoadingModule label="Cargando conversaciones…" /> : null}
 
         {!loading && visibleChats.map((chat) => (
@@ -221,6 +357,8 @@ export default function ChatList() {
               tone={error ? 'error' : 'info'}
             />
           </div>
+        )}
+          </>
         )}
       </div>
 

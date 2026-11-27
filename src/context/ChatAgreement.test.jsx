@@ -19,8 +19,10 @@ vi.mock('./auth-context', () => ({
 }));
 
 vi.mock('../data/appData', () => ({
+  archiveChatThreadForDelivery: vi.fn(),
   createOrderForChat: vi.fn(),
   expireOfferLifecycles: vi.fn().mockResolvedValue({ ok: true }),
+  fetchBuyerHistory: vi.fn().mockResolvedValue({ item: null, error: null, notice: null }),
   fetchChatMessages: vi.fn(),
   fetchChatCounterpart: vi.fn(),
   fetchChatThread: vi.fn(),
@@ -35,6 +37,7 @@ vi.mock('../data/appData', () => ({
 
 import {
   expireOfferLifecycles,
+  fetchBuyerHistory,
   fetchChatCounterpart,
   fetchChatMessages,
   fetchChatThread,
@@ -69,6 +72,7 @@ describe('acuerdo inicial del chat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     expireOfferLifecycles.mockResolvedValue({ ok: true, data: 0, error: null });
+    fetchBuyerHistory.mockResolvedValue({ item: null, error: null, notice: null });
 
     harness.thread = {
       id: 'thread-1',
