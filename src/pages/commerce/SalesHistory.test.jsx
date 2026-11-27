@@ -262,4 +262,34 @@ describe('menú ⋮ del historial de ventas', () => {
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
+
+  it('cierra el menú con un segundo clic en el botón ⋮', async () => {
+    renderHistory();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Bafles')).toBeTruthy();
+    const button = screen.getByRole('button', { name: 'Opciones de transacciones' });
+
+    await user.click(button);
+    expect(screen.getByRole('menu')).toBeTruthy();
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(button);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('aplica el filtro de últimos 30 días desde el menú ⋮', async () => {
+    renderHistory();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Pedido cancelado')).toBeTruthy();
+    const menu = await openMenu(user);
+    await user.click(within(menu).getByRole('menuitemradio', { name: 'Últimos 30 días' }));
+
+    expect(screen.getByText(/Últimos 30 días · 5/)).toBeTruthy();
+    expect(screen.getByText('Bafles')).toBeTruthy();
+    expect(screen.getByText('Neumático')).toBeTruthy();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
 });

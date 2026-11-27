@@ -191,6 +191,39 @@ describe('consistencia con la migración de Fase 1', () => {
     expect(sql).toMatch(/p\.key in \('ads\.view', 'ads\.manage'\)/);
     expect(sql).toMatch(/p\.key = 'ads\.view'/);
   });
+
+  it('audita activar y desactivar vendedores y bloquea a los dueños en SQL', () => {
+    const sql = readMigration(SELLERS_MIGRATION);
+
+    expect(sql).toContain('create or replace function public.admin_set_seller_active(');
+    expect(sql).toMatch(/if v_member\.role <> 'seller' then/);
+    expect(sql).toContain('Solo se puede cambiar el estado de vendedores afiliados.');
+    expect(sql).toContain('insert into public.admin_audit_logs (');
+    expect(sql).toMatch(/case when p_is_active then 'sellers\.activate' else 'sellers\.deactivate' end/);
+    expect(sql).toMatch(/'Vendedores', 'commerce_member', v_member\.id::text/);
+    expect(sql).toContain('p_reason_code, btrim(p_reason)');
+    expect(sql).toContain("jsonb_build_object('is_active', v_member.is_active)");
+    expect(sql).toContain('previousIsActive');
+    expect(sql).toContain('newIsActive');
+    expect(sql).toContain('where actor.user_id = public.admin_current_user_id()');
+  });
+
+  it('respeta vigencia y límite de impresiones y deduplica eventos en SQL', () => {
+    const sql = readMigration(ADS_MIGRATION);
+
+    expect(sql).toContain('create or replace function public.app_active_ads()');
+    expect(sql).toMatch(/c\.starts_at is null or c\.starts_at <= now\(\)/);
+    expect(sql).toMatch(/c\.ends_at is null or c\.ends_at > now\(\)/);
+    expect(sql).toMatch(/c\.impression_limit is null or c\.impressions_count < c\.impression_limit/);
+    expect(sql).toContain(
+      'constraint ad_impressions_unique_event unique (campaign_id, viewer_key, event_type)'
+    );
+    expect(sql).toContain('on conflict (campaign_id, viewer_key, event_type) do nothing');
+    expect(sql).toContain("if p_event_type not in ('impression', 'click') then");
+    expect(sql).toContain('v_campaign.impression_limit is not null');
+    expect(sql).toContain('v_campaign.impressions_count >= v_campaign.impression_limit');
+    expect(sql).toMatch(/set search_path = pg_catalog, public, pg_temp/);
+  });
 });
 
 describe('hardening de seguridad (Bloque 2)', () => {

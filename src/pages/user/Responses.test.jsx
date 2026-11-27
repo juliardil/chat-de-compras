@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Responses from './Responses';
 import { AuthContext } from '../../context/auth-context';
 
@@ -45,6 +45,10 @@ describe('detalle de ofertas recibidas', () => {
     selectOfferItemBrands.mockResolvedValue({ ok: true, data: null, error: null });
     selectOfferOption.mockReset();
     selectOfferOption.mockResolvedValue({ ok: true, data: null, error: null });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('muestra el desglose por producto con precios y productos no disponibles', async () => {
@@ -277,5 +281,54 @@ describe('detalle de ofertas recibidas', () => {
         ],
       })
     );
+  });
+
+  it('oculta en vivo la oferta que vence y conserva las siguientes vigentes', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    vi.setSystemTime(now);
+
+    fetchBuyerOffers.mockResolvedValue({
+      items: [
+        {
+          id: 'offer-expiring',
+          request_id: 'req-1',
+          commerce_name: 'Comercio Por Vencer',
+          total_amount: 300,
+          currency: 'MXN',
+          status: 'active',
+          created_at: new Date(now + 1000 - 30 * 60 * 1000).toISOString(),
+          items: [],
+        },
+        {
+          id: 'offer-fresh',
+          request_id: 'req-1',
+          commerce_name: 'Comercio Vigente',
+          total_amount: 500,
+          currency: 'MXN',
+          status: 'active',
+          created_at: new Date(now).toISOString(),
+          items: [],
+        },
+      ],
+      error: null,
+      notice: null,
+    });
+
+    renderResponses();
+    await act(async () => {});
+
+    expect(screen.getByRole('heading', { name: 'Comercio Por Vencer' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Comercio Vigente' })).toBeInTheDocument();
+    expect(screen.getAllByRole('timer')).toHaveLength(2);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(screen.queryByRole('heading', { name: 'Comercio Por Vencer' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Comercio Vigente' })).toBeInTheDocument();
+    expect(screen.getAllByRole('timer')).toHaveLength(1);
+    expect(screen.getByRole('timer')).toHaveTextContent('Quedan 30 min');
   });
 });

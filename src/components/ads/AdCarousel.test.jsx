@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -108,5 +108,30 @@ describe('carrusel de publicidad de /categories', () => {
 
     expect(recordAdClick).toHaveBeenCalledWith('ad-1', 'viewer-key-1234');
     expect(await screen.findByText('Ruta de solicitud')).toBeTruthy();
+  });
+
+  it('es un carrusel con snap y actualiza el indicador al desplazarse', async () => {
+    fetchActiveAds.mockResolvedValue({ items: ads, error: null, notice: null });
+    renderCarousel();
+
+    const region = await screen.findByRole('region', { name: 'Anuncios destacados' });
+    expect(region.getAttribute('aria-roledescription')).toBe('carrusel');
+    expect(region.className).toContain('overflow-x-auto');
+    expect(region.className).toContain('snap-x');
+    expect(region.className).toContain('snap-mandatory');
+
+    Object.defineProperty(region, 'scrollWidth', { configurable: true, value: 600 });
+    Object.defineProperty(region, 'clientWidth', { configurable: true, value: 300 });
+    fireEvent.scroll(region, { target: { scrollLeft: 300 } });
+
+    expect(screen.getByText('2/2')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ir al anuncio 2' })).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    expect(screen.getByRole('button', { name: 'Ir al anuncio 1' })).toHaveAttribute(
+      'aria-current',
+      'false'
+    );
   });
 });

@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Publicidad from './Publicidad';
 
 const {
@@ -104,6 +104,10 @@ beforeEach(() => {
   uploadAdBanner.mockResolvedValue({ url: 'https://cdn.example.com/nuevo.png', error: null });
 });
 
+afterEach(() => {
+  hasPermission.mockImplementation(() => true);
+});
+
 describe('panel admin de Publicidad', () => {
   it('muestra campañas, vigencia e impresiones con clics', async () => {
     render(<Publicidad />);
@@ -158,5 +162,46 @@ describe('panel admin de Publicidad', () => {
         actor: session,
       })
     );
+  });
+
+  it('guarda la vigencia y el límite de impresiones que escribe el administrador', async () => {
+    render(<Publicidad />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    fireEvent.change(screen.getByLabelText('Inicia'), {
+      target: { value: '2026-12-01T10:00' },
+    });
+    fireEvent.change(screen.getByLabelText('Termina'), {
+      target: { value: '2026-12-31T10:00' },
+    });
+    fireEvent.change(screen.getByLabelText('Límite de impresiones'), {
+      target: { value: '250' },
+    });
+    await user.click(screen.getByRole('button', { name: 'Guardar campaña' }));
+
+    await waitFor(() => expect(saveAdCampaign).toHaveBeenCalledTimes(1));
+    expect(saveAdCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'ad-1',
+        startsAt: expect.stringMatching(/^2026-12-01T\d{2}:00:00\.000Z$/),
+        endsAt: expect.stringMatching(/^2026-12-31T\d{2}:00:00\.000Z$/),
+        impressionLimit: 250,
+        actor: session,
+      })
+    );
+  });
+
+  it('oculta las acciones de gestión si el rol solo tiene ads.view', async () => {
+    hasPermission.mockImplementation((key) => key === 'ads.view');
+    render(<Publicidad />);
+
+    expect(await screen.findByText('Temporada automotriz')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Nueva campaña' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Pausar/ })).toBeNull();
+    expect(saveAdCampaign).not.toHaveBeenCalled();
+    expect(setAdCampaignStatus).not.toHaveBeenCalled();
   });
 });

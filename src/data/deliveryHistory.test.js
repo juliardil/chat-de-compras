@@ -293,5 +293,67 @@ describe('regresión de confirmación de entrega', () => {
     expect(sql).toContain("public.admin_has_permission('chats.access_content')");
     expect(sql).not.toMatch(/drop\s+function\s+public\.app_confirm_lifecycle_delivery/i);
     expect(sql).toContain("grant execute on function public.app_chat_stage_board() to authenticated");
+
+    // Dueño y afiliado comparten comercio; el comprador se resuelve por
+    // buyer_id solo cuando no hay comercio; el admin ve el resto.
+    expect(sql).toContain('Dueño y afiliado comparten comercio');
+    expect(sql).toMatch(/v_commerce_id is not null and ct\.commerce_id = v_commerce_id/g);
+    expect(sql).toContain('v_commerce_id is null and v_buyer_id is not null and ct.buyer_id = v_buyer_id');
+    expect(sql).toContain('v_is_admin and v_commerce_id is null and v_buyer_id is null');
+    expect(sql).toContain('where ct.sales_stage = \'delivered\'');
+    expect(sql).toContain('order by coalesce(ct.delivery_confirmed_at, ct.updated_at, ct.created_at) desc');
+    expect(sql).toContain('limit v_cap');
+  });
+
+  it('encadena la confirmación con el contador de la píldora y el historial', async () => {
+    harness.rpc.mockImplementation(async (name) => {
+      if (name === 'app_chat_stage_board') {
+        const delivered = harness.writes.length ? 2 : 1;
+        return {
+          data: [{
+            counts: { negotiating: 0, pending: 0, delivered },
+            stages: {},
+            deliveredIds: harness.writes.length
+              ? ['chat-ent-1', 'chat-ent-2']
+              : ['chat-ent-1'],
+          }],
+          error: null,
+        };
+      }
+      if (name === 'app_delivered_purchase_history') {
+        const items = harness.writes.length
+          ? [deliveredRow(), deliveredRow({
+            chat_id: 'chat-ent-2',
+            order_id: 'order-2',
+            order_number: 'GO-101',
+            seller_name: 'Luis Pérez',
+          })]
+          : [deliveredRow()];
+        return { data: { items, total: items.length }, error: null };
+      }
+      return { data: null, error: null };
+    });
+
+    const before = await fetchChatStageBoard();
+    expect(before.counts.delivered).toBe(1);
+    expect((await fetchDeliveredPurchaseHistory(50)).items).toHaveLength(1);
+
+    const archived = await archiveChatThreadForDelivery('chat-ent-1');
+    expect(archived.ok).toBe(true);
+    expect(harness.writes).toHaveLength(1);
+    expect(harness.writes[0]).toMatchObject({
+      table: 'chat_threads',
+      filters: { id: 'chat-ent-1' },
+      payload: { status: 'archived' },
+    });
+
+    const after = await fetchChatStageBoard();
+    expect(after.counts.delivered).toBe(2);
+    expect(after.deliveredIds).toEqual(['chat-ent-1', 'chat-ent-2']);
+
+    const history = await fetchDeliveredPurchaseHistory(50);
+    expect(history.items.map((item) => item.orderNumber)).toEqual(['GO-100', 'GO-101']);
+    expect(history.items[1].seller).toBe('Luis Pérez');
+    expect(harness.rpc).toHaveBeenCalledWith('app_delivered_purchase_history', { p_limit: 50 });
   });
 });

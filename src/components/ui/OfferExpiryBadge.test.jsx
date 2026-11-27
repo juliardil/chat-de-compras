@@ -85,4 +85,44 @@ describe('contador de vencimiento de ofertas', () => {
     act(() => vi.advanceTimersByTime(60000));
     expect(screen.getByRole('timer')).toHaveTextContent('Quedan 24 min');
   });
+
+  it('marca la píldora y la barra como vencidas al llegar a 00:00', () => {
+    const expired = getExpiryInfo(created, START + 30 * 60000);
+    expect(expired).toMatchObject({
+      state: 'expired',
+      label: 'Vencida',
+      remainingMs: 0,
+      percent: 0,
+    });
+
+    render(
+      <>
+        <OfferExpiryBadge item={created} now={START + 30 * 60000} />
+        <CountdownBar item={created} now={START + 30 * 60000} />
+      </>
+    );
+    const badge = screen.getByRole('timer');
+    expect(badge).toHaveTextContent('Vencida');
+    expect(badge.className).toContain('bg-gray-100');
+    expect(badge.className).toContain('text-gray-600');
+
+    const bar = screen.getByRole('progressbar');
+    expect(bar).toHaveAttribute('aria-valuenow', '0');
+    expect(bar.firstChild).toHaveStyle({ width: '0%' });
+  });
+
+  it('cambia a vencida en vivo en cuanto cruza 00:00', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(START + 30 * 60000 - 1000);
+
+    render(<OfferExpiryBadge item={created} />);
+    expect(screen.getByRole('timer')).toHaveTextContent('Expira en 00:01');
+
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.getByRole('timer')).toHaveTextContent('Vencida');
+    expect(screen.getByRole('timer').className).toContain('bg-gray-100');
+
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.getByRole('timer')).toHaveTextContent('Vencida');
+  });
 });
