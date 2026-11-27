@@ -52,6 +52,12 @@ import ErrorBoundary from './components/ErrorBoundary';
 const homeForRole = (role) =>
   role === 'commerce' || role === 'seller' ? '/dashboard' : '/categories';
 
+// Bandeja compartida de compras y ventas. Se declara explícitamente para que
+// `/chat-list` no dependa de un `allowSeller` sin `role`: comprador (`user` /
+// `buyer`), dueño de comercio (`commerce` / `owner`), vendedor afiliado
+// (`seller`) y supervisión (`admin`). Cualquier otro rol queda fuera.
+const CHAT_LIST_ROLES = ['user', 'buyer', 'commerce', 'owner', 'seller', 'admin'];
+
 // En modo InsForge la sesión se rehidrata de forma asíncrona al recargar:
 // este splash evita redirigir a /welcome antes de conocer al usuario.
 function AuthSplash() {
@@ -83,6 +89,7 @@ function HomeRedirect() {
 // habilita módulos del taller verificado sin depender del viewMode transitorio.
 function RequireRole({
   role,
+  roles,
   allowSeller = false,
   allowWorkshopBusiness = false,
   allowWorkshop = false,
@@ -93,16 +100,21 @@ function RequireRole({
   if (loading) return <AuthSplash />;
   if (!user) return <Navigate to="/welcome" replace />;
 
+  // `roles` declara una lista cerrada de roles permitidos. Si no se usa,
+  // conservamos el comportamiento anterior de `role` + `allowSeller`.
+  const allowedRoles = Array.isArray(roles) ? roles : role ? [role] : null;
+  const sellerAllowed =
+    user.role === 'seller' && (allowSeller || Boolean(allowedRoles?.includes('seller')));
+
   // Un vendedor nunca puede caer en módulos de comprador, taller ni ajustes
   // del dueño, aunque la ruta no declarara un `role` explícito.
-  if (user.role === 'seller' && !allowSeller) {
+  if (user.role === 'seller' && !sellerAllowed) {
     return <Navigate to="/dashboard" replace />;
   }
 
   // El vendedor opera con los mismos datos que el comercio, pero no hereda sus
-  // ajustes críticos: `allowSeller` se declara ruta por ruta.
-  const sellerAllowed = allowSeller && user.role === 'seller';
-
+  // ajustes críticos: `allowSeller` se declara ruta por ruta o se sustituye por
+  // una lista `roles` que incluya explícitamente a `seller`.
   // `allowWorkshop` habilita módulos de respuesta del taller verificado sin
   // depender del viewMode transitorio: esas rutas siguen protegidas en backend.
   // El inventario queda reservado al rol que vende productos o repuestos.
@@ -112,7 +124,12 @@ function RequireRole({
     user.role !== 'seller' &&
     (allowWorkshop || (allowWorkshopBusiness && viewMode === 'business'));
 
-  if (role && user.role !== role && !businessWorkshop && !sellerAllowed) {
+  if (
+    allowedRoles &&
+    !allowedRoles.includes(user.role) &&
+    !businessWorkshop &&
+    !sellerAllowed
+  ) {
     return <Navigate to={homeForRole(user.role)} replace />;
   }
 
@@ -185,7 +202,10 @@ function AppRoutes() {
         <Route path="/chat/:id" element={<RequireRole allowSeller><ChatDispatch /></RequireRole>} />
         <Route path="/notifications" element={<RequireRole allowSeller><Notifications /></RequireRole>} />
         <Route path="/orders" element={<RequireRole allowSeller><Orders /></RequireRole>} />
-        <Route path="/chat-list" element={<RequireRole allowSeller><ChatList /></RequireRole>} />
+        <Route
+          path="/chat-list"
+          element={<RequireRole roles={CHAT_LIST_ROLES}><ChatList /></RequireRole>}
+        />
         <Route path="/support" element={<RequireRole allowSeller><Support /></RequireRole>} />
         <Route path="*" element={<NotFound />} />
       </Routes>

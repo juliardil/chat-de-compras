@@ -49,4 +49,30 @@ describe('guardas de ruta por rol', () => {
 
     expect(await screen.findByText(/página no encontrada/i)).toBeInTheDocument();
   });
+
+  it('permite al comprador abrir /chat-list con la lista de roles explícita', async () => {
+    renderAt('/chat-list', { role: 'user', name: 'Julia' });
+
+    expect(await screen.findByRole('heading', { name: 'Mis Chats' })).toBeInTheDocument();
+  });
+
+  it('permite al comercio abrir /chat-list con la lista de roles explícita', async () => {
+    renderAt('/chat-list', { role: 'commerce', name: 'Comercio Demo' });
+
+    expect(await screen.findByRole('heading', { name: 'Mis Chats' })).toBeInTheDocument();
+  });
+
+  it('permite al vendedor abrir /chat-list sin devolverlo al panel', async () => {
+    renderAt('/chat-list', { role: 'seller', name: 'Vendedor Demo' });
+
+    expect(await screen.findByRole('heading', { name: 'Mis Chats' })).toBeInTheDocument();
+    expect(screen.queryByText(/panel de oportunidades/i)).not.toBeInTheDocument();
+  });
+
+  it('sigue impidiendo que un vendedor entre a módulos de comprador', async () => {
+    renderAt('/categories', { role: 'seller', name: 'Vendedor Demo' });
+
+    expect(await screen.findByText(/panel de oportunidades/i)).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: /cambiar de vista/i })).not.toBeInTheDocument();
+  });
 });

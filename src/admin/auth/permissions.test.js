@@ -33,6 +33,10 @@ const SELLERS_MIGRATION = path.resolve(
   MIGRATIONS_DIR,
   '20261124181652_admin-sellers.sql'
 );
+const HARDENING_MIGRATION = path.resolve(
+  MIGRATIONS_DIR,
+  '20261127162416_security-hardening.sql'
+);
 
 const readMigration = (migrationPath) => readFileSync(migrationPath, 'utf8');
 
@@ -99,8 +103,9 @@ describe('catálogo de permisos', () => {
 
   it('permite gestionar vendedores solo a los roles operativos autorizados', () => {
     expect(getPermissionsForRole('commerce_manager')).toEqual(
-      expect.arrayContaining(['sellers.view', 'sellers.manage'])
+      expect.arrayContaining(['sellers.view', 'sellers.manage', 'audit.view'])
     );
+    expect(getPermissionsForRole('commerce_manager')).not.toContain('audit.export');
     expect(getPermissionsForRole('moderator')).toEqual(
       expect.arrayContaining(['sellers.view'])
     );
@@ -159,5 +164,27 @@ describe('consistencia con la migración de Fase 1', () => {
   it('siembra exactamente los roles del catálogo', () => {
     const seeded = extractSeededRoleKeys(readMigration(FOUNDATION_MIGRATION)).sort();
     expect(seeded).toEqual(ROLES.map((role) => role.key).sort());
+  });
+});
+
+describe('hardening de seguridad (Bloque 2)', () => {
+  const hardeningSql = readMigration(HARDENING_MIGRATION);
+
+  it('fija search_path en todas las RPC SECURITY DEFINER sin reescribir cuerpos', () => {
+    expect(hardeningSql).toMatch(/p\.prosecdef/);
+    expect(hardeningSql).toMatch(
+      /alter function %s set search_path = pg_catalog, public, pg_temp/
+    );
+    // No se reemplaza ninguna función: solo se altera proconfig de forma
+    // idempotente y repetible.
+    expect(hardeningSql).not.toMatch(/create or replace function public\.admin_/);
+  });
+
+  it('da audit.view a commerce_manager en SQL con el mismo significado que en el frontend', () => {
+    expect(hardeningSql).toMatch(/values \('audit\.view'/);
+    expect(hardeningSql).toMatch(/r\.key = 'commerce_manager'/);
+    expect(hardeningSql).not.toMatch(/r\.key = 'commerce_manager'[\s\S]*audit\.export/);
+    expect(getPermissionsForRole('commerce_manager')).toContain('audit.view');
+    expect(getPermissionsForRole('commerce_manager')).not.toContain('audit.export');
   });
 });

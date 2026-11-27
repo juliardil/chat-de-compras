@@ -188,6 +188,9 @@ export const ROLE_PERMISSIONS = {
     'sponsorships.manage',
     'sellers.view',
     'sellers.manage',
+    // El rol ejecuta altas/bajas de vendedores: debe poder consultar la
+    // auditoría que esas acciones generan (paridad con la RLS y la RPC).
+    'audit.view',
   ],
 
   moderator: [
